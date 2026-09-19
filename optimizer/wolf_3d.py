@@ -16,7 +16,7 @@ import time
 
 from geometry_3d import (
     N_ORIENTATIONS,
-    place_bin_dblf,
+    place_bin_dblf_legacy as place_bin_dblf,
     compute_weight_capacity,
     volumetric_dissipation,
 )

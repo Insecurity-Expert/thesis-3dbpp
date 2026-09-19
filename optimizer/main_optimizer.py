@@ -20,16 +20,29 @@ import math
 import time
 import argparse
 import tracemalloc
+from pathlib import Path
+
+# Repo root on the path so `preprocessing` resolves when run from optimizer/
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from instance_reader import load_instance
 from hd_gwo import HDGWO
 from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid, RepairBasedHybrid
-from thesis_metrics import evaluate_constraints
+from thesis_metrics import (evaluate_constraints,
+                            space_utilization as thesis_space_utilization)
 from webapp_metrics import (assign_weights, compute_weight_capacity,
                             space_utilization, constraint_satisfaction)
 
 
 def lower_bound(items, container):
+    """Canonical convention: container {L,W,H}, boxes {l,w,h}."""
+    cap   = container['L'] * container['W'] * container['H']
+    total = sum(i['l'] * i['w'] * i['h'] for i in items)
+    return math.ceil(total / cap) if cap > 0 else 1
+
+
+def legacy_lower_bound(items, container):
+    """BR JSON schema: container {L,H,D}, boxes {L,H,D}."""
     cap   = container['L'] * container['H'] * container['D']
     total = sum(i['L'] * i['H'] * i['D'] for i in items)
     return math.ceil(total / cap) if cap > 0 else 1
@@ -38,36 +51,61 @@ def lower_bound(items, container):
 def main():
     # ── Arguments ─────────────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(description="3-D Bin Packing — HD-GWO Optimizer")
-    parser.add_argument("instance_path",  help="Path to BR dataset JSON file")
+    parser.add_argument("instance_path",
+                        help="BR dataset JSON path, or wtpack instance id when --dataset wtpack")
+    parser.add_argument("--dataset", choices=["br", "wtpack"], default="br",
+                        help="Data source: br = BR JSON (legacy), wtpack = OR-Library wtpack")
+    parser.add_argument("--raw-dir", default="data/raw/",
+                        help="Directory holding wtpack*.txt (used with --dataset wtpack)")
     parser.add_argument("--stream", action="store_true",
                         help="Emit JSON progress lines to stdout (for batch/WebSocket mode)")
     parser.add_argument("--max-time", type=int, default=90,
                     help="Wall-clock time limit in seconds (default 90)")
-    parser.add_argument("--strategy", choices=["HDGWO", "DGWO", "MOGWO", "SEQ", "REP"], 
+    parser.add_argument("--seed", type=int, default=None,
+                    help="RNG seed for the thesis strategies (omit = entropy-seeded)")
+    parser.add_argument("--strategy", choices=["HDGWO", "DGWO", "MOGWO", "SEQ", "REP"],
                     default="HDGWO", help="Optimization strategy to run")
     args = parser.parse_args()
 
     streaming = args.stream
+    thesis_strategy = args.strategy != "HDGWO"
 
     # ── Load instance ──────────────────────────────────────────────────────────
+    # The dataset decides the schema; the strategy never does. Synthesising
+    # physics to satisfy a strategy is exactly what Step 3 removed.
+    if thesis_strategy and args.dataset == "br":
+        print(json.dumps({"type": "error", "error": (
+            f"Strategy {args.strategy} requires real physics "
+            f"(mass, lbs_l, lbs_w, lbs_h, allowed_orientations) which the BR "
+            f"JSON dataset does not carry. Re-run with --dataset wtpack."
+        )}), flush=True)
+        sys.exit(1)
+
     try:
-        container, items = load_instance(args.instance_path)
+        if args.dataset == "wtpack":
+            from preprocessing.pipeline import load_augmented_instance
+            inst = load_augmented_instance({'data': {'raw_dir': args.raw_dir}},
+                                           instance_id=int(args.instance_path))
+            container, items = inst['container'], inst['boxes']
+        else:
+            container, items = load_instance(args.instance_path)
     except Exception as e:
         print(json.dumps({"type": "error", "error": f"Failed to load: {e}"}), flush=True)
         sys.exit(1)
 
     n  = len(items)
-    lb = lower_bound(items, container)
 
-    # Thesis metrics need per-item weights and a per-bin weight capacity.
-    # BR data carries no weights, so assign deterministic synthetic weights
-    # (seed fixed -> controlled variable, reproducible across runs).
-    assign_weights(items, seed=42)
-    weight_cap = compute_weight_capacity(items, container)
+    if args.dataset == "wtpack":
+        lb = lower_bound(items, container)
+        weight_cap = None
+    else:
+        lb = legacy_lower_bound(items, container)
+        # BR data carries no weights; the legacy engine needs deterministic ones.
+        assign_weights(items, seed=42)
+        weight_cap = compute_weight_capacity(items, container)
 
-    print(f"Instance  : {args.instance_path}", file=sys.stderr, flush=True)
-    print(f"Container : L={container['L']} H={container['H']} D={container['D']}",
-          file=sys.stderr, flush=True)
+    print(f"Instance  : {args.instance_path} ({args.dataset})", file=sys.stderr, flush=True)
+    print(f"Container : {container}", file=sys.stderr, flush=True)
     print(f"Items     : {n}  (lower bound: {lb} bin(s))",
           file=sys.stderr, flush=True)
 
@@ -123,6 +161,7 @@ def main():
             pop_size=30,
             max_iter=500,
             lambda_penalty=0.10,
+            seed=args.seed,
             stream_cb=emit if streaming else None,
         )
 
@@ -135,35 +174,57 @@ def main():
     # ── Build final result ─────────────────────────────────────────────────────
     packed_items = []
     for item_idx, placement in best.placements.items():
-        bin_id, x, y, z, l, h, d = placement
-        item_id = items[item_idx].get('id', f"Box-{item_idx+1:03d}")
-        packed_items.append({
-            "id":       item_id,
+        box = items[item_idx]
+        if args.dataset == "wtpack":
+            # Single container: no bin id in the tuple
+            x, y, z, d1, d2, d3 = placement
+            bin_id = 0
+        else:
+            bin_id, x, y, z, d1, d2, d3 = placement
+        if args.dataset == "wtpack":
+            # RENDER BOUNDARY — the only place the y-up convention exists.
+            # physics (x=length, y=depth, z=height) -> render (x, y=height, z=depth)
+            entry = {
+                "x": x, "y": z, "z": y,
+                "dx": d1, "dy": d3, "dz": d2,
+                "length": d1, "height": d3, "width": d2,
+                "orig_L": box['l'], "orig_H": box['h'], "orig_D": box['w'],
+                "stop": box['stop'], "mass": box['mass'],
+            }
+        else:
+            # Legacy engine is already y-up; no conversion required.
+            entry = {
+                "x": x, "y": y, "z": z,
+                "dx": d1, "dy": d2, "dz": d3,
+                "length": d1, "height": d2, "width": d3,
+                "orig_L": box['L'], "orig_H": box['H'], "orig_D": box['D'],
+                "stop": box.get('stop', 1), "mass": box.get('weight', 0),
+            }
+        entry.update({
+            "id":       box.get('id', f"Box-{item_idx+1:03d}"),
             "item_idx": item_idx,
             "bin_id":   bin_id,
-            "x": x, "y": y, "z": z,
-            "l": l, "h": h, "d": d,
-            "length": l, "height": h, "width": d,
-            "orig_L": items[item_idx]['L'],
-            "orig_H": items[item_idx]['H'],
-            "orig_D": items[item_idx]['D'],
-            "stop":     items[item_idx].get('stop', 1),
-            "type":     items[item_idx].get('type', 'Standard'),
-            "weight":   items[item_idx].get('weight', 0),
+            "type":     box.get('type', 'Standard'),
         })
+        packed_items.append(entry)
     packed_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
 
-    cap_vol      = container['L'] * container['H'] * container['D']
-    items_vol    = sum(p['l'] * p['h'] * p['d'] for p in packed_items)
-    vol_util_pct = round(items_vol / (best.n_bins * cap_vol) * 100, 2) if cap_vol > 0 else 0.0
+    if args.dataset == "wtpack":
+        cap_vol = container['L'] * container['W'] * container['H']
+    else:
+        cap_vol = container['L'] * container['H'] * container['D']
+    items_vol    = sum(p['dx'] * p['dy'] * p['dz'] for p in packed_items)
+    n_containers = 1 if args.dataset == "wtpack" else best.n_bins
+    vol_util_pct = round(items_vol / (n_containers * cap_vol) * 100, 2) if cap_vol > 0 else 0.0
 
     # ── Thesis metrics (M-1 .. M-5) ────────────────────────────────────────────
-    su_pct = space_utilization(best.placements, container, best.n_bins)   # M-1
-    if args.strategy == "HDGWO":
+    if args.dataset == "wtpack":
+        su_pct = thesis_space_utilization(best.placements, container) * 100.0         # M-1
+        csr_pct, csr_detail = evaluate_constraints(best.placements, items, best.orientations)
+    else:
+        su_pct = space_utilization(best.placements, container, best.n_bins)          # M-1
         csr_pct, csr_detail = constraint_satisfaction(
             best.placements, items, container, weight_cap)
-    else:
-        csr_pct, csr_detail = evaluate_constraints(best.placements, items)
 
 
     metrics = {
@@ -176,20 +237,28 @@ def main():
         "constraint_detail":             csr_detail,
     }
 
+    # A silent spill to overflow would confound the cross-config comparison.
+    budget_exhausted = getattr(best, 'budget_exhausted', False)
+
     result = {
         "status":          "ok",
         "instance":        args.instance_path,
-        "bins_used":       best.n_bins,
+        "bins_used":       n_containers,
+        "placed":          len(best.placements),
+        "unplaced":        n - len(best.placements),
         "lower_bound":     lb,
-        "gap_pct":         round((best.n_bins - lb) / max(lb, 1) * 100, 2),
+        "gap_pct":         round((n_containers - lb) / max(lb, 1) * 100, 2),
         "dissipation":     round(getattr(best, 'dissipation', 0.0), 6),
         "composite_score": round(getattr(best, 'composite', getattr(best, 'scalar_fitness', 0.0)), 6),
         "volume_util_pct": vol_util_pct,
         "runtime_s":       round(exec_time_ms / 1000.0, 2),
-        "container":       container,
-        "n_items":         n,
-        "metrics":         metrics,
-        "items":           packed_items,
+        "container":        container,
+        "n_items":          n,
+        "dataset":          args.dataset,
+        "seed":             args.seed,
+        "budget_exhausted": budget_exhausted,
+        "metrics":          metrics,
+        "items":            packed_items,
     }
 
     if streaming:

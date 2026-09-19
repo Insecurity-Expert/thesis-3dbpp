@@ -444,15 +444,15 @@ def hd_gwo_2d(items, container,
 
         # ── Optional live stream ──────────────────────────────────────────────
         if stream_cb:
-        stream_cb("iteration_update", {
-            "iteration":        it + 1,
-            "max_iter":         max_iter,
-            "best_bins":        best.n_bins,
-            "best_dissipation": round(best.dissipation, 4),
-            "best_composite":   round(best.composite, 4) if hasattr(best, "composite") else None,
-            "temperature":      round(final_T, 1),
-            "last_udhc":        last_udhc,
-        })
+            stream_cb("iteration_update", {
+                "iteration":        it + 1,
+                "max_iter":         max_iter,
+                "best_bins":        best.n_bins,
+                "best_dissipation": round(best.dissipation, 4),
+                "best_composite":   round(best.composite, 4) if hasattr(best, "composite") else None,
+                "temperature":      round(final_T, 1),
+                "last_udhc":        last_udhc,
+            })
 
         if no_improve >= 50:
             print(f"  [iter {it+1}] Early stop (20 iters no improvement).",
