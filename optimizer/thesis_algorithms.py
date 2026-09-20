@@ -7,9 +7,11 @@ from thesis_metrics import validate_items, evaluate_constraints, space_utilizati
 from geometry_3d import place_container_dblf, get_dims
 
 class WolfContinuous:
-    def __init__(self, n, lambda_penalty=1000.0, rng=None):
+    def __init__(self, n, lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
+                 rng=None):
         self.n = n
-        self.lambda_penalty = lambda_penalty
+        self.lambda_w, self.lambda_f = lambda_w, lambda_f
+        self.lambda_b, self.lambda_a = lambda_b, lambda_a
         self.rng = rng if rng is not None else np.random.default_rng()
         # [k_1..k_n, r_1..r_n] — random keys then orientation genes
         self.X = self.rng.uniform(-5, 5, 2 * n)
@@ -26,11 +28,15 @@ class WolfContinuous:
         self.su = 0.0
         self.csr = 0.0
         self.scalar_fitness = float('inf')
-        
-    def decode_and_evaluate(self, items, container, apply_repair=False):
+
+    def decode_and_evaluate(self, items, container, apply_repair=False,
+                            enforce_support=False, enforce_fragility=False):
         """
         Decodes X into discrete placements using DBLF and evaluates fitness.
         If apply_repair is True, applies heuristic repair logic before evaluation.
+        enforce_support / enforce_fragility make the decoder reject positions
+        that would violate C5 / C4 (the two constraints that stay satisfied as
+        more boxes are added).
         """
         # 1. Decode the genome into a placement sequence and orientations
         sequence, orients_map = decode_position(self.X, items, container)
@@ -38,7 +44,8 @@ class WolfContinuous:
         # 2. Fill ONE container in the sequence the genome specifies
         (self.placements, self.unplaced, self.orientations,
          self.placement_attempts, self.budget_exhausted) = place_container_dblf(
-            sequence, items, orients_map, container)
+            sequence, items, orients_map, container,
+            enforce_support=enforce_support, enforce_fragility=enforce_fragility)
 
         # 3. (Optional) Repair R1-R5
         if apply_repair:
@@ -54,9 +61,10 @@ class WolfContinuous:
         # let the penalty outweigh utilization by 20-90x at every grid lambda.
         # No separate unplaced term: V_unplaced/V_c = V_total/V_c - U(X), so it
         # is just a rescale of U plus a per-instance constant.
-        sum_v = (detail['C3_weight_rate'] + detail['C4_fragility_rate']
-                 + detail['C5_balance_rate'] + detail['C6_stop_order_rate'])
-        penalty = self.lambda_penalty * sum_v
+        penalty = (self.lambda_w * detail['C3_weight_rate']
+                   + self.lambda_f * detail['C4_fragility_rate']
+                   + self.lambda_b * detail['C5_balance_rate']
+                   + self.lambda_a * detail['C6_stop_order_rate'])
 
         self.scalar_fitness = -self.su + penalty
 
@@ -92,13 +100,22 @@ def _update_position(wolf, alpha_X, beta_X, delta_X, a, rng):
     wolf.X = np.clip(X_cand.mean(axis=0), -5, 5)
 
 class ThesisOptimizerBase:
-    def __init__(self, items, container, pop_size=30, max_iter=500, lambda_penalty=1000.0,
-                 stream_cb=None, seed=None):
+    def __init__(self, items, container, pop_size=30, max_iter=500,
+                 lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
+                 stream_cb=None, seed=None, lambda_penalty=None,
+                 enforce_support=False, enforce_fragility=False):
         self.items = items
         self.container = container
         self.pop_size = pop_size
         self.max_iter = max_iter
-        self.lambda_penalty = lambda_penalty
+        # lambda_penalty is a convenience that ties all four PEN-1 weights;
+        # the grid is calibrated with them tied, but each is exposed.
+        if lambda_penalty is not None:
+            lambda_w = lambda_f = lambda_b = lambda_a = lambda_penalty
+        self.lambda_w, self.lambda_f = lambda_w, lambda_f
+        self.lambda_b, self.lambda_a = lambda_b, lambda_a
+        self.enforce_support = enforce_support
+        self.enforce_fragility = enforce_fragility
         self.stream_cb = stream_cb
         self.n = len(items)
         self.seed = seed
@@ -107,13 +124,22 @@ class ThesisOptimizerBase:
         # Real physics only — raises rather than inventing missing fields
         validate_items(self.items)
 
+    def _new_wolf(self):
+        return WolfContinuous(self.n, lambda_w=self.lambda_w, lambda_f=self.lambda_f,
+                              lambda_b=self.lambda_b, lambda_a=self.lambda_a, rng=self.rng)
+
+    def _evaluate(self, w, apply_repair=False):
+        w.decode_and_evaluate(self.items, self.container, apply_repair=apply_repair,
+                              enforce_support=self.enforce_support,
+                              enforce_fragility=self.enforce_fragility)
+
 class StandaloneDGWO(ThesisOptimizerBase):
     def run(self):
-        pop = [WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng)
+        pop = [self._new_wolf()
                for _ in range(self.pop_size)]
 
         for w in pop:
-            w.decode_and_evaluate(self.items, self.container)
+            self._evaluate(w)
 
         pop.sort(key=lambda w: w.scalar_fitness)
         alpha, beta, delta = pop[0], pop[1], pop[2]
@@ -124,16 +150,16 @@ class StandaloneDGWO(ThesisOptimizerBase):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                pop[i].decode_and_evaluate(self.items, self.container)
+                self._evaluate(pop[i])
 
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
-            
+
             if self.stream_cb:
                 self._emit(iteration, alpha)
-                
+
         return alpha
-        
+
     def _emit(self, it, best):
         self.stream_cb("iteration_update", {
             "iteration": it + 1,
@@ -146,11 +172,11 @@ class StandaloneDGWO(ThesisOptimizerBase):
 
 class StandaloneMOGWO(ThesisOptimizerBase):
     def run(self):
-        pop = [WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng) for _ in range(self.pop_size)]
+        pop = [self._new_wolf() for _ in range(self.pop_size)]
         archive = []
 
         for w in pop:
-            w.decode_and_evaluate(self.items, self.container)
+            self._evaluate(w)
             self._update_archive(archive, w)
 
         alpha, beta, delta = self._select_leaders(archive)
@@ -161,22 +187,22 @@ class StandaloneMOGWO(ThesisOptimizerBase):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                pop[i].decode_and_evaluate(self.items, self.container)
+                self._evaluate(pop[i])
                 self._update_archive(archive, pop[i])
-                
+
             # Limit archive size
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
-                
+
             alpha, beta, delta = self._select_leaders(archive)
-            
+
             if self.stream_cb:
                 self._emit(iteration, alpha)
-                
+
         # Return best from archive based on CSR then SU
         archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
         return archive[0]
-        
+
     def _update_archive(self, archive, wolf):
         dominated = []
         is_dominated = False
@@ -186,35 +212,34 @@ class StandaloneMOGWO(ThesisOptimizerBase):
                 break
             elif wolf.dominates(a_wolf):
                 dominated.append(i)
-                
+
         if not is_dominated:
             # Remove dominated
             for i in reversed(dominated):
                 archive.pop(i)
             # Deep copy to archive
-            w_copy = WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng)
+            w_copy = self._new_wolf()
             w_copy.X = wolf.X.copy()
             w_copy.su = wolf.su
             w_copy.csr = wolf.csr
-            w_copy.scalar_fitness = wolf.scalar_fitness
             w_copy.placements = dict(wolf.placements)
             w_copy.orientations = dict(wolf.orientations)
             w_copy.unplaced = list(wolf.unplaced)
             w_copy.budget_exhausted = wolf.budget_exhausted
             w_copy.placement_attempts = wolf.placement_attempts
             archive.append(w_copy)
-            
+
     def _compute_grid_densities(self, archive, n_grids=10):
         if not archive: return []
         su_vals = [w.su for w in archive]
         csr_vals = [w.csr for w in archive]
         su_min, su_max = min(su_vals), max(su_vals)
         csr_min, csr_max = min(csr_vals), max(csr_vals)
-        
+
         # Avoid division by zero
         if su_max == su_min: su_max += 1e-9
         if csr_max == csr_min: csr_max += 1e-9
-            
+
         grid_counts = {}
         wolf_grids = []
         for w in archive:
@@ -223,9 +248,9 @@ class StandaloneMOGWO(ThesisOptimizerBase):
             g = (g_su, g_csr)
             wolf_grids.append(g)
             grid_counts[g] = grid_counts.get(g, 0) + 1
-            
+
         return grid_counts, wolf_grids
-        
+
     def _prune_archive(self, archive, max_size=100):
         """Prunes the archive by removing solutions from the most crowded grids."""
         while len(archive) > max_size:
@@ -242,29 +267,29 @@ class StandaloneMOGWO(ThesisOptimizerBase):
     def _select_leaders(self, archive):
         if len(archive) < 1:
             # Fallback if empty (shouldn't happen)
-            fake = WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng)
+            fake = self._new_wolf()
             return fake, fake, fake
-            
+
         if len(archive) < 3:
             return archive[0], archive[min(1, len(archive)-1)], archive[0]
-            
+
         # Grid-density leader selection (roulette wheel inversely proportional to density)
         grid_counts, wolf_grids = self._compute_grid_densities(archive)
-        
+
         # Constant > 1 to allow selection even for dense grids
-        C = 10.0 
+        C = 10.0
         probabilities = []
         for g in wolf_grids:
             p = C / grid_counts[g]
             probabilities.append(p)
-            
+
         total_p = sum(probabilities)
         probabilities = [p / total_p for p in probabilities]
-        
+
         # Select 3 without replacement
         selected_indices = self.rng.choice(len(archive), size=3, replace=False, p=probabilities)
         return archive[selected_indices[0]], archive[selected_indices[1]], archive[selected_indices[2]]
-            
+
     def _emit(self, it, best):
         self.stream_cb("iteration_update", {
             "iteration": it + 1,
@@ -279,54 +304,54 @@ class SequentialHybrid(StandaloneMOGWO):
     def run(self):
         # Phase 1: DGWO for T1
         T1 = self.max_iter // 2
-        pop = [WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng) for _ in range(self.pop_size)]
-        
+        pop = [self._new_wolf() for _ in range(self.pop_size)]
+
         for w in pop:
-            w.decode_and_evaluate(self.items, self.container)
-            
+            self._evaluate(w)
+
         pop.sort(key=lambda w: w.scalar_fitness)
         alpha, beta, delta = pop[0], pop[1], pop[2]
-        
+
         for iteration in range(T1):
             a = 2.0 - iteration * (2.0 / T1)
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                pop[i].decode_and_evaluate(self.items, self.container)
+                self._evaluate(pop[i])
 
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
-            
+
             if self.stream_cb:
                 self._emit(iteration, alpha, T1, "Phase 1: DGWO")
-                
+
         # Phase 2: MOGWO for T2 using pop from Phase 1
         T2 = self.max_iter - T1
         archive = []
         for w in pop:
             self._update_archive(archive, w)
-            
+
         alpha, beta, delta = self._select_leaders(archive)
-        
+
         for iteration in range(T2):
             a = 2.0 - iteration * (2.0 / T2)
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                pop[i].decode_and_evaluate(self.items, self.container)
+                self._evaluate(pop[i])
                 self._update_archive(archive, pop[i])
-                
+
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
-                
+
             alpha, beta, delta = self._select_leaders(archive)
-            
+
             if self.stream_cb:
                 self._emit(T1 + iteration, alpha, T2, "Phase 2: MOGWO")
-                
+
         archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
         return archive[0]
-        
+
     def _emit(self, it, best, max_it, phase):
         self.stream_cb("iteration_update", {
             "iteration": it + 1,
@@ -340,7 +365,14 @@ class SequentialHybrid(StandaloneMOGWO):
 class RepairBasedHybrid(StandaloneMOGWO):
     def _note_repair(self, w):
         for k, v in w.last_repair.items():
-            self.repair_stats[k] = self.repair_stats.get(k, 0) + v
+            if k == 'rejections':
+                agg = self.repair_stats.setdefault('rejections', {})
+                for op, counts in v.items():
+                    bucket = agg.setdefault(op, {})
+                    for c, n in counts.items():
+                        bucket[c] = bucket.get(c, 0) + n
+            else:
+                self.repair_stats[k] = self.repair_stats.get(k, 0) + v
         self.repair_stats['candidates'] = self.repair_stats.get('candidates', 0) + 1
 
     def run(self):
@@ -348,12 +380,12 @@ class RepairBasedHybrid(StandaloneMOGWO):
         self.repair_stats = {k: 0 for k in STAT_KEYS}
         self.repair_stats['candidates'] = 0
 
-        pop = [WolfContinuous(self.n, lambda_penalty=self.lambda_penalty, rng=self.rng) for _ in range(self.pop_size)]
+        pop = [self._new_wolf() for _ in range(self.pop_size)]
         archive = []
 
         for w in pop:
             # ONLY DIFFERENCE: apply_repair=True
-            w.decode_and_evaluate(self.items, self.container, apply_repair=True)
+            self._evaluate(w, apply_repair=True)
             self._note_repair(w)
             self._update_archive(archive, w)
 
@@ -366,17 +398,17 @@ class RepairBasedHybrid(StandaloneMOGWO):
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
                 # Apply repair R1-R5 before evaluation
-                pop[i].decode_and_evaluate(self.items, self.container, apply_repair=True)
+                self._evaluate(pop[i], apply_repair=True)
                 self._note_repair(pop[i])
                 self._update_archive(archive, pop[i])
-                
+
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
-                
+
             alpha, beta, delta = self._select_leaders(archive)
-            
+
             if self.stream_cb:
                 self._emit(iteration, alpha)
-                
+
         archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
         return archive[0]

@@ -12,6 +12,15 @@ import numpy as np
 from scipy import stats
 from typing import List, Dict, Any
 
+# Bounds on the type-level fragile proportion, set from the measured
+# distribution over all 700 OR-Library wtpack instances (678 pass the LBS
+# range check): min 0.250, median 0.302, mean 0.315, p95 0.417, max 0.652.
+# 0.25 is the theoretical floor (the type holding Q1 is always flagged);
+# 0.45 retains 98.5% and rejects the 10 instances where almost half the
+# load forbids stacking.
+FRAGILE_RATE_MIN = 0.25
+FRAGILE_RATE_MAX = 0.45
+
 
 def _box_lbs(box: Dict[str, Any]) -> float:
     """Aggregate the three orientation-dependent LBS values into one."""
@@ -28,23 +37,25 @@ def assign_fragility(boxes: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     if not boxes:
         raise ValueError("Empty box list")
-        
+
     # ---- Step A1: extract LBS per box ------------------------------------
     lbs_values = np.array([_box_lbs(b) for b in boxes], dtype=float)
 
-    # ---- Step A2: within-instance Q1 threshold (reported only) -----------
+    # ---- Step A2: within-instance Q1 over the demand-expanded values -----
     q1 = float(np.percentile(lbs_values, 25))
 
-    # ---- Step A3: assign fragility class by sort-and-slice ---------------
-    # A strict Q1 threshold produces a quantized fragile proportion when
-    # many boxes share identical LBS values. Sort-and-slice guarantees an
-    # exact ~25% fragile proportion regardless of LBS ties.
-    sorted_indices = np.argsort(lbs_values, kind='stable')
-    n_fragile = int(round(len(boxes) * 0.25))
-    fragile_set = set(sorted_indices[:n_fragile].tolist())
-
-    for i, box in enumerate(boxes):
-        box['fragile'] = 1 if i in fragile_set else 0
+    # ---- Step A3: assign fragility per box TYPE ----------------------------
+    # Every box of a type shares one LBS, so the flag must be a property of
+    # the type. Sort-and-slice to an exact 25% would split identical-LBS
+    # boxes across the cut, which is physically meaningless and creates C4
+    # infeasibility that depends on sort position. The proportion is
+    # therefore quantized; _validate bounds it from the measured range.
+    type_lbs = {}
+    for box in boxes:
+        type_lbs.setdefault(box['type_id'], _box_lbs(box))
+    type_flag = {t: (1 if v <= q1 else 0) for t, v in type_lbs.items()}
+    for box in boxes:
+        box['fragile'] = type_flag[box['type_id']]
 
     # ---- Step A4: validate -----------------------------------------------
     report = _validate(boxes, lbs_values)
@@ -66,13 +77,14 @@ def _validate(boxes: List[Dict[str, Any]], lbs_values: np.ndarray) -> Dict[str, 
     if n == 0:
         raise ValueError("Empty box list")
 
-    # (i) fragile proportion within +/-2 percentage points of 25%
+    # (i) fragile proportion within the bounds observed for type-level
+    #     assignment across the OR-Library wtpack set (see FRAGILE_RATE_*)
     frag_count = sum(b['fragile'] for b in boxes)
     frag_rate = frag_count / n
-    if abs(frag_rate - 0.25) > 0.02:
+    if not (FRAGILE_RATE_MIN <= frag_rate <= FRAGILE_RATE_MAX):
         raise ValueError(
-            f"Fragile proportion {frag_rate:.4f} outside +/-2% of 0.25 "
-            f"({frag_count}/{n} fragile)"
+            f"Fragile proportion {frag_rate:.4f} outside "
+            f"[{FRAGILE_RATE_MIN}, {FRAGILE_RATE_MAX}] ({frag_count}/{n} fragile)"
         )
 
     # (ii) non-degenerate LBS distribution (variance + distinct-value check)

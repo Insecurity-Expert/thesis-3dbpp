@@ -4,7 +4,7 @@ from geometry_3d import vertical_lbs
 
 # Physics that must come from the dataset. Nothing here is ever synthesised:
 # the manuscript states LBS values are sourced natively from OR-Library wtpack.
-REQUIRED_BOX_KEYS = ('l', 'w', 'h', 'mass', 'lbs_l', 'lbs_w', 'lbs_h',
+REQUIRED_BOX_KEYS = ('id', 'type_id', 'l', 'w', 'h', 'mass', 'lbs_l', 'lbs_w', 'lbs_h',
                      'allowed_orientations', 'fragile', 'stop')
 
 def validate_items(items):
@@ -87,7 +87,7 @@ def evaluate_constraints(placements, items, orientations):
             "C5_balance_rate": 0.0,
             "C6_stop_order_rate": 0.0,
         }
-    
+
     # Single container: every placed box is a candidate neighbour
     members = list(placements)
 
@@ -138,7 +138,7 @@ def evaluate_constraints(placements, items, orientations):
             if j in above_set or _blocks_extraction(i, j, placements):
                 is_c6_ok = False
                 break
-        
+
         # Tally
         if is_c3_ok: c3_ok += 1
         if is_c4_ok: c4_ok += 1
@@ -160,7 +160,7 @@ def evaluate_constraints(placements, items, orientations):
         "C5_balance_rate": (total - c5_ok) / total,
         "C6_stop_order_rate": (total - c6_ok) / total,
     }
-    
+
     return detail["total_compliant_pct"], detail
 
 def robustness(su_values):

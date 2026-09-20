@@ -71,6 +71,43 @@ def can_place(x, y, z, dx, dy, dz, CL, CW, CH, placed):
             return False
     return True
 
+# ── Constraint-aware placement (C5 and C4 only) ───────────────────────────────
+# Only constraints that STAY satisfied as more boxes are added may be enforced
+# at placement time. Support (C5) comes from boxes already placed and is never
+# removed; a fragile-free column (C4) stays fragile-free. Load (C3) and stop
+# order (C6) can both be broken by later placements, so they are left to the
+# penalty and to repair.
+SUPPORT_THRESHOLD = 0.80
+_COPLANAR_TOL = 1e-5   # same tolerance as thesis_metrics' C5 evaluation
+
+def _overlap_len(a0, a1, b0, b1):
+    return max(0, min(a1, b1) - max(a0, b0))
+
+def is_supported(x, y, z, dx, dy, placed):
+    """C5 at placement: on the floor, or >= 80% of the base rests on top faces
+    coplanar with the candidate's bottom face."""
+    if z == 0:
+        return True
+    base = dx * dy
+    if base <= 0:
+        return False
+    supported = 0.0
+    for (px, py, pz, pdx, pdy, pdz) in placed:
+        if abs((pz + pdz) - z) < _COPLANAR_TOL:
+            supported += (_overlap_len(x, x + dx, px, px + pdx)
+                          * _overlap_len(y, y + dy, py, py + pdy))
+    return supported / base >= SUPPORT_THRESHOLD
+
+def fragile_below(x, y, z, dx, dy, fragile_placed):
+    """C4 at placement: True if any fragile box lies anywhere below the
+    candidate within its xy footprint (not merely directly beneath)."""
+    for (px, py, pz, pdx, pdy, pdz) in fragile_placed:
+        if z >= pz + pdz:
+            if (_overlap_len(x, x + dx, px, px + pdx) > 0
+                    and _overlap_len(y, y + dy, py, py + pdy) > 0):
+                return True
+    return False
+
 # ── Extreme Points ────────────────────────────────────────────────────────────
 MAX_EPS = 200   # raised from 50 to prevent valid positions being dropped
 
@@ -105,7 +142,8 @@ def _update_eps(eps, placed, nx, ny, nz, ndx, ndy, ndz, CL, CW, CH):
     return result[:MAX_EPS]
 
 # ── DBLF placement for ONE container ──────────────────────────────────────────
-def place_container_dblf(item_sequence, items, orient_ids, container):
+def place_container_dblf(item_sequence, items, orient_ids, container,
+                         enforce_support=False, enforce_fragility=False):
     """Pack one container. Returns (placements, unplaced, orientations,
     attempts, budget_exhausted). Never opens a second container.
 
@@ -113,9 +151,14 @@ def place_container_dblf(item_sequence, items, orient_ids, container):
     search variable, so this routine must not re-sort it. Each placement is
     (x, y, z, dx, dy, dz); the orientation actually used is recorded in
     `orientations` so constraint checks can recover which face bears load.
+
+    enforce_support   reject positions failing C5 (>= 80% base support)
+    enforce_fragility reject positions with a fragile box anywhere below
+    Two independent flags so the marginal effect of each is measurable.
     """
     CL, CW, CH = container['L'], container['W'], container['H']
     placed       = []
+    fragile_placed = []
     eps          = [(0, 0, 0)]
     placements   = {}
     orientations = {}
@@ -138,13 +181,20 @@ def place_container_dblf(item_sequence, items, orient_ids, container):
             dx, dy, dz = get_dims(box, r_try)
             for (ex, ey, ez) in eps:
                 attempts += 1
-                if can_place(ex, ey, ez, dx, dy, dz, CL, CW, CH, placed):
-                    placed.append((ex, ey, ez, dx, dy, dz))
-                    placements[item_idx]   = (ex, ey, ez, dx, dy, dz)
-                    orientations[item_idx] = r_try
-                    eps = _update_eps(eps, placed, ex, ey, ez, dx, dy, dz, CL, CW, CH)
-                    placed_flag = True
-                    break
+                if not can_place(ex, ey, ez, dx, dy, dz, CL, CW, CH, placed):
+                    continue
+                if enforce_support and not is_supported(ex, ey, ez, dx, dy, placed):
+                    continue
+                if enforce_fragility and fragile_below(ex, ey, ez, dx, dy, fragile_placed):
+                    continue
+                placed.append((ex, ey, ez, dx, dy, dz))
+                if box['fragile'] == 1:
+                    fragile_placed.append((ex, ey, ez, dx, dy, dz))
+                placements[item_idx]   = (ex, ey, ez, dx, dy, dz)
+                orientations[item_idx] = r_try
+                eps = _update_eps(eps, placed, ex, ey, ez, dx, dy, dz, CL, CW, CH)
+                placed_flag = True
+                break
             if placed_flag:
                 break
 

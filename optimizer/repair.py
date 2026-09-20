@@ -11,6 +11,7 @@ Constraint checks here must mirror thesis_metrics.evaluate_constraints exactly
 or the final assertion cannot hold.
 """
 import math
+from collections import Counter
 
 from geometry_3d import get_dims, vertical_lbs, overlaps
 from thesis_metrics import (_is_above, _blocks_extraction, _overlap,
@@ -18,6 +19,13 @@ from thesis_metrics import (_is_above, _blocks_extraction, _overlap,
 
 R_MAX = 3
 SUPPORT_THRESHOLD = 0.80
+
+# R4 destinations are checked against C1-C6. Chapter 3 wrote "subject to
+# (C1)-(C5)", which lets a relocated blocker block a DIFFERENT earlier-stop box
+# and prevents the pass loop from ever converging (Step 5: R_MAX hit 800/800).
+# Both directions of the blocking relation are checked (see _feasible_at, C6).
+R4_CHECK = ('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
+OPERATORS = ('R1', 'R2', 'R3', 'R4')
 
 STAT_KEYS = ('relocated_R1', 'relocated_R2', 'relocated_R3', 'relocated_R4',
              'deferred_R1', 'deferred_R2', 'deferred_R3', 'deferred_R4',
@@ -35,6 +43,8 @@ class RepairContext:
         self.container = container
         self._above = None
         self._blocking = None
+        # B1: which constraint rejected each candidate position, per operator
+        self.rejections = {op: Counter() for op in OPERATORS}
 
     def invalidate(self):
         self._above = None
@@ -125,19 +135,28 @@ def rebuild_extreme_points(placements, container):
 
 
 # -- Feasibility of a candidate position ---------------------------------------
-def _feasible_at(box_idx, r, pos, items, placements, orientations, container, check):
+def _feasible_at(box_idx, r, pos, items, placements, orientations, container, check,
+                 reject=None):
     """Would placing box_idx at pos (orientation r) satisfy the named constraints,
-    for itself AND for every already-placed box it would affect?"""
+    for itself AND for every already-placed box it would affect?
+
+    `reject`, if given, is a Counter that receives the FIRST failing constraint
+    in evaluation order C1, C2, C5, C4, C3, C6."""
     CL, CW, CH = container['L'], container['W'], container['H']
     (x, y, z, dx, dy, dz) = pos
 
-    if 'C1' in check and (x + dx > CL or y + dy > CW or z + dz > CH):
+    def fail(c):
+        if reject is not None:
+            reject[c] += 1
         return False
+
+    if 'C1' in check and (x + dx > CL or y + dy > CW or z + dz > CH):
+        return fail('C1')
 
     if 'C2' in check:
         for j, (px, py, pz, pdx, pdy, pdz) in placements.items():
             if j != box_idx and overlaps(x, y, z, dx, dy, dz, px, py, pz, pdx, pdy, pdz):
-                return False
+                return fail('C2')
 
     trial = dict(placements)
     trial[box_idx] = pos
@@ -146,7 +165,7 @@ def _feasible_at(box_idx, r, pos, items, placements, orientations, container, ch
 
     if 'C5' in check and z > 0:
         if _support_ratio(box_idx, trial) < SUPPORT_THRESHOLD:
-            return False
+            return fail('C5')
 
     if 'C4' in check:
         box = items[box_idx]
@@ -154,17 +173,17 @@ def _feasible_at(box_idx, r, pos, items, placements, orientations, container, ch
             if j == box_idx:
                 continue
             if items[j]['fragile'] == 1 and _is_above(j, box_idx, trial):
-                return False
+                return fail('C4')
             if box['fragile'] == 1 and _is_above(box_idx, j, trial):
-                return False
+                return fail('C4')
 
     if 'C3' in check:
         if _borne_mass(box_idx, items, trial) > _capacity(box_idx, items, trial, trial_or):
-            return False
+            return fail('C3')
         for j in trial:
             if j != box_idx and _is_above(j, box_idx, trial):
                 if _borne_mass(j, items, trial) > _capacity(j, items, trial, trial_or):
-                    return False
+                    return fail('C3')
 
     if 'C6' in check:
         s = items[box_idx]['stop']
@@ -172,17 +191,19 @@ def _feasible_at(box_idx, r, pos, items, placements, orientations, container, ch
             if j == box_idx:
                 continue
             s_j = items[j]['stop']
+            # candidate would be blocked by a placed later-stop box ...
             if s_j > s and (_is_above(box_idx, j, trial) or _blocks_extraction(box_idx, j, trial)):
-                return False
+                return fail('C6')
+            # ... or would itself block a placed earlier-stop box
             if s > s_j and (_is_above(j, box_idx, trial) or _blocks_extraction(j, box_idx, trial)):
-                return False
+                return fail('C6')
 
     return True
 
 
 def find_feasible_position(box_idx, items, placements, orientations, container,
                            check=('C1', 'C2', 'C3', 'C4', 'C5'), min_y=None,
-                           eps=None, extra_filter=None):
+                           eps=None, extra_filter=None, reject=None):
     """Rebuild extreme points from current placements, then return the first EP
     (in DBLF order) where box_idx satisfies the named constraints, trying each
     of its allowed_orientations.
@@ -203,7 +224,8 @@ def find_feasible_position(box_idx, items, placements, orientations, container,
             if extra_filter is not None and not extra_filter((ex, ey, ez), (dx, dy, dz)):
                 continue
             pos = (ex, ey, ez, dx, dy, dz)
-            if _feasible_at(box_idx, r, pos, items, placements, orientations, container, check):
+            if _feasible_at(box_idx, r, pos, items, placements, orientations, container,
+                            check, reject=reject):
                 return pos, r
     return None
 
@@ -213,7 +235,7 @@ def _relocate_or_defer(ctx, j, unpacked, stats, tag, **kw):
     """Remove j, try to re-place it; on failure push it to the unpacked list."""
     ctx.remove(j)
     found = find_feasible_position(j, ctx.items, ctx.placements, ctx.orientations,
-                                   ctx.container, **kw)
+                                   ctx.container, reject=ctx.rejections[tag], **kw)
     if found is None:
         unpacked.append(j)
         stats['deferred_' + tag] += 1
@@ -272,13 +294,13 @@ def repair_R3(ctx, unpacked, stats):
                             key=lambda ep: math.hypot(ep[0] - x_i, ep[1] - y_i))
         found = find_feasible_position(i, ctx.items, ctx.placements, ctx.orientations,
                                        ctx.container, check=('C1', 'C2', 'C5'),
-                                       eps=same_layer)
+                                       eps=same_layer, reject=ctx.rejections['R3'])
         # 2. demote to a lower layer
         if found is None:
             lower = [ep for ep in eps if ep[2] < z_i]
             found = find_feasible_position(i, ctx.items, ctx.placements, ctx.orientations,
                                            ctx.container, check=('C1', 'C2', 'C5'),
-                                           eps=lower)
+                                           eps=lower, reject=ctx.rejections['R3'])
         if found is None:
             unpacked.append(i)
             stats['deferred_R3'] += 1
@@ -315,7 +337,7 @@ def repair_R4(ctx, unpacked, stats):
         for j in blockers:
             if j in ctx.placements:
                 _relocate_or_defer(ctx, j, unpacked, stats, 'R4',
-                                   check=('C1', 'C2', 'C3', 'C4', 'C5'),
+                                   check=R4_CHECK,
                                    extra_filter=outside_corridor)
                 changed = True
     return changed
@@ -376,6 +398,8 @@ def repair_arrangement(placements, orientations, unpacked, items, container):
     stats['passes_used'] = passes
 
     repair_R5(ctx, unpacked, stats)
+
+    stats['rejections'] = {op: dict(c) for op, c in ctx.rejections.items()}
 
     csr, _ = evaluate_constraints(placements, items, orientations)
     if placements and csr != 100.0:

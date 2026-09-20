@@ -13,7 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'optimizer'))
 
 import numpy as np
-from geometry_3d import get_dims, vertical_lbs, place_container_dblf
+from geometry_3d import (get_dims, vertical_lbs, place_container_dblf,
+                         is_supported, fragile_below)
 from thesis_math import decode_position
 from thesis_metrics import evaluate_constraints, validate_items
 from repair import repair_arrangement, find_feasible_position
@@ -46,9 +47,13 @@ def raises(name, fn, exc=ValueError):
         print(f"  FAIL  {name}: expected {exc.__name__}")
 
 
+_box_counter = [0]
+
 def box(l, w, h, mass=1.0, lbs=1.0, fragile=0, stop=1, allowed=None):
     """A box with every required physics field present."""
+    _box_counter[0] += 1
     return {
+        'id': _box_counter[0], 'type_id': _box_counter[0],
         'l': l, 'w': w, 'h': h,
         'mass': mass,
         'lbs_l': lbs, 'lbs_w': lbs, 'lbs_h': lbs,
@@ -261,6 +266,40 @@ found = find_feasible_position(1, _b5, {0: (0, 0, 0, 10, 60, 10)}, {0: 1}, _rc, 
 check("min_y respected", found is not None and found[0][1] >= 50, True)
 found0 = find_feasible_position(1, _b5, {0: (0, 0, 0, 10, 60, 10)}, {0: 1}, _rc)
 check("without min_y the deepest EP (0,60,0) wins DBLF order", found0[0][:3], (0, 60, 0))
+
+# -- Step 5.5 Part C: constraint-aware placement -------------------------------
+print("")
+print("[placement] C5 and C4 enforced at decode time")
+_pc = {'L': 100, 'W': 100, 'H': 100}
+_placed = [(0, 0, 0, 10, 10, 10)]           # one 10x10x10 box on the floor
+check("floor is always supported", is_supported(50, 50, 0, 10, 10, []), True)
+check("fully on top of a box -> supported", is_supported(0, 0, 10, 10, 10, _placed), True)
+check("25% overhang (5,0) -> 50% support -> rejected", is_supported(5, 0, 10, 10, 10, _placed), False)
+check("2 units overhang -> 80% support -> accepted", is_supported(2, 0, 10, 10, 10, _placed), True)
+check("3 units overhang -> 70% support -> rejected", is_supported(3, 0, 10, 10, 10, _placed), False)
+check("floating with nothing coplanar -> rejected", is_supported(0, 0, 50, 10, 10, _placed), False)
+
+_frag = [(0, 0, 0, 10, 10, 10)]
+check("directly above a fragile box -> rejected", fragile_below(0, 0, 10, 10, 10, _frag), True)
+check("high above a fragile box (z=50) -> still rejected", fragile_below(0, 0, 50, 10, 10, _frag), True)
+check("beside a fragile box -> allowed", fragile_below(20, 0, 0, 10, 10, _frag), False)
+check("footprint grazing the edge (x=10) -> allowed", fragile_below(10, 0, 10, 10, 10, _frag), False)
+
+# End-to-end: with enforce_fragility, DBLF must not stack on the fragile box
+_eb = [box(10, 10, 10, fragile=1), box(10, 10, 10)]
+pl, un, ors, _, _ = place_container_dblf([0, 1], _eb, {0: 1, 1: 1}, _pc,
+                                         enforce_fragility=True)
+d = evaluate_constraints(pl, _eb, ors)[1]
+check("enforce_fragility -> C4 = 100 on a 2-box instance", d['C4_fragility_pct'], 100.0)
+check("both boxes still placed (second went beside)", len(pl), 2)
+
+# End-to-end: enforce_support must yield C5 = 100 by construction
+_sb = [box(10, 10, 10) for _ in range(6)]
+pl, un, ors, _, _ = place_container_dblf(list(range(6)), _sb, {i: 1 for i in range(6)}, _pc,
+                                         enforce_support=True)
+d = evaluate_constraints(pl, _sb, ors)[1]
+check("enforce_support -> C5 = 100 by construction", d['C5_balance_pct'], 100.0)
+
 
 # ── validate_items: refuses to invent physics ─────────────────────────────────
 print("\n[validate_items] fabrication is impossible, not merely discouraged")

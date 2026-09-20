@@ -63,7 +63,7 @@ def parse_wtpack(file_path: str) -> List[Dict[str, Any]]:
 
         # Box types
         boxes = []
-        for _ in range(n_types):
+        for type_id in range(n_types):
             vals = lines[idx].split()
             idx += 1
             if len(vals) != 11:
@@ -81,6 +81,8 @@ def parse_wtpack(file_path: str) -> List[Dict[str, Any]]:
 
             for _ in range(qty):
                 boxes.append({
+                    'id': len(boxes),
+                    'type_id': type_id,
                     'l': L, 'w': W, 'h': H,
                     'l_flag': L_flag, 'w_flag': W_flag, 'h_flag': H_flag,
                     'mass': mass,
