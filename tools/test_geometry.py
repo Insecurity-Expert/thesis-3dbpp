@@ -16,7 +16,7 @@ import numpy as np
 from geometry_3d import (get_dims, vertical_lbs, place_container_dblf,
                          is_supported, fragile_below)
 from thesis_math import decode_position
-from thesis_metrics import evaluate_constraints, validate_items
+from thesis_metrics import evaluate_constraints, evaluate_constraints_reference, validate_items
 from repair import repair_arrangement, find_feasible_position
 
 CONTAINER = {'L': 100, 'W': 100, 'H': 100}
@@ -299,6 +299,32 @@ pl, un, ors, _, _ = place_container_dblf(list(range(6)), _sb, {i: 1 for i in ran
                                          enforce_support=True)
 d = evaluate_constraints(pl, _sb, ors)[1]
 check("enforce_support -> C5 = 100 by construction", d['C5_balance_pct'], 100.0)
+
+
+# -- Step 6: compiled evaluator must agree with the reference ------------------
+print("")
+print("[compiled] evaluate_constraints == evaluate_constraints_reference")
+_rng = np.random.default_rng(6)
+_mismatch = 0
+_c = {'L': 100, 'W': 100, 'H': 100}
+for trial in range(300):
+    n = int(_rng.integers(1, 14))
+    bx = [box(int(_rng.integers(5, 30)), int(_rng.integers(5, 30)), int(_rng.integers(5, 30)),
+              mass=float(_rng.uniform(1, 50)), lbs=float(_rng.uniform(0.01, 2.0)),
+              fragile=int(_rng.integers(0, 2)), stop=int(_rng.integers(1, 4))) for _ in range(n)]
+    pl = {}
+    for i, b in enumerate(bx):
+        r = 1
+        dx, dy, dz = get_dims(b, r)
+        # random positions incl. deliberate stacks / coplanar faces / overlaps
+        z = float(_rng.choice([0, 0, 10, 20, dz]))
+        pl[i] = (float(_rng.integers(0, 60)), float(_rng.integers(0, 60)), z, float(dx), float(dy), float(dz))
+    ors = {i: 1 for i in pl}
+    a = evaluate_constraints_reference(pl, bx, ors)[1]
+    b_ = evaluate_constraints(pl, bx, ors)[1]
+    if any(abs(a[k] - b_[k]) > 1e-12 for k in a):
+        _mismatch += 1
+check("300 random arrangements agree on every detail key", _mismatch, 0)
 
 
 # ── validate_items: refuses to invent physics ─────────────────────────────────

@@ -5,6 +5,8 @@ Pure geometry functions used by Wolf3D.
 
 import math
 import random
+import numpy as np
+from numba import njit
 
 # ── Orientation table ─────────────────────────────────────────────────────────
 # Canonical convention: x = length, y = depth (y=0 is the door), z = height
@@ -108,6 +110,113 @@ def fragile_below(x, y, z, dx, dy, fragile_placed):
                 return True
     return False
 
+# ── Vectorized feasibility (Step 6) ───────────────────────────────────────────
+# The decoder tests every extreme point against every placed box for every
+# orientation it tries. Doing that one candidate at a time in Python was 96% of
+# DGWO wall time. These batch one (box, orientation) against ALL EPs in numpy.
+# Semantics are identical to can_place / is_supported / fragile_below; those
+# scalar functions remain the reference and are what test_geometry exercises.
+# All wtpack dimensions are integer-valued floats, so overlap areas are exact
+# and summation order cannot perturb the 80% support threshold.
+
+@njit(cache=True)
+def _first_feasible(eps, n_eps, dx, dy, dz, CL, CW, CH,
+                    placed, n_placed, fragile, n_fragile,
+                    enforce_support, enforce_fragility):
+    """Index of the first EP (in order) where the box may go, or -1.
+
+    Compiled transcription of the reference scalar path — can_place, then
+    is_supported, then fragile_below, per EP, first hit wins — so decisions
+    and the attempts count are identical to the pure-Python original.
+    placed / fragile rows are (x, y, z, dx, dy, dz, x1, y1, z1)."""
+    for k in range(n_eps):
+        ex = eps[k, 0]
+        ey = eps[k, 1]
+        ez = eps[k, 2]
+        # C1 bounds (can_place)
+        if ex + dx > CL or ey + dy > CW or ez + dz > CH:
+            continue
+        # C2 overlap with any placed box (can_place -> overlaps)
+        blocked = False
+        for i in range(n_placed):
+            if (ex < placed[i, 6] and ex + dx > placed[i, 0] and
+                    ey < placed[i, 7] and ey + dy > placed[i, 1] and
+                    ez < placed[i, 8] and ez + dz > placed[i, 2]):
+                blocked = True
+                break
+        if blocked:
+            continue
+        # C5 support (is_supported)
+        if enforce_support and ez != 0.0:
+            base = dx * dy
+            if base <= 0.0:
+                continue
+            sup = 0.0
+            for i in range(n_placed):
+                if abs(placed[i, 8] - ez) < 1e-5:
+                    ox = min(ex + dx, placed[i, 6]) - max(ex, placed[i, 0])
+                    if ox < 0.0:
+                        ox = 0.0
+                    oy = min(ey + dy, placed[i, 7]) - max(ey, placed[i, 1])
+                    if oy < 0.0:
+                        oy = 0.0
+                    sup += ox * oy
+            if sup / base < 0.80:
+                continue
+        # C4 fragile anywhere below (fragile_below)
+        if enforce_fragility:
+            bad = False
+            for i in range(n_fragile):
+                if ez >= fragile[i, 8]:
+                    ox = min(ex + dx, fragile[i, 6]) - max(ex, fragile[i, 0])
+                    oy = min(ey + dy, fragile[i, 7]) - max(ey, fragile[i, 1])
+                    if ox > 0.0 and oy > 0.0:
+                        bad = True
+                        break
+            if bad:
+                continue
+        return k
+    return -1
+
+
+@njit(cache=True)
+def _ep_keep_mask(cand, n_cand, placed, n_placed, CL, CW, CH):
+    """Which candidate EPs survive: inside the container and not inside any
+    placed box. Compiled transcription of the _update_eps filters."""
+    keep = np.ones(n_cand, dtype=np.bool_)
+    for c in range(n_cand):
+        cx = cand[c, 0]
+        cy = cand[c, 1]
+        cz = cand[c, 2]
+        if cx >= CL or cy >= CW or cz >= CH:
+            keep[c] = False
+            continue
+        for i in range(n_placed):
+            if (placed[i, 0] <= cx and cx < placed[i, 6] and
+                    placed[i, 1] <= cy and cy < placed[i, 7] and
+                    placed[i, 2] <= cz and cz < placed[i, 8]):
+                keep[c] = False
+                break
+    return keep
+
+
+def _update_eps_vec(eps, placed, nx, ny, nz, ndx, ndy, ndz, CL, CW, CH):
+    """Vectorized _update_eps: same candidates, same filters, same order."""
+    new = np.array([[nx + ndx, ny, nz], [nx, ny + ndy, nz], [nx, ny, nz + ndz]], dtype=float)
+    cand = np.vstack([eps, new]) if eps.shape[0] else new
+    cand = cand[_ep_keep_mask(cand, cand.shape[0], placed, placed.shape[0], CL, CW, CH)]
+    if cand.shape[0] == 0:
+        return cand
+    # sort key (-y, z, x): lexsort takes keys last-to-first
+    cand = cand[np.lexsort((cand[:, 0], cand[:, 2], -cand[:, 1]))]
+    # dedupe identical points: adjacent after the sort, far cheaper than np.unique
+    if cand.shape[0] > 1:
+        distinct = np.ones(cand.shape[0], dtype=bool)
+        distinct[1:] = (cand[1:] != cand[:-1]).any(axis=1)
+        cand = cand[distinct]
+    return cand[:MAX_EPS]
+
+
 # ── Extreme Points ────────────────────────────────────────────────────────────
 MAX_EPS = 200   # raised from 50 to prevent valid positions being dropped
 
@@ -156,10 +265,13 @@ def place_container_dblf(item_sequence, items, orient_ids, container,
     enforce_fragility reject positions with a fragile box anywhere below
     Two independent flags so the marginal effect of each is measurable.
     """
-    CL, CW, CH = container['L'], container['W'], container['H']
-    placed       = []
-    fragile_placed = []
-    eps          = [(0, 0, 0)]
+    CL, CW, CH = float(container['L']), float(container['W']), float(container['H'])
+    n_items        = len(items)
+    placed         = np.empty((max(n_items, 1), 9), dtype=float)
+    fragile_placed = np.empty((max(n_items, 1), 9), dtype=float)
+    n_placed = 0
+    n_fragile = 0
+    eps            = np.zeros((1, 3), dtype=float)
     placements   = {}
     orientations = {}
     unplaced     = []
@@ -179,24 +291,28 @@ def place_container_dblf(item_sequence, items, orient_ids, container,
         placed_flag = False
         for r_try in (r, *[o for o in box['allowed_orientations'] if o != r]):
             dx, dy, dz = get_dims(box, r_try)
-            for (ex, ey, ez) in eps:
-                attempts += 1
-                if not can_place(ex, ey, ez, dx, dy, dz, CL, CW, CH, placed):
-                    continue
-                if enforce_support and not is_supported(ex, ey, ez, dx, dy, placed):
-                    continue
-                if enforce_fragility and fragile_below(ex, ey, ez, dx, dy, fragile_placed):
-                    continue
-                placed.append((ex, ey, ez, dx, dy, dz))
-                if box['fragile'] == 1:
-                    fragile_placed.append((ex, ey, ez, dx, dy, dz))
-                placements[item_idx]   = (ex, ey, ez, dx, dy, dz)
-                orientations[item_idx] = r_try
-                eps = _update_eps(eps, placed, ex, ey, ez, dx, dy, dz, CL, CW, CH)
-                placed_flag = True
-                break
-            if placed_flag:
-                break
+            if eps.shape[0] == 0:
+                continue
+            k = _first_feasible(eps, eps.shape[0], float(dx), float(dy), float(dz),
+                                CL, CW, CH, placed, n_placed, fragile_placed, n_fragile,
+                                enforce_support, enforce_fragility)
+            if k < 0:
+                attempts += eps.shape[0]          # every EP was tested
+                continue
+            attempts += k + 1                     # EPs 0..k were tested
+            ex, ey, ez = (float(eps[k, 0]), float(eps[k, 1]), float(eps[k, 2]))
+            placed[n_placed, 0], placed[n_placed, 1], placed[n_placed, 2] = ex, ey, ez
+            placed[n_placed, 3], placed[n_placed, 4], placed[n_placed, 5] = dx, dy, dz
+            placed[n_placed, 6], placed[n_placed, 7], placed[n_placed, 8] = ex + dx, ey + dy, ez + dz
+            n_placed += 1
+            if box['fragile'] == 1:
+                fragile_placed[n_fragile] = placed[n_placed - 1]
+                n_fragile += 1
+            placements[item_idx]   = (ex, ey, ez, dx, dy, dz)
+            orientations[item_idx] = r_try
+            eps = _update_eps_vec(eps, placed[:n_placed], ex, ey, ez, dx, dy, dz, CL, CW, CH)
+            placed_flag = True
+            break
 
         if not placed_flag:
             unplaced.append(item_idx)

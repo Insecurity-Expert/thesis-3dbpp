@@ -1,6 +1,9 @@
 # Core scientific computing
 numpy>=1.24.0
 scipy>=1.10.0
+# JIT for the decoder / repair / evaluator hot loops (optimizer/). 0.62 is the
+# version the Step 6 exactness gate was verified against.
+numba>=0.62.0
 
 # Statistics
 scikit-posthocs>=0.7.0
