@@ -15,7 +15,7 @@ export default function Shell() {
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [activeTab, setActiveTab] = useState("logistics"); // logistics, results, visualization, history
-  
+
   // Profile dropdown state
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -25,18 +25,39 @@ export default function Shell() {
   const [selected, setSelected] = useState("");
   const [loadingList, setLoadingList] = useState(true);
 
+  // wtpack (thesis) dataset: sampled instances addressed by integer id 0..699
+  const [dataset, setDataset] = useState("wtpack");          // "wtpack" | "br"
+  const [wtpackInstances, setWtpackInstances] = useState([]);
+  const [wtpackId, setWtpackId] = useState(null);
+  const [optimizerReady, setOptimizerReady] = useState({ state: "cold", seconds: null });
+
   // Dynamic Custom Configurations
   const [containerSpecs, setContainerSpecs] = useState({ L: 587, H: 233, D: 220 });
   const [maxLoad, setMaxLoad] = useState(28000);
-  const [itemsList, setItemsList] = useState([]);       
-  const [instanceItems, setInstanceItems] = useState([]); 
+  const [itemsList, setItemsList] = useState([]);
+  const [instanceItems, setInstanceItems] = useState([]);
   const [isCustomized, setIsCustomized] = useState(false);
 
   // Algorithm Settings & Constraints
-  const [strategy, setStrategy] = useState("Sequential");
+  const [strategy, setStrategy] = useState("DGWO");
   const [maxTime] = useState(90);
-  const [wolfSize, setWolfSize] = useState(30);
-  const [maxIter, setMaxIter] = useState(500);
+  const [preset, setPresetState] = useState("quick");
+  const [wolfSize, setWolfSize] = useState(10);
+  const [maxIter, setMaxIter] = useState(60);
+
+  // Presets drive pop_size / max_iter; editing either field switches to "custom".
+  const PRESETS = useMemo(() => ({
+    quick:    { pop: 10, iter: 60 },
+    standard: { pop: 10, iter: 300 },
+    full:     { pop: 30, iter: 500 },
+  }), []);
+  const setPreset = useCallback((name) => {
+    setPresetState(name);
+    const p = PRESETS[name];
+    if (p) { setWolfSize(p.pop); setMaxIter(p.iter); }
+  }, [PRESETS]);
+  const setWolfSizeCustom = useCallback((v) => { setWolfSize(v); setPresetState("custom"); }, []);
+  const setMaxIterCustom  = useCallback((v) => { setMaxIter(v);  setPresetState("custom"); }, []);
 
   const [fragilityConstraint, setFragilityConstraint] = useState(false);
   const [rotationConstraint, setRotationConstraint] = useState(true);
@@ -95,6 +116,40 @@ export default function Shell() {
       });
   }, []);
 
+  // Load the sampled wtpack instances
+  useEffect(() => {
+    instancesApi
+      .getWtpack()
+      .then((data) => {
+        const list = data.instances || [];
+        setWtpackInstances(list);
+        // Default to the first sampled instance so the demo needs one click fewer
+        if (list.length && wtpackId === null) setWtpackId(list[0].instance_id);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll numba warm-up until the optimizer is ready (or errored)
+  useEffect(() => {
+    let timer = null;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await instancesApi.getReady();
+        if (cancelled) return;
+        setOptimizerReady({ state: r.state, seconds: r.seconds, error: r.error });
+        if (r.state === "warm" || r.state === "error") return;
+      } catch {
+        if (cancelled) return;
+        setOptimizerReady({ state: "offline", seconds: null });
+      }
+      timer = setTimeout(tick, 1500);
+    };
+    tick();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, []);
+
   // Load selected instance details
   useEffect(() => {
     if (!selected) {
@@ -135,11 +190,20 @@ export default function Shell() {
         break;
 
       case "iteration_update":
-        setPlacements(msg.solution);
-        setBinsUsed(msg.best_bins);
+        // Thesis strategies stream best_su / best_csr / best_placed (and no live
+        // solution); the legacy HDGWO path streams best_bins / composite / solution.
+        if (msg.solution) setPlacements(msg.solution);
+        if (msg.best_bins !== undefined) setBinsUsed(msg.best_bins);
         setChartData((prev) => {
-          const next = [...prev, { iter: msg.iteration, bins: msg.best_bins, composite: msg.best_composite }];
-          return next.length > 150 ? next.slice(-150) : next;
+          const next = [...prev, {
+            iter: msg.iteration,
+            bins: msg.best_bins,
+            composite: msg.best_composite,
+            su: msg.best_su,
+            csr: msg.best_csr,
+            placed: msg.best_placed,
+          }];
+          return next.length > 600 ? next.slice(-600) : next;
         });
         setStats({
           iteration: msg.iteration,
@@ -150,6 +214,10 @@ export default function Shell() {
           temperature: msg.temperature,
           lastUdhc: msg.last_udhc,
           udhcAccepted: msg.udhc_accepted,
+          su: msg.best_su,
+          csr: msg.best_csr,
+          placed: msg.best_placed,
+          phase: msg.phase,
         });
         break;
 
@@ -161,7 +229,9 @@ export default function Shell() {
         // Persist run details
         runsApi.saveRun({
           strategy: strategy,
-          instance: isCustomized ? "custom.json" : msg.instance.split(/[\\/]/).pop(),
+          instance: isCustomized ? "custom.json"
+                  : msg.dataset === "wtpack" ? `wtpack #${msg.instance}`
+                  : String(msg.instance).split(/[\\/]/).pop(),
           n_items: msg.n_items,
           space_util: msg.metrics?.M1_space_utilization_pct || msg.volume_util_pct,
           dissipation: msg.dissipation,
@@ -249,6 +319,25 @@ export default function Shell() {
     setFinalResult(null);
     setError(null);
 
+    // wtpack (thesis) dataset: addressed by integer id, parameters are UI-driven
+    if (dataset === "wtpack" && !isCustomized) {
+      if (wtpackId === null) {
+        setError("Select a wtpack instance first.");
+        setRunning(false);
+        return;
+      }
+      wsRef.current.send(JSON.stringify({
+        action: "run",
+        dataset: "wtpack",
+        instanceId: wtpackId,
+        strategy,
+        popSize: wolfSize,
+        maxIter,
+      }));
+      setActiveTab("visualization");
+      return;
+    }
+
     let runPath = selected;
 
     // Use custom path if user added manual items OR if no OR-Library instance is selected
@@ -272,7 +361,8 @@ export default function Shell() {
 
     wsRef.current.send(JSON.stringify({ action: "run", instancePath: runPath, maxTime, strategy }));
     setActiveTab("visualization");
-  }, [selected, running, wsConnected, maxTime, isCustomized, containerSpecs, itemsList, strategy]);
+  }, [selected, running, wsConnected, maxTime, isCustomized, containerSpecs, itemsList, strategy,
+      dataset, wtpackId, wolfSize, maxIter]);
 
   const handleStopRun = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ action: "stop" }));
@@ -282,7 +372,7 @@ export default function Shell() {
   const handleExportResultsCSV = () => {
     if (!finalResult || !finalResult.items) return;
     const headers = "Sequence,Item ID,Bin ID,X,Y,Z,Length,Height,Depth\n";
-    const rows = finalResult.items.map((item, idx) => 
+    const rows = finalResult.items.map((item, idx) =>
       `${idx + 1},${item.id},Bin ${item.bin_id},${item.x},${item.y},${item.z},${item.l},${item.h},${item.d}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
@@ -349,11 +439,14 @@ export default function Shell() {
     };
   }, [finalResult]);
 
-  const canRun = wsConnected && !running && (itemsList.length > 0 || instanceItems.length > 0);
+  const canRun = wsConnected && !running && (
+    itemsList.length > 0 || instanceItems.length > 0 ||
+    (dataset === "wtpack" && wtpackId !== null)
+  );
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-app)", color: "var(--text-main)" }}>
-      
+
       {/* ── HEADER (STACKR BRANDING) ────────────────────────────────────────── */}
       <header style={{
         background: "var(--bg-card)",
@@ -538,6 +631,16 @@ export default function Shell() {
           handleStartRun={handleStartRun}
           handleStopRun={handleStopRun}
           canRun={canRun}
+          dataset={dataset}
+          setDataset={setDataset}
+          wtpackInstances={wtpackInstances}
+          wtpackId={wtpackId}
+          setWtpackId={setWtpackId}
+          preset={preset}
+          setPreset={setPreset}
+          setWolfSizeCustom={setWolfSizeCustom}
+          setMaxIterCustom={setMaxIterCustom}
+          optimizerReady={optimizerReady}
         />
       )}
 
@@ -551,6 +654,7 @@ export default function Shell() {
           axisUtil={axisUtil}
           chartData={chartData}
           maxIter={maxIter}
+          wolfSize={wolfSize}
           handleExportResultsCSV={handleExportResultsCSV}
           handleExportReport={handleExportReport}
         />

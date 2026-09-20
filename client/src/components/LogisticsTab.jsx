@@ -30,12 +30,35 @@ export default function LogisticsTab({
   elapsed,
   handleStartRun,
   handleStopRun,
-  canRun
+  canRun,
+  // wtpack (thesis) dataset + demo presets + optimizer readiness
+  dataset = "wtpack",
+  setDataset = () => {},
+  wtpackInstances = [],
+  wtpackId = null,
+  setWtpackId = () => {},
+  preset = "quick",
+  setPreset = () => {},
+  setWolfSizeCustom,
+  setMaxIterCustom,
+  optimizerReady = { state: "cold" }
 }) {
+  const onWolfSize = setWolfSizeCustom || setWolfSize;
+  const onMaxIter  = setMaxIterCustom  || setMaxIter;
+
+  // Measured on the demo machine (i5-1235U), instance 350 (129 boxes), Quick
+  // preset. See docs/DEMO.md for the full table.
+  const PRESET_INFO = {
+    quick:    { label: "Quick demo", pop: 10, iter: 60,  note: "measured: DGWO/MOGWO/SEQ 20–30 s · REP 5.5 min (for a live REP use pop 5 × 15 ≈ 30 s)" },
+    standard: { label: "Standard",   pop: 10, iter: 300, note: "measured: DGWO 149 s · MOGWO 160 s · SEQ 138 s · REP ≈ 27 min (est.)" },
+    full:     { label: "Full",       pop: 30, iter: 500, note: "estimated: ≈ 12 min per strategy · REP ≈ 2.5 h — not for live use" },
+  };
+  const selectedWtpack = wtpackInstances.find((i) => i.instance_id === wtpackId) || null;
+
   const fileInputRef = useRef(null);
 
   // Track which option is active: "A" = manual, "B" = OR-Library
-  const [activeOption, setActiveOption] = useState("A");
+  const [activeOption, setActiveOption] = useState("B");
 
   // New Item Input states (encapsulated locally)
   const [newItemId, setNewItemId] = useState("BOX-001");
@@ -242,10 +265,10 @@ export default function LogisticsTab({
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-                  Hybrid strategy
+                  Configuration
                 </label>
                 <div style={{ display: "flex", gap: "6px" }}>
-                  {["Sequential", "Repair-based"].map((s) => (
+                  {["DGWO", "MOGWO", "Sequential", "Repair-based"].map((s) => (
                     <button
                       key={s}
                       onClick={() => setStrategy(s)}
@@ -262,14 +285,45 @@ export default function LogisticsTab({
                   ))}
                 </div>
               </div>
+
+              {/* Demo presets: drive pop_size / max_iter. Durations are measured, not guessed. */}
+              <div>
+                <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+                  Run preset
+                </label>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {Object.entries(PRESET_INFO).map(([key, p]) => (
+                    <button
+                      key={key}
+                      onClick={() => setPreset(key)}
+                      disabled={running}
+                      title={`pop ${p.pop} × ${p.iter} iterations — ${p.note}`}
+                      style={{
+                        flex: 1, padding: "8px 4px", borderRadius: "6px",
+                        border: preset === key ? "1px solid var(--primary)" : "1px solid var(--border)",
+                        background: preset === key ? "var(--primary)" : "var(--bg-input)",
+                        color: preset === key ? "#ffffff" : "var(--text-muted)",
+                        fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "all 0.15s ease"
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: "11px", color: preset === "full" ? "var(--amber)" : "var(--text-dim)", marginTop: "6px", lineHeight: 1.4 }}>
+                  {preset === "custom"
+                    ? `Custom — pop ${wolfSize} × ${maxIter} iterations`
+                    : `pop ${PRESET_INFO[preset]?.pop} × ${PRESET_INFO[preset]?.iter} iterations · ${PRESET_INFO[preset]?.note}`}
+                </div>
+              </div>
               <div style={{ display: "flex", gap: "12px" }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Wolf pack size</label>
-                  <input type="number" value={wolfSize} onChange={(e) => setWolfSize(Number(e.target.value))} style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
+                  <input type="number" value={wolfSize} onChange={(e) => onWolfSize(Number(e.target.value))} style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Max iterations</label>
-                  <input type="number" value={maxIter} onChange={(e) => setMaxIter(Number(e.target.value))} style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
+                  <input type="number" value={maxIter} onChange={(e) => onMaxIter(Number(e.target.value))} style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
                 </div>
               </div>
               <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px" }}>
@@ -442,8 +496,61 @@ export default function LogisticsTab({
                 </p>
               </div>
 
-              {/* Instance selector dropdown */}
-              {loadingList ? (
+              {/* Dataset toggle: wtpack (thesis, real physics) vs legacy BR JSON */}
+              <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+                {[
+                  { key: "wtpack", label: "OR-Library wtpack (thesis)" },
+                  { key: "br",     label: "BR JSON (legacy)" },
+                ].map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => setDataset(d.key)}
+                    disabled={running}
+                    style={{
+                      flex: 1, padding: "8px 6px", borderRadius: "6px",
+                      border: dataset === d.key ? "1px solid var(--primary)" : "1px solid var(--border)",
+                      background: dataset === d.key ? "var(--primary)" : "var(--bg-input)",
+                      color: dataset === d.key ? "#ffffff" : "var(--text-muted)",
+                      fontSize: "12px", fontWeight: "700", cursor: "pointer"
+                    }}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* wtpack: sampled instances with provenance, addressed by integer id */}
+              {dataset === "wtpack" && (
+                <div style={{ marginBottom: "20px" }}>
+                  <select
+                    style={{ width: "100%", padding: "12px", background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: "8px", color: wtpackId !== null ? "var(--text-main)" : "var(--text-dim)", fontSize: "14px", fontWeight: "600", outline: "none" }}
+                    value={wtpackId === null ? "" : String(wtpackId)}
+                    onChange={(e) => setWtpackId(e.target.value === "" ? null : Number(e.target.value))}
+                    disabled={running}
+                  >
+                    <option value="" disabled>— Select a sampled wtpack instance —</option>
+                    {wtpackInstances.map((inst) => (
+                      <option key={inst.instance_id} value={String(inst.instance_id)}>{inst.label}</option>
+                    ))}
+                  </select>
+                  {wtpackInstances.length === 0 && (
+                    <div style={{ fontSize: "12px", color: "var(--amber)", marginTop: "6px" }}>
+                      No sampled instances — is the server running and experiments/samples/sample30_seed42.json present?
+                    </div>
+                  )}
+                  {selectedWtpack && (
+                    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "10px", fontSize: "12px", color: "var(--text-dim)" }}>
+                      <span>Class <b style={{ color: "var(--text-main)" }}>{selectedWtpack.br_class}</b> ({selectedWtpack.n_types} box types)</span>
+                      <span>Container <b style={{ color: "var(--text-main)" }}>{selectedWtpack.container.L} × {selectedWtpack.container.W} × {selectedWtpack.container.H} cm</b></span>
+                      <span>Boxes <b style={{ color: "var(--text-main)" }}>{selectedWtpack.n_boxes}</b></span>
+                      <span>Fragile <b style={{ color: "var(--amber)" }}>{selectedWtpack.fragile_count} ({Math.round(selectedWtpack.fragile_rate * 100)}%)</b></span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Legacy BR JSON dropdown, unchanged */}
+              {dataset === "br" && (loadingList ? (
                 <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading instances...</span>
               ) : (
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "20px" }}>
@@ -484,7 +591,7 @@ export default function LogisticsTab({
                     </button>
                   )}
                 </div>
-              )}
+              ))}
 
               {/* Instance preview table */}
               <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
@@ -540,13 +647,32 @@ export default function LogisticsTab({
         <div style={{ fontSize: "13px", color: "var(--text-dim)", display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "var(--text-main)", fontWeight: "700" }}>{totalItemsCount}</span> items ready
           <span style={{ opacity: 0.4, margin: "0 4px" }}>·</span>
-          Source: <span style={{ color: "var(--primary)", fontWeight: "700" }}>{activeOption === "A" ? "Manual" : "OR-Library"}</span>
+          Source: <span style={{ color: "var(--primary)", fontWeight: "700" }}>{activeOption === "A" ? "Manual" : (dataset === "wtpack" ? `wtpack #${wtpackId ?? "—"}` : "BR JSON")}</span>
           <span style={{ opacity: 0.4, margin: "0 4px" }}>·</span>
           Strategy: <span style={{ color: "var(--primary)", fontWeight: "700" }}>{strategy}</span>
           <span style={{ opacity: 0.4, margin: "0 4px" }}>·</span>
           Total: <span style={{ color: "var(--text-main)", fontWeight: "700" }}>{totalWeightSum.toLocaleString()} kg</span>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          {/* numba warm-up state, so the first run does not look like a hang */}
+          <span
+            title={optimizerReady.state === "warm" ? `Compiled in ${(optimizerReady.seconds || 0).toFixed(1)} s` : (optimizerReady.error || "")}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "6px",
+              fontSize: "12px", fontWeight: "700", padding: "6px 10px", borderRadius: "999px",
+              border: "1px solid var(--border)",
+              color: optimizerReady.state === "warm" ? "var(--green)"
+                   : optimizerReady.state === "error" || optimizerReady.state === "offline" ? "var(--red)"
+                   : "var(--amber)",
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", display: "inline-block" }} />
+            {optimizerReady.state === "warm" ? "Optimizer ready"
+             : optimizerReady.state === "warming" ? "Warming up optimizer…"
+             : optimizerReady.state === "error" ? "Optimizer warm-up failed"
+             : optimizerReady.state === "offline" ? "Server offline"
+             : "Optimizer cold"}
+          </span>
           {activeOption === "A" && (
             <button
               onClick={() => { setItemsList([]); setIsCustomized(true); }}

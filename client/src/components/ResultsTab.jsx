@@ -24,6 +24,7 @@ export default function ResultsTab({
   finalResult,
   runHistory,
   strategy,
+  wolfSize,
   stats,
   axisUtil,
   chartData,
@@ -33,7 +34,7 @@ export default function ResultsTab({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      
+
       {/* Top row header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
@@ -71,33 +72,104 @@ export default function ResultsTab({
       {/* RESULTS METRICS CHIPS */}
       {finalResult ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          
-          {/* Four Summary Cards */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-            <StatChip label="Space Utilization" value={`${(finalResult.metrics?.M1_space_utilization_pct || finalResult.volume_util_pct).toFixed(1)}%`} color="var(--primary)" subtitle="NAB score" />
-            <StatChip label="Optimality Gap" value={`${finalResult.gap_pct.toFixed(1)}%`} color={finalResult.gap_pct === 0 ? "var(--green)" : "var(--amber)"} subtitle="vs. lower bound" />
-            <StatChip label="Dissipation D(X)" value={finalResult.dissipation.toFixed(3)} color="var(--text-muted)" subtitle="C1=C2=0.5" />
-            <StatChip label="Runtime" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`${maxIter} iterations`} />
-          </div>
+
+          {/* Summary cards */}
+          {(() => {
+            const m = finalResult.metrics || {};
+            const cd = m.constraint_detail;
+            const thesis = cd && cd.C3_weight_pct !== undefined;   // DGWO / MOGWO / SEQ / REP
+            const isRepair = strategy === "Repair-based" || strategy === "REP";
+            const placed = finalResult.placed ?? (finalResult.items ? finalResult.items.length : 0);
+            const total  = finalResult.n_items ?? placed;
+            if (!thesis) {
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+                  <StatChip label="Space Utilization" value={`${(m.M1_space_utilization_pct || finalResult.volume_util_pct).toFixed(1)}%`} color="var(--primary)" subtitle="NAB score" />
+                  <StatChip label="Optimality Gap" value={`${finalResult.gap_pct.toFixed(1)}%`} color={finalResult.gap_pct === 0 ? "var(--green)" : "var(--amber)"} subtitle="vs. lower bound" />
+                  <StatChip label="Dissipation D(X)" value={finalResult.dissipation.toFixed(3)} color="var(--text-muted)" subtitle="C1=C2=0.5" />
+                  <StatChip label="Runtime" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`${maxIter} iterations`} />
+                </div>
+              );
+            }
+            return (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+                <StatChip label="Space Utilization (M-1)" value={`${m.M1_space_utilization_pct.toFixed(1)}%`} color="var(--primary)" subtitle="single container, OF-1" />
+                <StatChip
+                  label="Constraint satisfaction (M-2)"
+                  value={`${m.M2_constraint_satisfaction_pct.toFixed(1)}%`}
+                  color={isRepair ? "var(--text-muted)" : m.M2_constraint_satisfaction_pct >= 99.99 ? "var(--green)" : "var(--amber)"}
+                  subtitle={isRepair ? "100% by construction (repair R1–R5)" : "placed boxes satisfying C3–C6"}
+                />
+                <StatChip label="Boxes placed" value={`${placed} / ${total}`} color={placed === total ? "var(--green)" : "var(--amber)"} subtitle={`${(100 * placed / Math.max(total, 1)).toFixed(0)}% of the load`} />
+                <StatChip label="Execution time (M-3)" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`pop ${wolfSize ?? "—"} × ${maxIter} iterations`} />
+                <StatChip label="Peak memory (M-4)" value={`${(m.M4_peak_memory_mb ?? 0).toFixed(1)} MB`} color="var(--text-muted)" subtitle="tracemalloc peak" />
+              </div>
+            );
+          })()}
+
+          {/* Per-constraint compliance (M-2a..M-2d) — thesis strategies only */}
+          {finalResult.metrics?.constraint_detail?.C3_weight_pct !== undefined && (() => {
+            const cd = finalResult.metrics.constraint_detail;
+            const isRepair = strategy === "Repair-based" || strategy === "REP";
+            const rows = [
+              { k: "C3", name: "Load-bearing (C3)",   v: cd.C3_weight_pct,     note: "borne mass ≤ LBS × contact area" },
+              { k: "C4", name: "Fragility (C4)",      v: cd.C4_fragility_pct,  note: "nothing rests on a fragile box" },
+              { k: "C5", name: "Stability (C5)",      v: cd.C5_balance_pct,    note: "≥ 80% base support" },
+              { k: "C6", name: "Stop order (C6)",     v: cd.C6_stop_order_pct, note: "no later stop blocks an earlier one" },
+            ];
+            return (
+              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+                <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+                  Constraint compliance — share of placed boxes satisfying each constraint
+                </h4>
+                {isRepair && (
+                  <div style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "14px", padding: "10px 12px", background: "var(--bg-input)", borderRadius: "8px", lineHeight: 1.5 }}>
+                    <b style={{ color: "var(--text-main)" }}>100% by construction.</b> The repair-based configuration relocates or defers every violating box before evaluation (operators R1–R5), so its compliance is guaranteed rather than searched for. The cost shows up in <b>boxes placed</b> and <b>space utilization</b>, not here — compare those columns against the other configurations.
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {rows.map((r) => (
+                    <div key={r.k}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "4px" }}>
+                        <span style={{ color: "var(--text-muted)", fontWeight: "600" }}>{r.name} <span style={{ color: "var(--text-dim)", fontWeight: "400" }}>— {r.note}</span></span>
+                        <span style={{ fontWeight: "700", color: r.v >= 99.99 ? "var(--green)" : r.v >= 75 ? "var(--amber)" : "var(--red)" }}>{r.v.toFixed(1)}%</span>
+                      </div>
+                      <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, r.v))}%`, background: r.v >= 99.99 ? "var(--green)" : r.v >= 75 ? "var(--amber)" : "var(--red)", transition: "width 0.3s ease" }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Main columns: Left Metrics Summary, Right Axis & Chart */}
           <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
-            
+
             {/* Left Column (Metrics Summary) */}
             <div style={{ flex: "1 1 380px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
               <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "20px" }}>
                 Metrics summary
               </h4>
-              
+
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Composite score</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>
+                    {finalResult.metrics?.constraint_detail?.C3_weight_pct !== undefined ? "Scalar fitness F(X)" : "Composite score"}
+                  </span>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{finalResult.composite_score.toFixed(3)}</span>
-                    <span className="badge badge-success">Good</span>
+                    <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>
+                      {finalResult.composite_score != null && Number.isFinite(finalResult.composite_score)
+                        ? finalResult.composite_score.toFixed(3)
+                        : "n/a (Pareto archive)"}
+                    </span>
+                    {finalResult.composite_score != null && Number.isFinite(finalResult.composite_score) && (
+                      <span className="badge badge-success">Good</span>
+                    )}
                   </div>
                 </div>
-                
+
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>NAB (space fill)</span>
                   <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{((finalResult.metrics?.M1_space_utilization_pct || finalResult.volume_util_pct) / 100).toFixed(3)}</span>
@@ -114,25 +186,33 @@ export default function ResultsTab({
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Fragility violations</span>
-                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>0</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Fragility violations (C4)</span>
+                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>
+                    {finalResult.metrics?.constraint_detail?.C4_fragility_pct !== undefined
+                      ? `${(100 - finalResult.metrics.constraint_detail.C4_fragility_pct).toFixed(1)}% of placed`
+                      : "—"}
+                  </span>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>LIFO violations</span>
-                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>0</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Stop-order violations (C6)</span>
+                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>
+                    {finalResult.metrics?.constraint_detail?.C6_stop_order_pct !== undefined
+                      ? `${(100 - finalResult.metrics.constraint_detail.C6_stop_order_pct).toFixed(1)}% of placed`
+                      : "—"}
+                  </span>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>CV (consistency)</span>
-                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{(finalResult.metrics?.M5_robustness_su_std || 0.021).toFixed(3)}</span>
+                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{finalResult.metrics?.M5_robustness_su_std != null ? finalResult.metrics.M5_robustness_su_std.toFixed(3) : "n/a (single run)"}</span>
                 </div>
               </div>
             </div>
 
             {/* Right Column (Axis utilization & Convergence Curve) */}
             <div style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "20px" }}>
-              
+
               {/* Axis utilization Card */}
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
                 <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>

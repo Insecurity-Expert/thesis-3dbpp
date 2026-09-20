@@ -22,7 +22,7 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
   const nl = Number(l || 0);
   const nh = Number(h || 0);
   const nd = Number(d || 0);
-  
+
   const geo = useMemo(() => new THREE.BoxGeometry(nl, nh, nd), [nl, nh, nd]);
   const cx = nx + nl / 2;
   const cy = ny + nh / 2;
@@ -77,10 +77,12 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
 });
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave }) {
+const FRAGILE_EDGE = '#f59e0b';
+
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave, fragile }) {
   const [hovered, setHovered] = useState(false);
   const color   = useMemo(() => itemHSL(itemIdx), [itemIdx]);
-  
+
   const nx = Number(x || 0);
   const ny = Number(y || 0);
   const nz = Number(z || 0);
@@ -148,6 +150,13 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
           opacity={hovered ? 0.95 : 0.55}
         />
       </lineSegments>
+      {/* Fragile marker: an extra amber outline, slightly inflated so it reads
+          over the black edge. Purely additive; the mesh colour is unchanged. */}
+      {fragile ? (
+        <lineSegments geometry={edgeGeo} scale={1.015}>
+          <lineBasicMaterial color={FRAGILE_EDGE} transparent opacity={0.95} linewidth={2} />
+        </lineSegments>
+      ) : null}
     </group>
   );
 });
@@ -164,7 +173,7 @@ function CameraController({ orientation, target, H, camDist, resetTrigger }) {
     if (!orientation) return;
     const nH = Number(H || 0);
     const nCamDist = Number(camDist || 0);
-    
+
     // Set camera up vector based on orientation to prevent gimbal lock in Top view
     if (orientation === "Top") {
       camera.up.set(0, 0, -1);
@@ -219,7 +228,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
       bin_id: Number(it.bin_id ?? 0),
       item_idx: Number(it.item_idx ?? 0),
       stop: it.stop !== undefined ? Number(it.stop) : undefined,
-      weight: it.weight !== undefined ? Number(it.weight) : undefined
+      weight: it.weight !== undefined ? Number(it.weight ?? it.mass) : (it.mass !== undefined ? Number(it.mass) : undefined),
+      fragile: it.fragile === 1 || it.fragile === true || it.type === 'Fragile'
     }));
   }, [result, placementsProp]);
 
@@ -332,6 +342,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     l={it.l} h={it.h} d={it.d}
                     itemIdx={it.item_idx}
                     id={it.id}
+                    fragile={it.fragile}
                     showLabels={showLabels}
                     onHover={() => onHoverItem && onHoverItem({
                       id: it.id,
@@ -342,7 +353,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
                       h: it.h,
                       d: it.d,
                       stop: it.stop || 1,
-                      weight: it.weight || 0
+                      weight: it.weight || 0,
+                      fragile: it.fragile
                     })}
                     onLeave={() => onHoverItem && onHoverItem(null)}
                   />

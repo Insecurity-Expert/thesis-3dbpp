@@ -50,16 +50,16 @@ export default function VisualizationTab({
 
   return (
     <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
-      
+
       {/* Sidebar Left Column Wrapper */}
       <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: "20px" }}>
-        
+
         {/* View controls panel */}
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
           <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
             ● VIEW CONTROLS
           </h4>
-          
+
           <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
             {/* Rotate preset buttons */}
             <div>
@@ -192,6 +192,14 @@ export default function VisualizationTab({
                 <span style={{ color: "var(--text-dim)" }}>Weight:</span>
                 <span style={{ fontWeight: "700", color: "var(--text-main)" }}>{selectedItemInfo.weight} kg</span>
               </div>
+              {selectedItemInfo.fragile !== undefined && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-dim)" }}>Fragility:</span>
+                  <span style={{ fontWeight: "700", color: selectedItemInfo.fragile ? "var(--amber)" : "var(--text-main)" }}>
+                    {selectedItemInfo.fragile ? "Fragile — nothing may rest on it (C4)" : "Standard"}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--text-dim)", fontSize: "12px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: "8px", padding: "16px" }}>

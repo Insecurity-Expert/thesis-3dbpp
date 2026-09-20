@@ -79,6 +79,16 @@ export const instancesApi = {
     return request("/api/instances");
   },
 
+  // Sampled wtpack instances with provenance (experiments/samples/sample30_seed42.json)
+  async getWtpack() {
+    return request("/api/instances?dataset=wtpack");
+  },
+
+  // numba warm-up state: { state: "cold"|"warming"|"warm"|"error", warm, seconds }
+  async getReady() {
+    return request("/api/ready");
+  },
+
   async getDetails(instancePath) {
     if (!instancePath) {
       throw new Error("instancePath is required");

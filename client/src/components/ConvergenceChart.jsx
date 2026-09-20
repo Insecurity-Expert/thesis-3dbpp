@@ -1,6 +1,16 @@
 import React from "react";
 
-const ConvergenceChart = React.memo(function ConvergenceChart({ data, lowerBound }) {
+const ConvergenceChart = React.memo(function ConvergenceChart({ data: rawData, lowerBound: rawLowerBound }) {
+  // Thesis strategies stream best_su / best_csr (no bins). Map SU onto the
+  // left axis and CSR onto the right one so the chart geometry is reused as-is.
+  const thesis = !!(rawData && rawData.length && rawData[0].bins === undefined && rawData[0].su !== undefined);
+  const data = thesis
+    ? rawData.map((d) => ({ iter: d.iter, bins: +(d.su * 100).toFixed(2), composite: d.csr }))
+    : rawData;
+  const lowerBound = thesis ? null : rawLowerBound;
+  const leftLabel  = thesis ? "Best SU (%)" : "Bins used";
+  const rightLabel = thesis ? "Best CSR (%)" : "Composite score";
+
   if (!data || !data.length) {
     return (
       <div style={{
@@ -58,13 +68,15 @@ const ConvergenceChart = React.memo(function ConvergenceChart({ data, lowerBound
   // Bins: just the distinct integer values that actually appear
   const binsTickSet = [...new Set(allBins)].sort((a, b) => a - b);
   // If only one value, add ±1 to show context
-  const binsTicks = binsTickSet.length === 1
-    ? [binsTickSet[0] - 1, binsTickSet[0], binsTickSet[0] + 1]
-    : binsTickSet;
+  const binsTicks = thesis
+    ? [...new Set([0, 1, 2, 3].map((i) => +(minBins + (binsRange / 3) * i).toFixed(1)))]
+    : binsTickSet.length === 1
+      ? [binsTickSet[0] - 1, binsTickSet[0], binsTickSet[0] + 1]
+      : binsTickSet;
 
   // Composite: 4 evenly spaced ticks
   const compTicks = hasComp
-    ? [0, 1, 2, 3].map((i) => +(minComp + (compRange / 3) * i).toFixed(2))
+    ? [...new Set([0, 1, 2, 3].map((i) => +(minComp + (compRange / 3) * i).toFixed(2)))]
     : [];
 
   // ── X-axis ticks (5 evenly spaced) ────────────────────────────────────────
@@ -82,12 +94,12 @@ const ConvergenceChart = React.memo(function ConvergenceChart({ data, lowerBound
       <div style={{ display: "flex", gap: 20, paddingLeft: PAD.l, marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="var(--primary)" strokeWidth="2.5" /></svg>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)" }}>Bins used</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)" }}>{leftLabel}</span>
         </div>
         {hasComp && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="var(--amber)" strokeWidth="2" strokeDasharray="4 2" /></svg>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)" }}>Composite score</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)" }}>{rightLabel}</span>
           </div>
         )}
         {lbY !== null && (
@@ -121,7 +133,7 @@ const ConvergenceChart = React.memo(function ConvergenceChart({ data, lowerBound
         <text x={12} y={PAD.t + innerH / 2} textAnchor="middle"
           fill="var(--primary)" fontSize={10} fontWeight="700"
           transform={`rotate(-90, 12, ${PAD.t + innerH / 2})`}>
-          Bins Used
+          {leftLabel}
         </text>
 
         {/* ── Right Y-axis: Composite ── */}
