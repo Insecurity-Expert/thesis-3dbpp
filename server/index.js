@@ -149,7 +149,7 @@ wss.on("connection", (ws) => {
         argv = [OPTIMIZER, norm, "--stream", "--max-time", String(maxTime), "--strategy", pyStrategy];
       }
 
-      childProc = spawn("python", argv, { env: { ...process.env, PYTHONMALLOC: "malloc" } });
+      childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
 
       const rl = readline.createInterface({ input: childProc.stdout, crlfDelay: Infinity });
       rl.on("line", (line) => {
@@ -158,8 +158,8 @@ wss.on("connection", (ws) => {
         try { send(JSON.parse(t)); } catch {}
       });
 
-      childProc.stderr.on("data", (chunk) => process.stdout.write(chunk));
-
+      childProc.stderr.on("data", (d) => console.error("PY:", d.toString()));
+      
       childProc.on("close", (code) => {
         rl.close();
         send({ type: "run_closed", code });

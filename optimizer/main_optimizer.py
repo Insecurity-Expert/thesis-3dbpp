@@ -23,7 +23,10 @@ import tracemalloc
 from pathlib import Path
 
 # Repo root on the path so `preprocessing` resolves when run from optimizer/
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
 
 from instance_reader import load_instance
 from hd_gwo import HDGWO
