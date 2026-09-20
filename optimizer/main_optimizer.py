@@ -61,6 +61,20 @@ def main():
                         help="Emit JSON progress lines to stdout (for batch/WebSocket mode)")
     parser.add_argument("--max-time", type=int, default=90,
                     help="Wall-clock time limit in seconds (default 90)")
+    parser.add_argument("--pop-size", type=int, default=10,
+                    help="Wolf pack size for the thesis strategies (default 10)")
+    parser.add_argument("--max-iter", type=int, default=60,
+                    help="Iterations for the thesis strategies (default 60)")
+    parser.add_argument("--lambda", type=float, default=0.20, dest="lam",
+                    help="PEN-1 penalty weight tying all four constraints (default 0.20)")
+    parser.add_argument("--lambda-w", type=float, default=None, help="override C3 weight")
+    parser.add_argument("--lambda-f", type=float, default=None, help="override C4 weight")
+    parser.add_argument("--lambda-b", type=float, default=None, help="override C5 weight")
+    parser.add_argument("--lambda-a", type=float, default=None, help="override C6 weight")
+    parser.add_argument("--enforce-support", action=argparse.BooleanOptionalAction, default=True,
+                    help="Reject placements failing C5 at decode time (default on)")
+    parser.add_argument("--enforce-fragility", action=argparse.BooleanOptionalAction, default=True,
+                    help="Reject placements above a fragile box at decode time (default on)")
     parser.add_argument("--seed", type=int, default=None,
                     help="RNG seed for the thesis strategies (omit = entropy-seeded)")
     parser.add_argument("--strategy", choices=["HDGWO", "DGWO", "MOGWO", "SEQ", "REP"],
@@ -148,22 +162,38 @@ def main():
             stream_cb=emit if streaming else None,
         )
     else:
-        # Override to 30 pop and 500 iter for thesis architectures as per standard
         opt_class = {
             "DGWO": StandaloneDGWO,
             "MOGWO": StandaloneMOGWO,
             "SEQ": SequentialHybrid,
             "REP": RepairBasedHybrid
         }[args.strategy]
-        optimizer = opt_class(
-            items=items,
-            container=container,
-            pop_size=30,
-            max_iter=500,
-            lambda_penalty=0.10,
-            seed=args.seed,
-            stream_cb=emit if streaming else None,
-        )
+        # Only pass what this optimizer build accepts; warn about the rest so a
+        # flag is never silently ignored. (Per-constraint weights and decode-time
+        # constraint enforcement exist only in builds that expose them.)
+        import inspect
+        accepted = inspect.signature(opt_class.__init__).parameters
+        kwargs = dict(items=items, container=container, pop_size=args.pop_size,
+                      max_iter=args.max_iter, seed=args.seed,
+                      stream_cb=emit if streaming else None)
+        lam = lambda v: args.lam if v is None else v
+        if "lambda_w" in accepted:
+            kwargs.update(lambda_w=lam(args.lambda_w), lambda_f=lam(args.lambda_f),
+                          lambda_b=lam(args.lambda_b), lambda_a=lam(args.lambda_a))
+        else:
+            kwargs["lambda_penalty"] = args.lam
+            if any(v is not None for v in (args.lambda_w, args.lambda_f, args.lambda_b, args.lambda_a)):
+                print("WARNING: --lambda-w/f/b/a ignored: this optimizer build takes a single "
+                      "lambda_penalty; using --lambda for all four constraints",
+                      file=sys.stderr, flush=True)
+        for flag, attr in (("--enforce-support", "enforce_support"),
+                           ("--enforce-fragility", "enforce_fragility")):
+            if attr in accepted:
+                kwargs[attr] = getattr(args, attr)
+            elif getattr(args, attr):
+                print(f"WARNING: {flag} ignored: this optimizer build has no decode-time "
+                      f"constraint enforcement", file=sys.stderr, flush=True)
+        optimizer = opt_class(**kwargs)
 
     best = optimizer.run()
     exec_time_ms = (time.perf_counter() - _start_time) * 1000.0   # M-3
@@ -190,6 +220,8 @@ def main():
                 "length": d1, "height": d3, "width": d2,
                 "orig_L": box['l'], "orig_H": box['h'], "orig_D": box['w'],
                 "stop": box['stop'], "mass": box['mass'],
+                "fragile": int(box['fragile']),
+                "type": "Fragile" if box['fragile'] else "Standard",
             }
         else:
             # Legacy engine is already y-up; no conversion required.
@@ -204,8 +236,8 @@ def main():
             "id":       box.get('id', f"Box-{item_idx+1:03d}"),
             "item_idx": item_idx,
             "bin_id":   bin_id,
-            "type":     box.get('type', 'Standard'),
         })
+        entry.setdefault("type", box.get('type', 'Standard'))
         packed_items.append(entry)
     packed_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
 
