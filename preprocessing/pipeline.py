@@ -27,7 +27,8 @@ def load_augmented_instance(
     Parameters
     ----------
     config : project config dict (must have config['data']['raw_dir'])
-    instance_id : 0-99, index within the chosen wtpack file
+    instance_id : 0-699, round-robin over the seven files (see
+                  preprocessing.sampling.resolve_instance_id)
     fragility_seed : unused for now (fragility is deterministic)
     stop_seed : seed passed to assign_stops
     stop_count : number of delivery stops (default 3)

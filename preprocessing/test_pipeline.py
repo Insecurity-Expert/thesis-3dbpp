@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from preprocessing.loader import parse_wtpack
-from preprocessing.fragility import assign_fragility
+from preprocessing.fragility import assign_fragility, FRAGILE_RATE_MIN, FRAGILE_RATE_MAX
 from preprocessing.stop_assignment import assign_stops
 from preprocessing.pipeline import load_augmented_instance
 
@@ -26,10 +26,17 @@ def wtpack1_instances():
     return parse_wtpack("data/raw/wtpack1.txt")
 
 
+# wtpack1 has only 3 box types, so the greedy 25% cut is coarse and most of
+# its instances fall outside the +/-5pp bound. Index 5 (instance_id 35) is the
+# first that validates and is the reference instance for the pipeline tests.
+REF_INDEX = 5
+REF_INSTANCE_ID = REF_INDEX * 7
+
+
 @pytest.fixture
 def fresh_instance(wtpack1_instances):
-    """Fresh copy of instance 0 so mutations in one test don't leak."""
-    inst = wtpack1_instances[0]
+    """Fresh copy of the reference instance so mutations in one test don't leak."""
+    inst = wtpack1_instances[REF_INDEX]
     return {
         "container": dict(inst["container"]),
         "n_types": inst["n_types"],
@@ -106,11 +113,42 @@ class TestLoader:
 
 class TestFragility:
 
-    def test_produces_exactly_25_percent_fragile(self, fresh_instance):
+    def test_fragile_rate_within_type_level_bounds(self, fresh_instance):
         assign_fragility(fresh_instance["boxes"])
         n = len(fresh_instance["boxes"])
-        n_fragile = sum(b["fragile"] for b in fresh_instance["boxes"])
-        assert n_fragile == round(n * 0.25)
+        rate = sum(b["fragile"] for b in fresh_instance["boxes"]) / n
+        assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+
+    def test_fragility_is_a_property_of_the_type(self, fresh_instance):
+        """Boxes with identical LBS must never carry different flags."""
+        assign_fragility(fresh_instance["boxes"])
+        flags_by_type = {}
+        for b in fresh_instance["boxes"]:
+            flags_by_type.setdefault(b["type_id"], set()).add(b["fragile"])
+        assert all(len(v) == 1 for v in flags_by_type.values())
+
+    def test_at_least_one_type_is_fragile(self, fresh_instance):
+        """Greedy selection always flags the weakest type, so C4 is never vacuous."""
+        assign_fragility(fresh_instance["boxes"])
+        assert sum(b["fragile"] for b in fresh_instance["boxes"]) >= 1
+
+    def test_greedy_cut_is_closest_type_boundary_to_25pct(self, fresh_instance):
+        """No other prefix of the LBS-ranked types lands nearer to 25%."""
+        boxes = fresh_instance["boxes"]
+        assign_fragility(boxes)
+        n = len(boxes)
+        lbs = {}; cnt = {}
+        for b in boxes:
+            lbs.setdefault(b["type_id"], min(b["lbs_l"], b["lbs_w"], b["lbs_h"]))
+            cnt[b["type_id"]] = cnt.get(b["type_id"], 0) + 1
+        ranked = sorted(lbs, key=lambda t: (lbs[t], t))
+        chosen = sum(b["fragile"] for b in boxes) / n
+        cum, best = 0, None
+        for t in ranked:
+            cum += cnt[t]
+            err = abs(cum / n - 0.25)
+            best = err if best is None or err < best else best
+        assert abs(abs(chosen - 0.25) - best) < 1e-12
 
     def test_all_boxes_have_fragile_field(self, fresh_instance):
         assign_fragility(fresh_instance["boxes"])
@@ -199,7 +237,7 @@ class TestStopAssignment:
 class TestPipeline:
 
     def test_load_augmented_instance_end_to_end(self, minimal_config):
-        inst = load_augmented_instance(minimal_config, instance_id=0)
+        inst = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID)
         assert "container" in inst
         assert "boxes" in inst
         assert "augmentation" in inst
@@ -207,7 +245,7 @@ class TestPipeline:
         assert "stops" in inst["augmentation"]
 
     def test_every_box_has_full_attribute_set(self, minimal_config):
-        inst = load_augmented_instance(minimal_config, instance_id=0)
+        inst = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID)
         required = {
             "l", "w", "h",
             "l_flag", "w_flag", "h_flag",
@@ -219,17 +257,26 @@ class TestPipeline:
             assert required.issubset(box.keys())
 
     def test_pipeline_is_deterministic(self, minimal_config):
-        a = load_augmented_instance(minimal_config, instance_id=0, stop_seed=42)
-        b = load_augmented_instance(minimal_config, instance_id=0, stop_seed=42)
+        a = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID, stop_seed=42)
+        b = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID, stop_seed=42)
         stops_a = [box["stop"] for box in a["boxes"]]
         stops_b = [box["stop"] for box in b["boxes"]]
         assert stops_a == stops_b
 
     def test_pipeline_works_across_all_seven_files(self, minimal_config):
-        # Sample one instance from each wtpack file
+        # Sample one instance from each wtpack file. Validation may reject an
+        # instance (the documented contract is "reject and try the next"), so
+        # a ValueError is a legitimate outcome; every accepted instance must
+        # satisfy the bounds, and at least one file must yield an instance.
+        accepted = 0
         for instance_id in range(7):
-            inst = load_augmented_instance(minimal_config, instance_id=instance_id)
+            try:
+                inst = load_augmented_instance(minimal_config, instance_id=instance_id)
+            except ValueError:
+                continue
+            accepted += 1
             assert len(inst["boxes"]) > 0
             n = len(inst["boxes"])
-            n_fragile = sum(b["fragile"] for b in inst["boxes"])
-            assert n_fragile == round(n * 0.25)
+            rate = sum(b["fragile"] for b in inst["boxes"]) / n
+            assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+        assert accepted >= 1

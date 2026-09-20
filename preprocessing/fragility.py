@@ -12,14 +12,12 @@ import numpy as np
 from scipy import stats
 from typing import List, Dict, Any
 
-# Bounds on the type-level fragile proportion, set from the measured
-# distribution over all 700 OR-Library wtpack instances (678 pass the LBS
-# range check): min 0.250, median 0.302, mean 0.315, p95 0.417, max 0.652.
-# 0.25 is the theoretical floor (the type holding Q1 is always flagged);
-# 0.45 retains 98.5% and rejects the 10 instances where almost half the
-# load forbids stacking.
-FRAGILE_RATE_MIN = 0.25
-FRAGILE_RATE_MAX = 0.45
+# Chapter 3 target is 25%; greedy type selection lands within +/-5pp for the
+# large majority of instances (over all 700 wtpack instances: min 0.140,
+# median 0.252, mean 0.257, max 0.449; 76% within +/-5pp). Instances outside
+# these bounds are rejected by _validate and replaced by the sampler.
+FRAGILE_RATE_MIN = 0.20
+FRAGILE_RATE_MAX = 0.30
 
 
 def _box_lbs(box: Dict[str, Any]) -> float:
@@ -44,18 +42,30 @@ def assign_fragility(boxes: List[Dict[str, Any]]) -> Dict[str, Any]:
     # ---- Step A2: within-instance Q1 over the demand-expanded values -----
     q1 = float(np.percentile(lbs_values, 25))
 
-    # ---- Step A3: assign fragility per box TYPE ----------------------------
+    # ---- Step A3: greedy type selection ------------------------------------
     # Every box of a type shares one LBS, so the flag must be a property of
-    # the type. Sort-and-slice to an exact 25% would split identical-LBS
-    # boxes across the cut, which is physically meaningless and creates C4
-    # infeasibility that depends on sort position. The proportion is
-    # therefore quantized; _validate bounds it from the measured range.
-    type_lbs = {}
+    # the type (never mixed within a type). Flagging every type with LBS <= Q1
+    # can only over-shoot: the type holding Q1 is always taken whole, giving a
+    # hard floor of 25% and a one-sided error (median 0.30, p95 0.42 over the
+    # wtpack set). Instead: rank types by aggregate LBS ascending, walk the
+    # cumulative box count, and cut at the type boundary closest to 25%.
+    # At least one type is always flagged so C4 is never vacuous.
+    type_lbs, type_count = {}, {}
     for box in boxes:
-        type_lbs.setdefault(box['type_id'], _box_lbs(box))
-    type_flag = {t: (1 if v <= q1 else 0) for t, v in type_lbs.items()}
+        t = box['type_id']
+        type_lbs.setdefault(t, _box_lbs(box))
+        type_count[t] = type_count.get(t, 0) + 1
+    ranked = sorted(type_lbs, key=lambda t: (type_lbs[t], t))
+    n = len(boxes)
+    best_k, best_err, cum = 1, None, 0
+    for k, t in enumerate(ranked, start=1):
+        cum += type_count[t]
+        err = abs(cum / n - 0.25)
+        if best_err is None or err < best_err:
+            best_k, best_err = k, err
+    fragile_types = set(ranked[:best_k])
     for box in boxes:
-        box['fragile'] = type_flag[box['type_id']]
+        box['fragile'] = 1 if box['type_id'] in fragile_types else 0
 
     # ---- Step A4: validate -----------------------------------------------
     report = _validate(boxes, lbs_values)

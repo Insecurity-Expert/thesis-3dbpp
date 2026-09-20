@@ -34,8 +34,8 @@ if __name__ == '__main__':
     from preprocessing.pipeline import load_augmented_instance
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('instance_id', nargs='?', type=int, default=0,
-                        help='wtpack instance id (default 0)')
+    parser.add_argument('instance_id', nargs='?', type=int, default=350,
+                        help='wtpack instance id (default 350: first BR1 instance in the seed-42 sample)')
     parser.add_argument('--raw-dir', default=str(_ROOT / 'data' / 'raw'),
                         help='Directory holding wtpack*.txt')
     args = parser.parse_args()
