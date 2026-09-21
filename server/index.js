@@ -149,25 +149,52 @@ wss.on("connection", (ws) => {
         argv = [OPTIMIZER, norm, "--stream", "--max-time", String(maxTime), "--strategy", pyStrategy];
       }
 
+      console.log("PY spawn:", argv.slice(1).join(" "));
       childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
+
+      // Keep the tail of stderr so a Python traceback can travel to the UI
+      // with run_closed instead of dying as a bare exit code.
+      let stderrTail = "";
+      let lastError = null;
 
       const rl = readline.createInterface({ input: childProc.stdout, crlfDelay: Infinity });
       rl.on("line", (line) => {
         const t = line.trim();
         if (!t) return;
-        try { send(JSON.parse(t)); } catch {}
+        let msg;
+        try {
+          msg = JSON.parse(t);
+        } catch (e) {
+          // Never drop a line silently: this is exactly how an Infinity in the
+          // final envelope hid a broken run for three strategies.
+          console.error("PY unparsable stdout line:", t.slice(0, 300));
+          send({ type: "error", error: "Optimizer emitted a non-JSON line: " + t.slice(0, 200) });
+          return;
+        }
+        if (msg && msg.type === "error") lastError = msg.error;
+        send(msg);
       });
 
-      childProc.stderr.on("data", (d) => console.error("PY:", d.toString()));
-      
+      childProc.stderr.on("data", (d) => {
+        const text = d.toString();
+        process.stderr.write("PY: " + text);
+        stderrTail = (stderrTail + text).slice(-4000);
+      });
+
+      childProc.on("exit", (code) => console.error("PY exited:", code));
+
       childProc.on("close", (code) => {
         rl.close();
-        send({ type: "run_closed", code });
+        // Surface the most specific message we have: the JSON error envelope
+        // if Python sent one, else the last traceback lines from stderr.
+        const tail = stderrTail.trim().split("\n").filter(Boolean).slice(-6).join("\n");
+        send({ type: "run_closed", code, error: code === 0 ? null : (lastError || tail || null) });
         childProc = null;
       });
 
       childProc.on("error", (err) => {
-        send({ type: "error", error: err.message });
+        console.error("PY spawn error:", err.message);
+        send({ type: "error", error: "Could not start python: " + err.message });
         childProc = null;
       });
     }
