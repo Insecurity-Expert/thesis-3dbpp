@@ -92,3 +92,26 @@ C5, C6 and the total in all 56 cases, and finds C1, C2 and
 orientation/dimension consistency satisfied in all 56. In particular,
 **REP's claimed 100% compliance holds under the independent validator on
 all six of its arrangements.**
+
+## Pop-30 convergence (Part J; single seed — treat as indicative)
+
+`max_iter = 300` was chosen from pop-10 curves. Checked at the campaign's
+pop 30 (max_iter 500, instance 350, seed 1, `experiments/convergence/*_pop30_s1_i350.csv`):
+
+| cfg | pop 10: it₉₉ / final SU | pop 30: it₉₉ / final SU | SU at it 300 (pop 30) |
+|---|---|---|---|
+| DGWO | 231 / 75.52 | **214 / 82.45** | 83.01 (= final) |
+| SEQ | 131 / 75.26 | 137 / 78.25 | 78.25 (= final) |
+| MOGWO | 3 / 54.39 | 328 / 57.99 | 55.12 |
+
+For DGWO and SEQ the 99%-of-final iteration is unchanged by population
+size, so `max_iter = 300` holds at pop 30. MOGWO's is later (328), but its SU
+curve is a side effect of a CSR-first return criterion and is not the metric
+that choice was made on.
+
+**The result that matters for the panel:** at the campaign setting
+(pop 30 × 500) DGWO reaches **SU 82.45%, CSR 67.00%, 100/129 placed** —
+above the weight-sorted greedy on *both* metrics (+21.2 pp SU, +3.8 pp CSR).
+The "no configuration beats the greedy on both" verdict above is a
+pop 10 × 300 result. One seed; the five-seed campaign at pop 30 is what
+would make this claim citable.
