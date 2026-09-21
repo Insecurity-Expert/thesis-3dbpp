@@ -11,12 +11,14 @@ export default function LogisticsTab({
   setWolfSize,
   maxIter,
   setMaxIter,
-  fragilityConstraint,
-  setFragilityConstraint,
-  rotationConstraint,
-  setRotationConstraint,
-  lifoConstraint,
-  setLifoConstraint,
+  seed,
+  setSeed,
+  lam,
+  setLam,
+  enforceSupport,
+  setEnforceSupport,
+  enforceFragility,
+  setEnforceFragility,
   itemsList,
   setItemsList,
   setIsCustomized,
@@ -327,20 +329,34 @@ export default function LogisticsTab({
                 </div>
               </div>
               <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px" }}>
-                <label style={{ fontSize: "11px", fontWeight: "800", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>Constraints</label>
+                <label style={{ fontSize: "11px", fontWeight: "800", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>Decode-time constraints</label>
                 {[
-                  { label: "Fragility (LBS-based)", val: fragilityConstraint, set: setFragilityConstraint },
-                  { label: "Allow item rotation", val: rotationConstraint, set: setRotationConstraint },
-                  { label: "LIFO constraint", val: lifoConstraint, set: setLifoConstraint }
+                  { label: "Enforce stability (C5) at placement", val: enforceSupport, set: setEnforceSupport },
+                  { label: "Enforce fragility (C4) at placement", val: enforceFragility, set: setEnforceFragility },
                 ].map(({ label, val, set }) => (
                   <div className="switch-container" key={label}>
                     <span className="switch-label">{label}</span>
                     <label className="switch">
-                      <input type="checkbox" checked={val} onChange={(e) => { set(e.target.checked); setIsCustomized(true); }} />
+                      <input type="checkbox" checked={val} disabled={running} onChange={(e) => set(e.target.checked)} />
                       <span className="slider" />
                     </label>
                   </div>
                 ))}
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Penalty λ (all four)</label>
+                    <input type="number" step="0.05" min="0" value={lam} disabled={running}
+                      onChange={(e) => setLam(Number(e.target.value))}
+                      style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Seed</label>
+                    <input type="number" value={seed} disabled={running}
+                      onChange={(e) => setSeed(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="random"
+                      style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

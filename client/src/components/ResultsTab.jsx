@@ -107,6 +107,28 @@ export default function ResultsTab({
             );
           })()}
 
+          {/* Parameters the optimizer actually ran with — echoed by main_optimizer.py */}
+          {finalResult.params && (
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "16px 24px", boxShadow: "var(--shadow)" }}>
+              <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
+                Parameters used — as reported by the optimizer
+              </h4>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 22px", fontSize: "13px" }}>
+                {[
+                  ["Strategy", finalResult.params.strategy],
+                  ["Instance", `${finalResult.params.dataset} #${finalResult.params.instance_id}`],
+                  ["Pop size", finalResult.params.pop_size],
+                  ["Max iter", finalResult.params.max_iter],
+                  ["λ (C3 / C4 / C5 / C6)", [finalResult.params.lambda_w, finalResult.params.lambda_f, finalResult.params.lambda_b, finalResult.params.lambda_a].map((v) => v ?? "—").join(" / ")],
+                  ["Enforce C5 / C4", `${finalResult.params.enforce_support ? "on" : "off"} / ${finalResult.params.enforce_fragility ? "on" : "off"}`],
+                  ["Seed", finalResult.params.seed ?? "random"],
+                ].map(([k, v]) => (
+                  <span key={k}><span style={{ color: "var(--text-dim)" }}>{k}:</span> <b style={{ color: "var(--text-main)" }}>{String(v)}</b></span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Per-constraint compliance (M-2a..M-2d) — thesis strategies only */}
           {finalResult.metrics?.constraint_detail?.C3_weight_pct !== undefined && (() => {
             const cd = finalResult.metrics.constraint_detail;

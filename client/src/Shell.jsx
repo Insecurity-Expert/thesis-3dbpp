@@ -59,9 +59,11 @@ export default function Shell() {
   const setWolfSizeCustom = useCallback((v) => { setWolfSize(v); setPresetState("custom"); }, []);
   const setMaxIterCustom  = useCallback((v) => { setMaxIter(v);  setPresetState("custom"); }, []);
 
-  const [fragilityConstraint, setFragilityConstraint] = useState(false);
-  const [rotationConstraint, setRotationConstraint] = useState(true);
-  const [lifoConstraint, setLifoConstraint] = useState(false);
+  // Optimizer parameters that reach main_optimizer.py verbatim (see params echo)
+  const [seed, setSeed] = useState(42);
+  const [lam, setLam] = useState(0.20);
+  const [enforceSupport, setEnforceSupport] = useState(true);
+  const [enforceFragility, setEnforceFragility] = useState(true);
 
   // WebSocket & Live optimization run states
   const [wsConnected, setWsConnected] = useState(false);
@@ -247,7 +249,11 @@ export default function Shell() {
         break;
 
       case "run_closed":
-        if (msg.code !== 0) setError(`Optimizer process exited with code ${msg.code}`);
+        if (msg.code !== 0) {
+          setError((prev) => prev || (msg.error
+            ? `Optimizer exited with code ${msg.code}: ${msg.error}`
+            : `Optimizer process exited with code ${msg.code}`));
+        }
         setRunning(false);
         break;
 
@@ -333,6 +339,10 @@ export default function Shell() {
         strategy,
         popSize: wolfSize,
         maxIter,
+        lambda: lam,
+        enforceSupport,
+        enforceFragility,
+        seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
       }));
       setActiveTab("visualization");
       return;
@@ -362,7 +372,7 @@ export default function Shell() {
     wsRef.current.send(JSON.stringify({ action: "run", instancePath: runPath, maxTime, strategy }));
     setActiveTab("visualization");
   }, [selected, running, wsConnected, maxTime, isCustomized, containerSpecs, itemsList, strategy,
-      dataset, wtpackId, wolfSize, maxIter]);
+      dataset, wtpackId, wolfSize, maxIter, lam, enforceSupport, enforceFragility, seed]);
 
   const handleStopRun = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ action: "stop" }));
@@ -612,12 +622,14 @@ export default function Shell() {
           setWolfSize={setWolfSize}
           maxIter={maxIter}
           setMaxIter={setMaxIter}
-          fragilityConstraint={fragilityConstraint}
-          setFragilityConstraint={setFragilityConstraint}
-          rotationConstraint={rotationConstraint}
-          setRotationConstraint={setRotationConstraint}
-          lifoConstraint={lifoConstraint}
-          setLifoConstraint={setLifoConstraint}
+          seed={seed}
+          setSeed={setSeed}
+          lam={lam}
+          setLam={setLam}
+          enforceSupport={enforceSupport}
+          setEnforceSupport={setEnforceSupport}
+          enforceFragility={enforceFragility}
+          setEnforceFragility={setEnforceFragility}
           itemsList={itemsList}
           setItemsList={setItemsList}
           setIsCustomized={setIsCustomized}
