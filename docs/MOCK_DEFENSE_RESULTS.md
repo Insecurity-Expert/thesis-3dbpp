@@ -115,3 +115,45 @@ above the weight-sorted greedy on *both* metrics (+21.2 pp SU, +3.8 pp CSR).
 The "no configuration beats the greedy on both" verdict above is a
 pop 10 × 300 result. One seed; the five-seed campaign at pop 30 is what
 would make this claim citable.
+
+## Campaign-scale DGWO (pop 30 × 300, seeds 1–5)
+
+The five-seed check the pop-30 section above asked for. Same instance,
+λ = 0.20, both enforce flags on; `experiments/results/campaign_dgwo_i350_s{1..5}.json`.
+The five seeds ran as five concurrent processes, so wall-clock is again ≈ 2× idle.
+
+| seed | SU % | CSR % | C3 | C4 | C5 | C6 | placed /129 | wall s |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 82.16 | 64.71 | 92.16 | 100.00 | 100.00 | 71.57 | 102 | 266 |
+| 2 | 79.23 | 54.08 | 89.80 | 100.00 | 100.00 | 60.20 | 98 | 265 |
+| 3 | 80.47 | 68.69 | 90.91 | 100.00 | 100.00 | 73.74 | 99 | 268 |
+| 4 | 81.77 | 65.66 | 90.91 | 100.00 | 100.00 | 68.69 | 99 | 261 |
+| 5 | 84.38 | 60.58 | 90.38 | 100.00 | 100.00 | 65.38 | 104 | 261 |
+| **mean ± sd** | **81.60 ± 1.93** | **62.74 ± 5.64** | 90.83 ± 0.87 | 100.00 ± 0.00 | 100.00 ± 0.00 | 67.92 ± 5.33 | 100.40 ± 2.51 | 264 ± 3 |
+
+`tools/compare_validators.py`: independent validator agrees with
+`evaluate_constraints` on C3–C6 and the total for all 5 arrangements; C1, C2
+and orientation consistency hold in all 5.
+
+### Against the weight-descending greedy (SU 61.24 / CSR 63.16)
+
+| metric | mean − sd | greedy | clears? | seeds above greedy |
+|---|---|---|---|---|
+| SU | 79.67 | 61.24 | **yes** (+18.43 pp) | 5/5 |
+| CSR | 57.10 | 63.16 | **no** (-6.06 pp) | 3/5 |
+
+At the campaign setting DGWO clears the greedy on SU by a wide margin —
+every seed, and the lower end of the band by ~18 pp. On CSR it does
+**not**: the mean sits 0.42 pp below the greedy, the spread
+(sd 5.64) is larger than the margin, 3/5 seeds are above and
+mean − sd falls 6.06 pp below. The single-seed "beats the greedy on
+both" observation in the pop-30 section (seed 1, 500 iterations, CSR 67.0) was
+one seed landing on the high side of the CSR band. The defensible statement is: **at pop 30 × 300, DGWO beats
+the greedy decisively on utilisation and matches it on compliance (no
+significant difference across five seeds).** The pop-10 verdict
+"no configuration beats the greedy on both" is superseded for DGWO only in
+the sense that the CSR loss disappears; it is not converted into a win.
+
+Compared with the pop-10 × 300 row (73.61 ± 3.12 / 59.24 ± 1.95), tripling
+the population adds +7.99 pp SU and +3.50 pp CSR at ≈ 2× the
+wall-clock per iteration.

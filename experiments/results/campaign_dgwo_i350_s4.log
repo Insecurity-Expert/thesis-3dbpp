@@ -1,0 +1,2 @@
+[inst 350] DGWO   placed= 99/129 SU= 81.77% CSR= 65.66% C3= 90.91 C4=100.00 C5=100.00 C6= 68.69 budget_exhausted=False 260718ms
+wrote experiments/results/campaign_dgwo_i350_s4.json
