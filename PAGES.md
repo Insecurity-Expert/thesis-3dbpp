@@ -1,6 +1,6 @@
 # STACKR Page & Interface Documentation
 
-Welcome to the official frontend interface documentation for **STACKR** (Structural Three-dimensional Adaptive Constraint-aware pacKing with Routing). This guide details the structure, functionality, routes, and interactive components of the web application.
+Welcome to the official frontend interface documentation for **STACKR** (Structural Three-dimensional Adaptive Constraint-aware pacKing, Route-aware). This guide details the structure, functionality, routes, and interactive components of the web application.
 
 ---
 

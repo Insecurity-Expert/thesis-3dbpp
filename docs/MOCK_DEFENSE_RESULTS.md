@@ -23,15 +23,19 @@ once and were 2–6× slower.)
 
 ## Comparison table (pop 10 × 300, seeds 1–5, mean ± sd)
 
-| row | SU % | CSR % | C3 | C4 | C5 | C6 | placed /129 | wall s |
-|---|---|---|---|---|---|---|---|---|
-| **DGWO** | 73.44 ± 2.76 | 59.51 ± 7.53 | 87.93 ± 2.50 | 100.00 ± 0.00 | 100.00 ± 0.00 | 67.03 ± 7.75 | 92.0 ± 4.5 | 21 ± 3 |
-| **MOGWO** | 55.19 ± 2.14 | 74.33 ± 5.17 | 94.11 ± 1.19 | 100.00 ± 0.00 | 100.00 ± 0.00 | 77.26 ± 6.44 | 67.6 ± 3.0 | 20 ± 1 |
-| **SEQ** | 57.06 ± 3.27 | 68.91 ± 3.96 | 93.62 ± 3.67 | 100.00 ± 0.00 | 100.00 ± 0.00 | 70.85 ± 3.24 | 70.6 ± 4.5 | 21 ± 1 |
-| **REP** | 43.88 ± 1.79 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 | 56.4 ± 3.1 | 165 ± 17 |
-| weight-descending | 61.24 | 63.16 | 100.00 | 100.00 | 100.00 | 63.16 | 57 | 0.22 |
-| volume-descending | 61.24 | 63.16 | 100.00 | 100.00 | 100.00 | 63.16 | 57 | 0.00 |
-| random (30 orders) | 49.95 ± 4.59 | 45.19 ± 5.29 | 78.43 | 100.00 | 100.00 | 54.08 | 67.2 ± 5.9 | 0.00 |
+| row | SU % | CSR % (placed) | compliance, all boxes | C3 | C4 | C5 | C6 | placed /129 | wall s |
+|---|---|---|---|---|---|---|---|---|---|
+| **DGWO** | 73.44 ± 2.76 | 59.51 ± 7.53 | 42.33 ± 4.64 | 87.93 ± 2.50 | 100.00 ± 0.00 | 100.00 ± 0.00 | 67.03 ± 7.75 | 92.0 ± 4.5 | 21 ± 3 |
+| **MOGWO** | 55.19 ± 2.14 | 74.33 ± 5.17 | 38.91 ± 2.70 | 94.11 ± 1.19 | 100.00 ± 0.00 | 100.00 ± 0.00 | 77.26 ± 6.44 | 67.6 ± 3.0 | 20 ± 1 |
+| **SEQ** | 57.06 ± 3.27 | 68.91 ± 3.96 | 37.67 ± 2.62 | 93.62 ± 3.67 | 100.00 ± 0.00 | 100.00 ± 0.00 | 70.85 ± 3.24 | 70.6 ± 4.5 | 21 ± 1 |
+| **REP** | 43.88 ± 1.79 | 100.00 ± 0.00 | 43.72 ± 2.38 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 | 56.4 ± 3.1 | 165 ± 17 |
+| weight-descending | 61.24 | 63.16 | 27.91 | 100.00 | 100.00 | 100.00 | 63.16 | 57 | 0.22 |
+| volume-descending | 61.24 | 63.16 | 27.91 | 100.00 | 100.00 | 100.00 | 63.16 | 57 | 0.00 |
+| random (30 orders) | 49.95 ± 4.59 | 45.19 ± 5.29 | 23.44 ± 2.53 | 78.43 | 100.00 | 100.00 | 54.08 | 67.2 ± 5.9 | 0.00 |
+
+*Compliance, all boxes* = CSR × placed / n_items per run, then averaged: the
+denominator is all 129 boxes and an unplaced box counts as non-compliant
+(Chapter 3 definition); CSR's denominator is the placed boxes only.
 
 Independent validator: agrees with `evaluate_constraints` on C3–C6 and the
 total for all 61 arrangements (20 slide + 4 quick + 5 campaign + 32
@@ -47,18 +51,19 @@ with three box types, the heaviest type is also the largest.
 
 CSR (M-2) is computed over **placed** boxes. Chapter 3 defines compliance
 over **all n boxes**, unplaced counting as non-compliant; that figure is
-exactly CSR × placed / n and is shown beside CSR in the UI.
+exactly CSR × placed / n (per run, then averaged over seeds) and is shown
+beside CSR in the UI.
 
 | cfg | CSR (placed) | placed | compliance over all 129 |
 |---|---|---|---|
-| DGWO | 59.51 | 92.0 | **42.44** |
-| MOGWO | 74.33 | 67.6 | **38.95** |
-| SEQ | 68.91 | 70.6 | **37.71** |
+| DGWO | 59.51 | 92.0 | **42.33** |
+| MOGWO | 74.33 | 67.6 | **38.91** |
+| SEQ | 68.91 | 70.6 | **37.67** |
 | REP | 100.00 | 56.4 | **43.72** |
 | weight-descending | 63.16 | 57 | **27.91** |
 
 Under the all-box definition REP's 100 % becomes 43.7 % — still the
-highest, but only 1.3 pp ahead of DGWO (42.4 %), which reaches it by placing
+highest, but only 1.4 pp ahead of DGWO (42.3 %), which reaches it by placing
 36 more boxes at 59.5 % CSR. The greedy drops to 27.9 %.
 
 ## Verdict per configuration vs weight-descending (SU 61.24 / CSR 63.16)

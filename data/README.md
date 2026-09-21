@@ -28,8 +28,8 @@ bearing strength. *European Journal of Operational Research*, 168(3), 952–966.
 Beasley, J. E. (1990). OR-Library: distributing test problems by electronic
 mail. *Journal of the Operational Research Society*, 41(11), 1069–1072.
 
-Source URL: `TODO: source URL` (the OR-Library "wtpack" page; fill in the
-exact address from which these files were downloaded).
+Source URL: https://www.brunel.ac.uk/~mastjjb/jeb/orlib/conloadinfo.html
+(the OR-Library container-loading page, from which the wtpack files were downloaded).
 
 ## Augmentation applied at load time (not stored)
 

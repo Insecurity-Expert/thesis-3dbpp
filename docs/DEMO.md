@@ -1,4 +1,4 @@
-# GRAVITAS — live demo runbook
+# STACKR — live demo runbook
 
 Three-day-out checklist for demonstrating the four thesis configurations
 (DGWO, MOGWO, Sequential hybrid, Repair-based hybrid) on a real OR-Library
