@@ -1,12 +1,72 @@
 import React, { useState, useMemo, useCallback } from "react";
 import BinViewer from "../BinViewer";
 
+// Tiny inline SVG sparkline of best-so-far SU (and CSR) while a run streams.
+function Sparkline({ data, maxIter }) {
+  const W = 520, H = 120, P = 6;
+  const pts = (data || []).filter((d) => d.su !== undefined && d.su !== null);
+  if (pts.length < 2) return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--text-dim)" }}>Waiting for the first iterations…</div>;
+  const n = Math.max(maxIter || 0, pts[pts.length - 1].iter || pts.length);
+  const x = (it) => P + ((it - 1) / Math.max(n - 1, 1)) * (W - 2 * P);
+  const y = (v) => H - P - Math.max(0, Math.min(1, v)) * (H - 2 * P);
+  const su = pts.map((d) => `${x(d.iter).toFixed(1)},${y(d.su).toFixed(1)}`).join(" ");
+  const csr = pts.filter((d) => d.csr !== undefined && d.csr !== null).map((d) => `${x(d.iter).toFixed(1)},${y(d.csr / 100).toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} aria-label="live convergence">
+      {[0.25, 0.5, 0.75].map((g) => <line key={g} x1={P} x2={W - P} y1={y(g)} y2={y(g)} stroke="var(--border)" strokeDasharray="3 4" />)}
+      {csr && <polyline points={csr} fill="none" stroke="var(--green)" strokeWidth="1.5" opacity="0.8" />}
+      <polyline points={su} fill="none" stroke="var(--primary)" strokeWidth="2" />
+    </svg>
+  );
+}
+
+// Shown in the viewport while a thesis strategy runs: they stream metrics,
+// not partial packings, so there is nothing to draw until instance_complete.
+function LiveProgress({ stats, chartData }) {
+  const it = stats?.iteration ?? 0, n = stats?.maxIter ?? 0;
+  const pct = n ? Math.min(100, (it / n) * 100) : 0;
+  const fmt = (v, d = 1) => (v === undefined || v === null ? "—" : Number(v).toFixed(d));
+  return (
+    <div style={{ minHeight: "450px", display: "flex", flexDirection: "column", gap: "18px", padding: "24px", background: "var(--bg-input)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 700, color: "var(--text-main)", marginBottom: "8px" }}>
+          <span>Optimizing — iteration {it} / {n || "…"}</span>
+          <span style={{ color: "var(--text-dim)", fontWeight: 500 }}>{stats?.phase ? String(stats.phase) : "searching"}</span>
+        </div>
+        <div className="bar"><div style={{ width: `${pct}%`, background: "var(--primary)" }} /></div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+        {[
+          ["Best SU so far", stats?.su !== undefined && stats?.su !== null ? `${fmt(stats.su * 100)}%` : "—"],
+          ["Best CSR so far", stats?.csr !== undefined && stats?.csr !== null ? `${fmt(stats.csr)}%` : "—"],
+          ["Best placed", stats?.placed ?? "—"],
+        ].map(([k, v]) => (
+          <div key={k} className="stat-chip" style={{ padding: "14px 16px" }}>
+            <div className="stat-chip-label">{k}</div>
+            <div className="stat-chip-value" style={{ fontSize: "24px", color: "var(--primary)" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)", marginBottom: "6px" }}>
+          <span>Live convergence</span>
+          <span><span style={{ color: "var(--primary)" }}>■</span> SU &nbsp;<span style={{ color: "var(--green)" }}>■</span> CSR</span>
+        </div>
+        <Sparkline data={chartData} maxIter={n} />
+      </div>
+      <p style={{ fontSize: "12px", color: "var(--text-dim)", margin: 0 }}>The 3-D packing appears here when the run completes; thesis strategies stream metrics, not partial layouts.</p>
+    </div>
+  );
+}
+
 export default function VisualizationTab({
   placements,
   itemsList,
   instanceInfo,
   binsUsed,
-  running
+  running,
+  stats,
+  chartData
 }) {
   // Visualization Control states (encapsulated locally)
   const [viewportOrientation, setViewportOrientation] = useState("3D");
@@ -232,6 +292,8 @@ export default function VisualizationTab({
               }
             }}
           />
+        ) : running ? (
+          <LiveProgress stats={stats} chartData={chartData} />
         ) : (
           <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>

@@ -12,6 +12,8 @@ function formatDate(dateStr) {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
+// Chapter 3 compliance: over all n boxes, unplaced = non-compliant. Exact from the stored ratio.
+const allBoxCompliance = (run) => (run.csr == null || run.placed == null || !run.n_items) ? null : run.csr * run.placed / run.n_items;
 const fmtPct = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? "—" : `${Number(v).toFixed(2)}%`);
 
 // Inline, click-to-edit label cell.
@@ -148,7 +150,8 @@ export default function RunHistoryTab({
                   <th>Strategy</th>
                   <th style={{ textAlign: "right" }}>Seed</th>
                   <th style={{ textAlign: "right" }}>SU</th>
-                  <th style={{ textAlign: "right" }}>CSR</th>
+                  <th style={{ textAlign: "right" }} title="CSR over placed boxes: boxes actually placed are the denominator">CSR (placed)</th>
+                  <th style={{ textAlign: "right" }} title="Compliance over all n boxes: unplaced boxes count as non-compliant (= CSR × placed / n)">All-box</th>
                   <th style={{ textAlign: "right" }}>Placed</th>
                   <th style={{ textAlign: "right" }}>Runtime</th>
                   <th style={{ textAlign: "right" }}>Completed</th>
@@ -171,7 +174,8 @@ export default function RunHistoryTab({
                       </td>
                       <td style={{ textAlign: "right" }}>{run.seed ?? "—"}</td>
                       <td style={{ textAlign: "right", fontWeight: 600, color: "var(--green)" }}>{fmtPct(run.space_util)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtPct(run.csr)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }} title="Denominator: placed boxes">{fmtPct(run.csr)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }} title="Denominator: all boxes (= CSR × placed / n)">{fmtPct(allBoxCompliance(run))}</td>
                       <td style={{ textAlign: "right" }}>{run.placed ?? "—"}{run.n_items ? ` / ${run.n_items}` : ""}</td>
                       <td style={{ textAlign: "right" }}>{run.runtime_s != null ? `${Number(run.runtime_s).toFixed(1)}s` : "—"}</td>
                       <td style={{ textAlign: "right", color: "var(--text-dim)" }}>{formatDate(run.created_at)}</td>

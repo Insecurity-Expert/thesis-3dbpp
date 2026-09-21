@@ -500,11 +500,11 @@ export default function LogisticsTab({
                 </p>
               </div>
 
-              {/* Dataset toggle: wtpack (thesis, real physics) vs legacy BR JSON */}
+              {/* Dataset toggle. The BR JSON data was removed from the repo, so only
+                  wtpack is offered; the legacy server path is untouched. */}
               <div className="tabs-inline grow" style={{ marginBottom: "14px" }}>
                 {[
                   { key: "wtpack", label: "OR-Library wtpack (thesis)" },
-                  { key: "br",     label: "BR JSON (legacy)" },
                 ].map((d) => (
                   <button
                     key={d.key}

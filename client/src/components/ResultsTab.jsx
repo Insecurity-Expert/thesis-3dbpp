@@ -1,9 +1,9 @@
 import React from "react";
 import ConvergenceChart from "./ConvergenceChart";
 
-function StatChip({ label, value, color, subtitle }) {
+function StatChip({ label, value, color, subtitle, title }) {
   return (
-    <div className="stat-chip">
+    <div className="stat-chip" title={title}>
       <div className="stat-chip-label">{label}</div>
       <div className="stat-chip-value" style={{ color: color || "var(--primary)" }}>{value}</div>
       {subtitle && <div className="stat-chip-sub">{subtitle}</div>}
@@ -107,10 +107,18 @@ export default function ResultsTab({
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
                 <StatChip label="Space Utilization (M-1)" value={`${m.M1_space_utilization_pct.toFixed(1)}%`} color="var(--primary)" subtitle="single container, OF-1" />
                 <StatChip
-                  label="Constraint satisfaction (M-2)"
+                  label="CSR (placed boxes, M-2)"
                   value={`${m.M2_constraint_satisfaction_pct.toFixed(1)}%`}
                   color={isRepair ? "var(--text-muted)" : m.M2_constraint_satisfaction_pct >= 99.99 ? "var(--green)" : "var(--amber)"}
                   subtitle={isRepair ? "100% by construction (repair R1–R5)" : "placed boxes satisfying C3–C6"}
+                  title="Denominator: boxes actually placed in the container. Unplaced boxes are not counted."
+                />
+                <StatChip
+                  label="Compliance over all boxes"
+                  value={`${(m.M2_constraint_satisfaction_pct * placed / Math.max(total, 1)).toFixed(1)}%`}
+                  color={m.M2_constraint_satisfaction_pct * placed / Math.max(total, 1) >= 99.99 ? "var(--green)" : "var(--amber)"}
+                  subtitle={`= CSR × ${placed} / ${total} (Ch. 3 definition)`}
+                  title="Denominator: all n boxes of the instance. A box left unplaced counts as non-compliant. Exact: CSR × placed / n."
                 />
                 <StatChip label="Boxes placed" value={`${placed} / ${total}`} color={placed === total ? "var(--green)" : "var(--amber)"} subtitle={`${(100 * placed / Math.max(total, 1)).toFixed(0)}% of the load`} />
                 <StatChip label="Execution time (M-3)" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`pop ${shownPop ?? "—"} × ${shownIter} iterations`} />

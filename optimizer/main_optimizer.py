@@ -123,7 +123,9 @@ def main():
 
     print(f"Instance  : {args.instance_path} ({args.dataset})", file=sys.stderr, flush=True)
     print(f"Container : {container}", file=sys.stderr, flush=True)
-    print(f"Items     : {n}  (lower bound: {lb} bin(s))",
+    # Single-container formulation on the wtpack path: no bins to lower-bound.
+    print(f"Items     : {n}  (single container)" if args.dataset == "wtpack"
+          else f"Items     : {n}  (lower bound: {lb} bin(s))",
           file=sys.stderr, flush=True)
 
     # ── Parameters actually used ───────────────────────────────────────────────

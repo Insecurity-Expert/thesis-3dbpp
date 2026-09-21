@@ -91,6 +91,7 @@ export default function Shell() {
   const handlerRef = useRef(() => {});   // latest handleMessage; the socket never captures a stale one
   const closingRef = useRef(false);      // set on unmount so onclose does not schedule a reconnect
   const chartRef = useRef([]);           // mirror of chartData for saveRun (no dep on state)
+  const runningRef = useRef(false);      // mirror of running for the socket's onclose
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -276,7 +277,8 @@ export default function Shell() {
 
       case "error":
         setError(msg.error);
-        setRunning(false);
+        // A rejected duplicate "run" does not end the run that is in progress.
+        if (msg.code !== "run_in_progress") setRunning(false);
         break;
 
       default:
@@ -286,6 +288,7 @@ export default function Shell() {
 
   // Keep the latest message handler reachable from the (single) socket.
   useEffect(() => { handlerRef.current = handleMessage; }, [handleMessage]);
+  useEffect(() => { runningRef.current = running; }, [running]);
 
   // Connect once on mount. `connect` has no dependencies on purpose: a
   // strategy change used to recreate it, close the socket and leave a stale
@@ -299,6 +302,12 @@ export default function Shell() {
     ws.onclose = () => {
       setWsConnected(false);
       if (wsRef.current === ws) wsRef.current = null;
+      // The server kills the Python child when a socket drops, and no
+      // run_closed can reach us over a dead socket — so report it here.
+      if (runningRef.current && !closingRef.current) {
+        setRunning(false);
+        setError("Connection lost — the server stopped this run. Please re-run it.");
+      }
       if (!closingRef.current) reconnectRef.current = setTimeout(connect, 3000);
     };
     ws.onerror = () => {};
@@ -739,6 +748,8 @@ export default function Shell() {
           instanceInfo={instanceInfo}
           binsUsed={binsUsed}
           running={running}
+          stats={stats}
+          chartData={chartData}
         />
       )}
 

@@ -87,6 +87,7 @@ const wss = new WebSocket.Server({ port: WS_PORT });
 wss.on("connection", (ws) => {
   console.log("WS client connected");
   let childProc = null;
+  let childInfo = null;   // { strategy, instance } of the live child, for log lines
 
   function send(obj) {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
@@ -104,7 +105,12 @@ wss.on("connection", (ws) => {
     try { msg = JSON.parse(raw); } catch { return; }
 
     if (msg.action === "run") {
-      killChild(); // abort any prior run for this connection
+      // One live child per connection: a second "run" while one is in
+      // progress is rejected, never silently restarted.
+      if (childProc) {
+        send({ type: "error", code: "run_in_progress", error: "A run is already in progress." });
+        return;
+      }
 
       const pyStrategy = STRATEGY_MAP[msg.strategy] || "SEQ";
       const maxTime = Math.min(Number(msg.maxTime) || 90, 300);
@@ -166,6 +172,7 @@ wss.on("connection", (ws) => {
         argv: argv.slice(1),
       };
       childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
+      childInfo = { strategy: spawned.strategy, instance: spawned.instance };
 
       // Keep the tail of stderr so a Python traceback can travel to the UI
       // with run_closed instead of dying as a bare exit code.
@@ -230,6 +237,9 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     console.log("WS client disconnected");
+    if (childProc && childInfo) {
+      console.log(`run aborted: client disconnected (strategy ${childInfo.strategy}, instance ${childInfo.instance})`);
+    }
     killChild();
   });
 });
