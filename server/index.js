@@ -280,8 +280,10 @@ app.get("/api/instances", (req, res) => {
         fragile_rate:  c.fragile_rate,
         fragile_count: c.fragile_count,
         container:     c.container,
-        label: c.br_class + " \u2014 instance " + c.instance_id + " \u2014 " + c.n_boxes +
-               " boxes \u2014 " + Math.round(c.fragile_rate * 100) + "% fragile",
+        // Labelled by heterogeneity (the BR class = number of box TYPES); the
+        // instance's actual box count is secondary and never the class label.
+        label: c.br_class + " \u2014 " + c.n_types + " box types \u2014 instance " + c.instance_id +
+               " (" + c.n_boxes + " boxes, " + Math.round(c.fragile_rate * 100) + "% fragile)",
       }));
       return res.json({ dataset: "wtpack", seed: prov.seed, count: instances.length, instances });
     } catch (err) {
