@@ -38,6 +38,17 @@ The compiled kernels are cached on disk (`optimizer/__pycache__/*.nbi/.nbc`),
 so after the first ever start this is fast. **Do not delete `__pycache__`
 before the demo** — the first run would then pay ~5 s of compilation.
 
+## 1b. Morning-of check (30 s)
+
+```bash
+python tools/demo_check.py
+```
+
+Reruns DGWO at the Quick preset, seed 42, and compares SU / CSR / placed
+exactly against the recorded slide reference (`experiments/results/quick_i350_s42.json`).
+`PASS` means the machine reproduces the numbers on the slides. `FAIL` means
+code, data or the numba cache changed — do not demo until it passes.
+
 ## 2. Log in and reach the app
 
 Open http://localhost:3000, register any account (cookie auth, local SQLite),
@@ -68,38 +79,37 @@ Fragile boxes are drawn with an **amber edge outline** on top of their normal
 colour. The *Filter by type → Fragile* toggle isolates them. Hovering a box
 shows its stop and fragility.
 
-## 5. Measured durations (instance 350, i5-1235U laptop, 12 threads)
+## 5. Measured durations (instance 350, i5-1235U laptop)
 
-Optimizer runtime (M-3, reported in the Results tab). Add roughly 10–20 s on
-top for streaming and rendering in the browser.
+Optimizer runtime (M-3). Quick-preset rows from `experiments/results/quick_i350_s42.json`
+(seed 42, run alongside five other processes); Standard rows from
+`slide_i350_s{1..5}.json` (mean ± sd over seeds 1–5, six concurrent
+processes). Idle single-process times are roughly half. Add ~10 s in the
+browser for streaming and rendering.
 
 | preset | pop × iter | DGWO | MOGWO | Sequential | Repair-based |
 |---|---|---|---|---|---|
-| **Quick demo** | 10 × 60 | 24 s | 26 s | 24 s | **146 s (2.5 min)** |
-| Standard | 10 × 300 | 149 s | 160 s | 138 s | est. ~27 min |
+| **Quick demo** (seed 42) | 10 × 60 | 27 s | 22 s | 20 s | **202 s** |
+| Standard (slide runs) | 10 × 300 | 127 ± 7 s | 126 ± 2 s | 70 ± 10 s | **603 ± 31 s** |
 | Full | 30 × 500 | est. ~12 min | est. ~13 min | est. ~11 min | **est. ~2.5 h — do not run live** |
-| *custom, for a live REP* | 5 × 15 | — | — | — | **29 s** (SU 32.8%, CSR 100%) |
-| *custom* | 5 × 30 | — | — | — | 66 s (SU 32.9%, CSR 100%) |
+| *custom, for a faster live REP* | 5 × 15 | — | — | — | ~30 s |
 
-Quick and Standard rows are measured (`runtime_s`, seed 1). Full rows are
-extrapolated from per-iteration cost × 3 for pop 30; nobody has run them.
-
-Timings vary ±2× on this laptop with thermal/power state; Quick-demo DGWO
-measured 19.8 s and 29.9 s on consecutive runs.
+The values the audience will see at the Quick preset, seed 42, are in
+`docs/MOCK_DEFENSE_RESULTS.md` ("Live demo reference"); `tools/demo_check.py`
+confirms DGWO's row before the session.
 
 ### Repair-based is the slow one
 
-Repair (R1–R5) runs on every candidate every iteration and is ~10× the cost
-of the other three per iteration. **At the Quick preset it takes ~2.5 min**,
-which is too long to stand in front of. Options for the live session:
+Repair (R1–R5) runs on every candidate every iteration. **At the Quick
+preset it takes ~3.5 min** on this machine, which is long to stand in front
+of. Options for the live session:
 
 1. Run it *first*, before the audience arrives, and show its Results / Run
    history entry (the run persists).
 2. Use a custom setting: type **5** in Wolf pack size and **15** in Max
-   iterations (the preset flips to *Custom*). See the small-REP row below for
-   the measured time. It still reaches CSR = 100% by construction; SU is lower.
+   iterations (the preset flips to *Custom*, ~30 s). It still reaches
+   CSR = 100% by construction; SU is lower.
 3. Skip it live and speak to the "100% by construction" panel.
-
 
 ## 6. Smoke test — each configuration once at Quick demo, seed 42
 

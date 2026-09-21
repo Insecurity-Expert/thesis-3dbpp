@@ -1,0 +1,5 @@
+[inst 350] DGWO   placed= 93/129 SU= 73.73% CSR= 60.22% C3= 90.32 C4=100.00 C5=100.00 C6= 63.44 budget_exhausted=False 129004ms
+[inst 350] MOGWO  placed= 63/129 SU= 50.45% CSR= 73.02% C3= 92.06 C4=100.00 C5=100.00 C6= 77.78 budget_exhausted=False 124728ms
+[inst 350] REP    placed= 53/129 SU= 45.14% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 589481ms
+[inst 350] SEQ    placed= 69/129 SU= 55.51% CSR= 68.12% C3= 92.75 C4=100.00 C5=100.00 C6= 69.57 budget_exhausted=False 75394ms
+wrote experiments/results/slide_i350_s3.json
