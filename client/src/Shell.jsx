@@ -84,6 +84,9 @@ export default function Shell() {
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
+  const handlerRef = useRef(() => {});   // latest handleMessage; the socket never captures a stale one
+  const closingRef = useRef(false);      // set on unmount so onclose does not schedule a reconnect
+  const chartRef = useRef([]);           // mirror of chartData for saveRun (no dep on state)
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -205,7 +208,9 @@ export default function Shell() {
             csr: msg.best_csr,
             placed: msg.best_placed,
           }];
-          return next.length > 600 ? next.slice(-600) : next;
+          const kept = next.length > 600 ? next.slice(-600) : next;
+          chartRef.current = kept;
+          return kept;
         });
         setStats({
           iteration: msg.iteration,
@@ -228,19 +233,27 @@ export default function Shell() {
         setBinsUsed(msg.bins_used);
         setFinalResult(msg);
         setRunning(false);
-        // Persist run details
+        // Persist run details. Every field comes from the message (the server
+        // stamps strategy/spawn from the process it actually launched) — never
+        // from React state, which can be stale on a reconnected socket.
         runsApi.saveRun({
-          strategy: strategy,
-          instance: isCustomized ? "custom.json"
-                  : msg.dataset === "wtpack" ? `wtpack #${msg.instance}`
+          strategy: msg.strategy_label || msg.strategy || msg.params?.strategy || "unknown",
+          strategy_code: msg.strategy || msg.params?.strategy || null,
+          instance: msg.dataset === "wtpack" ? `wtpack #${msg.instance}`
                   : String(msg.instance).split(/[\\/]/).pop(),
+          dataset: msg.dataset ?? null,
+          seed: msg.seed ?? msg.params?.seed ?? null,
           n_items: msg.n_items,
           space_util: msg.metrics?.M1_space_utilization_pct || msg.volume_util_pct,
+          csr: msg.metrics?.M2_constraint_satisfaction_pct ?? null,
+          placed: msg.placed ?? (msg.items ? msg.items.length : null),
           dissipation: msg.dissipation,
           runtime_s: msg.runtime_s,
           bins_used: msg.bins_used,
           placements: msg.items,
-          container: msg.container
+          container: msg.container,
+          result: msg,
+          convergence: chartRef.current,
         }).then(() => fetchRunHistory()).catch(() => {});
         break;
 
@@ -265,43 +278,42 @@ export default function Shell() {
       default:
         break;
     }
-  }, [strategy, isCustomized, fetchRunHistory]);
+  }, [fetchRunHistory]);
 
+  // Keep the latest message handler reachable from the (single) socket.
+  useEffect(() => { handlerRef.current = handleMessage; }, [handleMessage]);
+
+  // Connect once on mount. `connect` has no dependencies on purpose: a
+  // strategy change used to recreate it, close the socket and leave a stale
+  // reconnect timer whose socket delivered completions to an old handler.
   const connect = useCallback(() => {
+    if (closingRef.current) return;
     const ws = new WebSocket("ws://localhost:3002");
     wsRef.current = ws;
 
     ws.onopen = () => setWsConnected(true);
     ws.onclose = () => {
       setWsConnected(false);
-      reconnectRef.current = setTimeout(connect, 3000);
+      if (wsRef.current === ws) wsRef.current = null;
+      if (!closingRef.current) reconnectRef.current = setTimeout(connect, 3000);
     };
     ws.onerror = () => {};
     ws.onmessage = (e) => {
       try {
-        handleMessage(JSON.parse(e.data));
+        handlerRef.current(JSON.parse(e.data));
       } catch {}
     };
-  }, [handleMessage]);
+  }, []);
 
   useEffect(() => {
+    closingRef.current = false;
     connect();
     return () => {
+      closingRef.current = true;
       clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
   }, [connect]);
-
-  // Keep WebSocket message callback fresh
-  useEffect(() => {
-    if (wsRef.current) {
-      wsRef.current.onmessage = (e) => {
-        try {
-          handleMessage(JSON.parse(e.data));
-        } catch {}
-      };
-    }
-  }, [handleMessage]);
 
   // Run timer
   useEffect(() => {
@@ -321,6 +333,7 @@ export default function Shell() {
     setPlacements(null);
     setBinsUsed(0);
     setChartData([]);
+    chartRef.current = [];
     setStats(null);
     setFinalResult(null);
     setError(null);

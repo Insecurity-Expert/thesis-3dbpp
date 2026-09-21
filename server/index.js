@@ -24,6 +24,8 @@ const STRATEGY_MAP = {
   "Repair-based": "REP", "REP": "REP",
   "HDGWO": "HDGWO",
 };
+// Reverse map: the UI label for a spawned strategy code (kept for run history rows).
+const STRATEGY_LABEL = { DGWO: "DGWO", MOGWO: "MOGWO", SEQ: "Sequential", REP: "Repair-based", HDGWO: "HDGWO" };
 
 // numba compiles on first use (1-2 s, cached to disk after the first ever run).
 // Pay that cost at server start, not in front of an audience.
@@ -150,6 +152,19 @@ wss.on("connection", (ws) => {
       }
 
       console.log("PY spawn:", argv.slice(1).join(" "));
+      const spawned = {
+        strategy: pyStrategy,
+        strategy_label: STRATEGY_LABEL[pyStrategy] || pyStrategy,
+        dataset: msg.dataset === "wtpack" ? "wtpack" : "br",
+        instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : msg.instancePath,
+        pop_size: msg.dataset === "wtpack" ? Math.min(Math.max(Number(msg.popSize) || 10, 3), 60) : null,
+        max_iter: msg.dataset === "wtpack" ? Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000) : null,
+        lambda: msg.lambda !== undefined ? Number(msg.lambda) : null,
+        enforce_support: msg.enforceSupport !== false,
+        enforce_fragility: msg.enforceFragility !== false,
+        seed: msg.seed !== undefined && msg.seed !== null ? Number(msg.seed) : null,
+        argv: argv.slice(1),
+      };
       childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
 
       // Keep the tail of stderr so a Python traceback can travel to the UI
@@ -172,6 +187,14 @@ wss.on("connection", (ws) => {
           return;
         }
         if (msg && msg.type === "error") lastError = msg.error;
+        if (msg && msg.type === "instance_complete") {
+          // Ground truth for run history: what THIS process was spawned with,
+          // not whatever the UI's strategy state happens to be when the
+          // message lands (a stale socket once saved a REP run as Sequential).
+          msg.strategy = spawned.strategy;
+          msg.strategy_label = spawned.strategy_label;
+          msg.spawn = spawned;
+        }
         send(msg);
       });
 
