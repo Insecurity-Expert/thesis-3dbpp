@@ -7,6 +7,7 @@ const readline  = require("readline");
 const WebSocket = require("ws");
 const cookieParser = require("cookie-parser");
 const { router: authRouter } = require("./auth");
+const { router: studiesRouter } = require("./studies");
 
 const app     = express();
 const PORT    = 3001;
@@ -59,6 +60,7 @@ app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRouter);
+app.use("/api/studies", studiesRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WebSocket server (port 3002)

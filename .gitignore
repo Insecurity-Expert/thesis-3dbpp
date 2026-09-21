@@ -38,3 +38,7 @@ experiments/runs/
 !experiments/results/*.csv
 .claude/
 server/data/
+# SOP studies: the two precomputed studies are committed; UI-launched ones and logs are not
+experiments/results/studies/*
+!experiments/results/studies/studyA_*.json
+!experiments/results/studies/studyB_*.json
