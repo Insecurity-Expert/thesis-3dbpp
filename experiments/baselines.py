@@ -88,7 +88,7 @@ def main():
                          'best_by_su': best, 'runs': runs}
 
     out = {
-        'instance': args.instance, 'n_items': n, 'container': container,
+        'instance': args.instance, 'stop_seed': args.stop_seed, 'n_items': n, 'container': container,
         'orientation_rule': 'first allowed orientation code per box (no orientation search)',
         'enforce_support': args.enforce_support, 'enforce_fragility': args.enforce_fragility,
         'evaluator': 'thesis_metrics.evaluate_constraints (same as the optimizer)',
