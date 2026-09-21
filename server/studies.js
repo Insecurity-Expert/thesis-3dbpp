@@ -25,23 +25,26 @@ const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
+const STANDARD_ESTIMATE_S = 60 * 60;   // replaced by the Study A measurement below
 if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 
-// The three sizes of the "Full Comparison" picker. Per-run seconds are
-// MEASURED on the demo laptop (i5-1235U, 12 threads) by experiments/study.py:
-// serial Quick ≈ DGWO 4 s, MOGWO 4 s, SEQ 4 s, REP 30 s (+ ~3 s process
-// start each); parallel runs share the CPU (~1.5-2x slower per run).
-// DEMO_SEEDS is the count that keeps the demo under the 3-minute target.
-const DEMO_SEEDS = Number(process.env.STACKR_DEMO_SEEDS || 10);
+// The three sizes of the "Full Comparison" picker. Estimates are MEASURED on
+// the demo laptop (i5-1235U, 2P+8E cores, 12 threads) by experiments/study.py:
+//   serial Quick per run: DGWO ~4 s, MOGWO ~4 s, SEQ ~4 s, REP ~30 s (+ ~3 s process start)
+//   Demo (Quick, parallel): 5 seeds x 4 with 6 workers = 150 s wall (6 seeds/8 workers = 176 s,
+//   10 seeds/10 workers = 277 s) - concurrent REP runs slow each other ~3x, so 5 seeds is
+//   what fits the 3-minute target.
+//   Study B (serial, 320 runs): 11146 s wall on a machine that was also in use; ~75 min idle.
+const DEMO_SEEDS = Number(process.env.STACKR_DEMO_SEEDS || 5);
 const SIZES = {
-  demo:     { name: "Demo study",           preset: "quick",    mode: "parallel", seeds: `1-${DEMO_SEEDS}`, instanceId: 350,
-              runs: 4 * DEMO_SEEDS, estimate_s: 150,
+  demo:     { name: "Demo study",           preset: "quick",    mode: "parallel", seeds: `1-${DEMO_SEEDS}`, instanceId: 350, workers: 6,
+              runs: 4 * DEMO_SEEDS, estimate_s: 160,
               blurb: `one instance, Quick preset, ${DEMO_SEEDS} seeds x 4 configurations, run in parallel` },
-  standard: { name: "Standard study (Study A)", preset: "standard", mode: "parallel", seeds: "1-30", instanceId: 350,
-              runs: 120, estimate_s: 25 * 60,
+  standard: { name: "Standard study (Study A)", preset: "standard", mode: "parallel", seeds: "1-30", instanceId: 350, workers: 10,
+              runs: 120, estimate_s: STANDARD_ESTIMATE_S,
               blurb: "instance 350, Standard preset (10 x 300), seeds 1-30 x 4 configurations, run in parallel" },
-  multi:    { name: "Multi-instance study (Study B)", preset: "quick", mode: "serial", seeds: "1-10", sample: SAMPLE8,
-              runs: 320, estimate_s: 80 * 60,
+  multi:    { name: "Multi-instance study (Study B)", preset: "quick", mode: "serial", seeds: "1-10", sample: SAMPLE8, workers: 1,
+              runs: 320, estimate_s: 90 * 60,
               blurb: "8 instances (BR1-BR7), Quick preset, seeds 1-10 x 4 configurations, run one at a time (timing valid)" },
 };
 
@@ -194,7 +197,8 @@ router.post("/", authRequired, (req, res) => {
   if (customLoad) argv.push("--custom-load", customLoad);
   else if (sample && !Number.isInteger(instanceId)) argv.push("--sample", sample);
   else argv.push("--instance", String(instanceId));
-  if (b.workers && Number.isInteger(Number(b.workers))) argv.push("--workers", String(Math.min(Math.max(Number(b.workers), 1), 32)));
+  const workers = b.workers && Number.isInteger(Number(b.workers)) ? Number(b.workers) : def.workers;
+  if (workers) argv.push("--workers", String(Math.min(Math.max(workers, 1), 32)));
 
   // Detached: its own process group, stdio to a log file, not tied to this
   // request or any socket. Progress is polled from <out>.progress.json.

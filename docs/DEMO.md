@@ -154,3 +154,25 @@ removed.
   is present but the list is empty.
 - `/api/instance-details` (per-item preview) is BR-only; the wtpack path shows
   provenance (class, container, box count, fragile share) instead of a table.
+
+## 9. Full Comparison (SOP studies)
+
+Logistics → **Two ways to run this** → *Full Comparison*. Three sizes, all
+genuinely run by `experiments/study.py` as a detached job (it survives a
+page reload or a dropped socket; progress is polled from
+`<study>.json.progress.json`):
+
+| size | what | measured on this laptop |
+|---|---|---|
+| Demo | instance 350, Quick, seeds 1–5 × 4 configurations, 6 parallel workers | **150 s wall** (6 seeds / 8 workers = 176 s, 10 seeds / 10 workers = 277 s — concurrent REP runs slow each other ~3×, so 5 seeds is what fits the 3-minute target) |
+| Standard (Study A) | instance 350, Standard (10 × 300), seeds 1–30, parallel | see `docs/STUDIES.md` |
+| Multi-instance (Study B) | `sample8_seed42.json` (BR1–BR7), Quick, seeds 1–10, **serial** | 11 146 s wall on a machine that was also in use (~75 min idle) |
+
+Studies A and B are precomputed in `experiments/results/studies/` and appear
+under *Import a precomputed study*. A fresh database shows no studies and
+every Results / Compare screen shows an empty state.
+
+For the live session: run the **Demo** study (≤ 3 min, shows live progress
+per configuration, then SP1 and SP2); open the imported **Study B** for
+SP3, the composite ranking and the recommendation. Timing in a parallel
+study is flagged *concurrent — not valid for SP3* and is not tested.
