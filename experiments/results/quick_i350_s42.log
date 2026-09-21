@@ -1,0 +1,2 @@
+[inst 350] DGWO   placed= 81/129 SU= 62.40% CSR= 50.62% C3= 85.19 C4= 98.77 C5=100.00 C6= 58.02 budget_exhausted=False 27081ms
+[inst 350] MOGWO  placed= 64/129 SU= 49.83% CSR= 68.75% C3= 89.06 C4=100.00 C5=100.00 C6= 75.00 budget_exhausted=False 21958ms
