@@ -43,7 +43,10 @@ export default function LogisticsTab({
   setPreset = () => {},
   setWolfSizeCustom,
   setMaxIterCustom,
-  optimizerReady = { state: "cold" }
+  optimizerReady = { state: "cold" },
+  // SOP: the locked "Test settings" panel and the Full Comparison launcher (Shell builds both)
+  testSettings = null,
+  studyLauncher = null,
 }) {
   const onWolfSize = setWolfSizeCustom || setWolfSize;
   const onMaxIter  = setMaxIterCustom  || setMaxIter;
@@ -348,6 +351,8 @@ export default function LogisticsTab({
               </div>
             </div>
           </div>
+
+          {testSettings}
         </div>
 
         {/* ── Right Main Panel ── */}
@@ -636,6 +641,15 @@ export default function LogisticsTab({
         </div>
       </div>
 
+      {/* ── Two ways to run this ── */}
+      <div>
+        <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--text-main)", marginBottom: 4 }}>Two ways to run this</h4>
+        <p style={{ fontSize: 12.5, color: "var(--text-dim)", marginBottom: 14 }}>
+          <b>Quick Test</b> — a single run of the configuration you picked, with the 3D viewer (the bar below). <b>Full Comparison</b> — all four configurations, many runs each, then the Chapter 3 statistics.
+        </p>
+        {studyLauncher}
+      </div>
+
       {/* ── Bottom Status bar ── */}
       <div style={{
         background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px",
@@ -686,7 +700,7 @@ export default function LogisticsTab({
               className="btn btn-primary"
               style={{ padding: "10px 24px", fontSize: "14px", whiteSpace: "nowrap" }}
             >
-              Run optimizer
+              Quick Test — run optimizer
             </button>
           ) : (
             <>

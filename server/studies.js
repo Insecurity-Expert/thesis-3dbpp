@@ -16,7 +16,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
 const db = require("./db");
 const { authRequired } = require("./auth");
 
@@ -44,6 +44,20 @@ const SIZES = {
               runs: 320, estimate_s: 80 * 60,
               blurb: "8 instances (BR1-BR7), Quick preset, seeds 1-10 x 4 configurations, run one at a time (timing valid)" },
 };
+
+// The locked parameters the UI shows come from the optimizer itself
+// (experiments/study.py --print-defaults reads the constructor defaults).
+let DEFAULTS = null;
+function studyDefaults() {
+  if (DEFAULTS) return DEFAULTS;
+  try {
+    DEFAULTS = JSON.parse(execFileSync("python", [STUDY_PY, "--print-defaults"], { cwd: ROOT, windowsHide: true }).toString());
+  } catch (err) {
+    console.error("study defaults unavailable:", err.message);
+    DEFAULTS = { error: err.message };
+  }
+  return DEFAULTS;
+}
 
 function pidAlive(pid) {
   if (!pid) return false;
@@ -111,7 +125,13 @@ router.get("/", authRequired, (req, res) => {
 });
 
 router.get("/sizes", authRequired, (req, res) => {
-  res.json(Object.entries(SIZES).map(([key, s]) => ({ key, ...s, sample: s.sample ? path.basename(s.sample) : null })));
+  const d = studyDefaults();
+  res.json({
+    sizes: Object.entries(SIZES).map(([key, s]) => ({ key, ...s, sample: s.sample ? path.basename(s.sample) : null,
+                                                      pop_size: d.presets ? d.presets[s.preset].pop_size : null,
+                                                      max_iter: d.presets ? d.presets[s.preset].max_iter : null })),
+    defaults: d,
+  });
 });
 
 router.get("/available", authRequired, (req, res) => {

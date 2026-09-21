@@ -148,8 +148,28 @@ export const batchApi = {
   },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Studies API (SOP: four configurations x N seeds x instances, detached jobs)
+// ─────────────────────────────────────────────────────────────────────────────
+export const studiesApi = {
+  async list() { return request("/api/studies"); },
+  async sizes() { return request("/api/studies/sizes"); },
+  async available() { return request("/api/studies/available"); },
+  async importFile(file) {
+    return request("/api/studies/import", { method: "POST", body: JSON.stringify({ file }) });
+  },
+  /** { size, seeds?, instanceId?, customLoad?, preset?, mode?, name? } */
+  async create(payload) {
+    return request("/api/studies", { method: "POST", body: JSON.stringify(payload) });
+  },
+  async get(id) { return request(`/api/studies/${encodeURIComponent(id)}`); },
+  async progress(id) { return request(`/api/studies/${encodeURIComponent(id)}/progress`); },
+  async remove(id) { return request(`/api/studies/${encodeURIComponent(id)}`, { method: "DELETE" }); },
+};
+
 const api = {
   auth: authApi,
+  studies: studiesApi,
   instances: instancesApi,
   runs: runsApi,
   batch: batchApi,

@@ -380,7 +380,24 @@ def main():
     p.add_argument('--name')
     p.add_argument('--out')
     p.add_argument('--no-stats', action='store_true')
+    p.add_argument('--print-defaults', action='store_true',
+                   help='print the locked study parameters as JSON (the UI shows these) and exit')
     a = p.parse_args()
+
+    if a.print_defaults:
+        from thesis_algorithms import ThesisOptimizerBase
+        import inspect
+        sig = inspect.signature(ThesisOptimizerBase.__init__).parameters
+        print(json.dumps({
+            'presets': PRESETS, 'sizes': SIZES, 'configurations': CONFIGS, 'labels': CONFIG_LABELS,
+            'lambdas': {'w': a.lam, 'f': a.lam, 'b': a.lam, 'a': a.lam},
+            'optimizer_default_lambdas': {k: sig[f'lambda_{k}'].default for k in ('w', 'f', 'b', 'a')},
+            'support_threshold': SUPPORT_THRESHOLD, 'enforce_support': True, 'enforce_fragility': True,
+            'stop_seed': STOP_SEED, 'stop_count': STOP_COUNT,
+            'seq_budget_split': 'T1 = max_iter // 2 DGWO iterations, then T2 = max_iter - T1 MOGWO iterations',
+            'mogwo_archive_max': 100,
+        }, indent=1))
+        return
 
     d = dict(SIZES.get(a.size, {}))
     instance = a.instance if a.instance is not None else d.get('instance')

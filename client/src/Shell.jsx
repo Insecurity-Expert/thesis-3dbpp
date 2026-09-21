@@ -7,7 +7,10 @@ import LogisticsTab from "./components/LogisticsTab";
 import ResultsTab from "./components/ResultsTab";
 import VisualizationTab from "./components/VisualizationTab";
 import RunHistoryTab from "./components/RunHistoryTab";
-import { instancesApi, runsApi } from "./services/api";
+import { instancesApi, runsApi, studiesApi } from "./services/api";
+import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
+import StudyResults from "./study/StudyResults";
+import CompareTab, { StudySelect } from "./study/CompareTab";
 
 
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
@@ -85,6 +88,16 @@ export default function Shell() {
   const [runHistory, setRunHistory] = useState([]);
   // Non-null while the Results tab shows a saved run instead of a live one.
   const [replay, setReplay] = useState(null);
+
+  // ── SOP studies (four configurations x N seeds x instances) ──────────────
+  const [studies, setStudies] = useState([]);
+  const [sizesInfo, setSizesInfo] = useState(null);
+  const [availableStudies, setAvailableStudies] = useState([]);
+  const [selectedStudyId, setSelectedStudyId] = useState(null);
+  const [studyDoc, setStudyDoc] = useState(null);        // { row, study, stats } of the selected study
+  const [studyProgress, setStudyProgress] = useState(null);
+  const [resultsMode, setResultsMode] = useState("quick"); // "quick" (single run) | "study"
+  const [studyBusy, setStudyBusy] = useState(false);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -191,6 +204,83 @@ export default function Shell() {
   useEffect(() => {
     fetchRunHistory();
   }, [fetchRunHistory]);
+
+  const fetchStudies = useCallback(() => {
+    studiesApi.list().then((rows) => setStudies(Array.isArray(rows) ? rows : [])).catch(() => {});
+    studiesApi.available().then((rows) => setAvailableStudies(Array.isArray(rows) ? rows : [])).catch(() => {});
+  }, []);
+  useEffect(() => {
+    fetchStudies();
+    studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
+  }, [fetchStudies]);
+
+  // Load the selected study's file (stats attached) whenever the selection changes.
+  const loadStudy = useCallback(async (id) => {
+    if (id === null || id === undefined) { setStudyDoc(null); setStudyProgress(null); return; }
+    try {
+      const doc = await studiesApi.get(id);
+      setStudyDoc({ row: doc, study: doc.study, stats: doc.study ? doc.study.stats : null });
+      setStudyProgress(doc.progress || null);
+    } catch (e) {
+      setError(`Could not load study #${id}: ${e.message}`);
+    }
+  }, []);
+  useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
+
+  // Poll progress while the selected study is running (detached job; survives a reload).
+  useEffect(() => {
+    if (!studyDoc || !studyDoc.row || studyDoc.row.status !== "running") return undefined;
+    let cancelled = false;
+    let timer = null;
+    const tick = async () => {
+      try {
+        const p = await studiesApi.progress(studyDoc.row.id);
+        if (cancelled) return;
+        setStudyProgress(p);
+        if (p.status === "done" || p.status === "error") { loadStudy(studyDoc.row.id); fetchStudies(); return; }
+      } catch { /* keep polling */ }
+      if (!cancelled) timer = setTimeout(tick, 2000);
+    };
+    timer = setTimeout(tick, 1500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [studyDoc, loadStudy, fetchStudies]);
+
+  const handleLaunchStudy = useCallback(async ({ size, instanceId }) => {
+    setStudyBusy(true);
+    setError(null);
+    try {
+      const r = await studiesApi.create({ size, instanceId });
+      fetchStudies();
+      setSelectedStudyId(r.id);
+      setResultsMode("study");
+      setActiveTab("results");
+    } catch (e) { setError(`Could not start the study: ${e.message}`); }
+    setStudyBusy(false);
+  }, [fetchStudies]);
+
+  const handleImportStudy = useCallback(async (file) => {
+    try {
+      const r = await studiesApi.importFile(file);
+      fetchStudies();
+      setSelectedStudyId(r.id);
+      setResultsMode("study");
+      setActiveTab("results");
+    } catch (e) { setError(`Import failed: ${e.message}`); }
+  }, [fetchStudies]);
+
+  const handleDeleteStudy = useCallback(async (s) => {
+    try {
+      await studiesApi.remove(s.id);
+      if (selectedStudyId === s.id) setSelectedStudyId(null);
+      fetchStudies();
+    } catch (e) { setError(`Could not delete study #${s.id}: ${e.message}`); }
+  }, [fetchStudies, selectedStudyId]);
+
+  const handleOpenStudy = useCallback((id) => {
+    setSelectedStudyId(id);
+    setResultsMode("study");
+    setActiveTab("results");
+  }, []);
 
   // WebSocket message dispatcher
   const handleMessage = useCallback((msg) => {
@@ -583,6 +673,7 @@ export default function Shell() {
   const NAV = [
     { id: "logistics", label: "Start analysis", title: "Logistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
     { id: "results", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "compare", label: "Compare", title: "Compare", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
     { id: "visualization", label: "3D viewer", title: "Visualization", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", label: "Run history", title: "Run history", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
   ];
@@ -720,11 +811,48 @@ export default function Shell() {
           setWolfSizeCustom={setWolfSizeCustom}
           setMaxIterCustom={setMaxIterCustom}
           optimizerReady={optimizerReady}
+          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} />}
+          studyLauncher={
+            <StudyLauncher
+              sizesInfo={sizesInfo}
+              studies={studies}
+              available={availableStudies}
+              onLaunch={handleLaunchStudy}
+              onImport={handleImportStudy}
+              onOpenStudy={handleOpenStudy}
+              onDeleteStudy={handleDeleteStudy}
+              onRefresh={fetchStudies}
+              wtpackId={wtpackId}
+              wtpackInstances={wtpackInstances}
+              seed={seed}
+              busy={studyBusy}
+            />
+          }
         />
       )}
 
       {/* ── RESULTS TAB ── */}
       {activeTab === "results" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div className="tabs-inline">
+              <button className={resultsMode === "quick" ? "active" : ""} onClick={() => setResultsMode("quick")}>Quick Test (single run)</button>
+              <button className={resultsMode === "study" ? "active" : ""} onClick={() => setResultsMode("study")}>Full Comparison (study)</button>
+            </div>
+            {resultsMode === "study" && <StudySelect studies={studies} value={selectedStudyId} onChange={setSelectedStudyId} />}
+          </div>
+          {resultsMode === "study" && (
+            <StudyResults
+              row={studyDoc ? studyDoc.row : null}
+              study={studyDoc ? studyDoc.study : null}
+              stats={studyDoc ? studyDoc.stats : null}
+              progress={studyProgress}
+              onOpenCompare={() => setActiveTab("compare")}
+            />
+          )}
+        </div>
+      )}
+      {activeTab === "results" && resultsMode === "quick" && (
         <ResultsTab
           finalResult={finalResult}
           runHistory={runHistory}
@@ -737,6 +865,19 @@ export default function Shell() {
           wolfSize={wolfSize}
           handleExportResultsCSV={handleExportResultsCSV}
           handleExportReport={handleExportReport}
+        />
+      )}
+
+      {/* ── COMPARE TAB ── */}
+      {activeTab === "compare" && (
+        <CompareTab
+          row={studyDoc ? studyDoc.row : null}
+          study={studyDoc ? studyDoc.study : null}
+          stats={studyDoc ? studyDoc.stats : null}
+          runHistory={runHistory}
+          studies={studies}
+          selectedStudyId={selectedStudyId}
+          onSelectStudy={setSelectedStudyId}
         />
       )}
 
