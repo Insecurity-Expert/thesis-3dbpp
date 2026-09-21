@@ -163,7 +163,7 @@ def main():
     p.add_argument('--n', type=int, default=30)
     p.add_argument('--max-boxes', type=int, default=200)
     p.add_argument('--seed', type=int, default=42)
-    p.add_argument('--raw-dir', default='data/raw/')
+    p.add_argument('--raw-dir', default=str(Path(__file__).resolve().parent.parent / 'data' / 'raw'))
     p.add_argument('--out', help='write provenance JSON here')
     args = p.parse_args()
     selected, prov = sample_instances({'data': {'raw_dir': args.raw_dir}},
