@@ -75,7 +75,7 @@ top for streaming and rendering in the browser.
 
 | preset | pop × iter | DGWO | MOGWO | Sequential | Repair-based |
 |---|---|---|---|---|---|
-| **Quick demo** | 10 × 60 | 20–30 s | 23 s | 24 s | **327 s (5.5 min)** |
+| **Quick demo** | 10 × 60 | 24 s | 26 s | 24 s | **146 s (2.5 min)** |
 | Standard | 10 × 300 | 149 s | 160 s | 138 s | est. ~27 min |
 | Full | 30 × 500 | est. ~12 min | est. ~13 min | est. ~11 min | **est. ~2.5 h — do not run live** |
 | *custom, for a live REP* | 5 × 15 | — | — | — | **29 s** (SU 32.8%, CSR 100%) |
@@ -90,7 +90,7 @@ measured 19.8 s and 29.9 s on consecutive runs.
 ### Repair-based is the slow one
 
 Repair (R1–R5) runs on every candidate every iteration and is ~10× the cost
-of the other three per iteration. **At the Quick preset it takes ~5–6 min**,
+of the other three per iteration. **At the Quick preset it takes ~2.5 min**,
 which is too long to stand in front of. Options for the live session:
 
 1. Run it *first*, before the audience arrives, and show its Results / Run
@@ -101,22 +101,31 @@ which is too long to stand in front of. Options for the live session:
 3. Skip it live and speak to the "100% by construction" panel.
 
 
-## 6. Smoke test — run each configuration once at Quick demo
+## 6. Smoke test — each configuration once at Quick demo, seed 42
 
-Verified on 2026-09-21 by driving the real UI in headless Chrome:
+Verified 2026-09-21 by driving the real UI in headless Chrome after the
+client → server → optimizer contract was repaired (commits 6e98526..01192c4).
+Every parameter the UI sends is echoed back by the optimizer in `params`
+and shown in the Results tab ("Parameters used — as reported by the
+optimizer"), so the audience can see the settings that ran.
 
-| configuration | run streams | 3D canvas | results populate | fragile visible | wall to canvas* |
-|---|---|---|---|---|---|
-| DGWO | ✓ 60 updates | ✓ | SU 67.3% · CSR 43.5% · 92/129 | ✓ amber edges | 79 s |
-| MOGWO | ✓ | ✓ | SU 54.9% · CSR 75.0% · 68/129 | ✓ | 118 s |
-| Sequential | ✓ | ✓ | SU 54.5% · CSR 62.1% · 66/129 | ✓ | 95 s |
-| Repair-based | ✓ | ✓ | SU 40.1% · **CSR 100% (by construction)** · 51/129 | ✓ | 338 s |
+| configuration | wall to canvas | M-3 (optimizer) | streams | canvas 587×233×220 | fragile marker | SU | CSR | placed | C3 / C4 / C5 / C6 |
+|---|---|---|---|---|---|---|---|---|---|
+| DGWO | 30.4 s | 23.6 s | 60 updates | ✓ | ✓ 16 | 62.4% | 50.6% | 81/129 | 85.2 / 98.8 / 100 / 58.0 |
+| MOGWO | 33.4 s | 26.0 s | 60 | ✓ | ✓ 15 | 49.8% | 68.8% | 64/129 | 89.1 / 100 / 100 / 75.0 |
+| Sequential | 31.9 s | 24.2 s | 60 | ✓ | ✓ 12 | 49.2% | 56.5% | 62/129 | 91.9 / 100 / 100 / 58.1 |
+| Repair-based | 153.0 s | 145.9 s | 60 | ✓ | ✓ 12 | 44.1% | **100% (by construction)** | 57/129 | 100 / 100 / 100 / 100 |
 
-\* headless Chrome with software WebGL sharing the CPU with Python — on a real
-display with a GPU expect the optimizer runtime plus ~10 s.
+The DGWO row equals the CLI run with `--seed 42` exactly (SU 62.4%, 81
+placed), which is the end-to-end proof that the UI's seed reached the
+optimizer. The first `iteration_update` arrives ~5 s after Run is pressed
+(numba cache load + initial population); that is normal.
 
-The UI runs are entropy-seeded (no `--seed` from the browser), so SU/CSR
-differ run to run. Reproducible numbers come from `experiments/runner.py --seed`.
+Parameters on the Logistics tab that reach the optimizer verbatim: Wolf pack
+size, Max iterations, Penalty λ (tied across C3–C6), Seed (blank = random),
+and the two decode-time toggles Enforce stability (C5) / Enforce fragility
+(C4). The old Fragility / rotation / LIFO toggles were decorative and were
+removed.
 
 ## 7. If something goes wrong
 

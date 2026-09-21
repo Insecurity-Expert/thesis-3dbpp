@@ -51,7 +51,7 @@ export default function LogisticsTab({
   // Measured on the demo machine (i5-1235U), instance 350 (129 boxes), Quick
   // preset. See docs/DEMO.md for the full table.
   const PRESET_INFO = {
-    quick:    { label: "Quick demo", pop: 10, iter: 60,  note: "measured: DGWO/MOGWO/SEQ 20–30 s · REP 5.5 min (for a live REP use pop 5 × 15 ≈ 30 s)" },
+    quick:    { label: "Quick demo", pop: 10, iter: 60,  note: "measured: DGWO/MOGWO/SEQ ≈ 25 s · REP ≈ 2.5 min (for a faster REP use pop 5 × 15 ≈ 30 s)" },
     standard: { label: "Standard",   pop: 10, iter: 300, note: "measured: DGWO 149 s · MOGWO 160 s · SEQ 138 s · REP ≈ 27 min (est.)" },
     full:     { label: "Full",       pop: 30, iter: 500, note: "estimated: ≈ 12 min per strategy · REP ≈ 2.5 h — not for live use" },
   };
