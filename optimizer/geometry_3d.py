@@ -110,6 +110,19 @@ def fragile_below(x, y, z, dx, dy, fragile_placed):
                 return True
     return False
 
+def box_above(x, y, z, dx, dy, dz, placed):
+    """C4 at placement, other direction: True if any placed box lies anywhere
+    above the candidate within its xy footprint. Applied when the candidate is
+    fragile, so a fragile box cannot slide under an overhanging one. Together
+    with fragile_below every (fragile, box-above) pair is checked when the
+    second of the pair is placed."""
+    for (px, py, pz, pdx, pdy, pdz) in placed:
+        if pz >= z + dz:
+            if (_overlap_len(x, x + dx, px, px + pdx) > 0
+                    and _overlap_len(y, y + dy, py, py + pdy) > 0):
+                return True
+    return False
+
 # ── Vectorized feasibility (Step 6) ───────────────────────────────────────────
 # The decoder tests every extreme point against every placed box for every
 # orientation it tries. Doing that one candidate at a time in Python was 96% of
@@ -122,12 +135,13 @@ def fragile_below(x, y, z, dx, dy, fragile_placed):
 @njit(cache=True)
 def _first_feasible(eps, n_eps, dx, dy, dz, CL, CW, CH,
                     placed, n_placed, fragile, n_fragile,
-                    enforce_support, enforce_fragility):
+                    enforce_support, enforce_fragility, is_fragile):
     """Index of the first EP (in order) where the box may go, or -1.
 
     Compiled transcription of the reference scalar path — can_place, then
-    is_supported, then fragile_below, per EP, first hit wins — so decisions
-    and the attempts count are identical to the pure-Python original.
+    is_supported, then fragile_below, then (fragile candidates) box_above,
+    per EP, first hit wins — so decisions and the attempts count are
+    identical to the pure-Python original.
     placed / fragile rows are (x, y, z, dx, dy, dz, x1, y1, z1)."""
     for k in range(n_eps):
         ex = eps[k, 0]
@@ -175,6 +189,19 @@ def _first_feasible(eps, n_eps, dx, dy, dz, CL, CW, CH,
                         break
             if bad:
                 continue
+            # C4 the other way (box_above): a fragile candidate may not slide
+            # under any box already overhanging its footprint.
+            if is_fragile:
+                bad = False
+                for i in range(n_placed):
+                    if placed[i, 2] >= ez + dz:
+                        ox = min(ex + dx, placed[i, 6]) - max(ex, placed[i, 0])
+                        oy = min(ey + dy, placed[i, 7]) - max(ey, placed[i, 1])
+                        if ox > 0.0 and oy > 0.0:
+                            bad = True
+                            break
+                if bad:
+                    continue
         return k
     return -1
 
@@ -262,7 +289,8 @@ def place_container_dblf(item_sequence, items, orient_ids, container,
     `orientations` so constraint checks can recover which face bears load.
 
     enforce_support   reject positions failing C5 (>= 80% base support)
-    enforce_fragility reject positions with a fragile box anywhere below
+    enforce_fragility reject positions with a fragile box anywhere below,
+                      and for a fragile box positions with any box above
     Two independent flags so the marginal effect of each is measurable.
     """
     CL, CW, CH = float(container['L']), float(container['W']), float(container['H'])
@@ -295,7 +323,7 @@ def place_container_dblf(item_sequence, items, orient_ids, container,
                 continue
             k = _first_feasible(eps, eps.shape[0], float(dx), float(dy), float(dz),
                                 CL, CW, CH, placed, n_placed, fragile_placed, n_fragile,
-                                enforce_support, enforce_fragility)
+                                enforce_support, enforce_fragility, box['fragile'] == 1)
             if k < 0:
                 attempts += eps.shape[0]          # every EP was tested
                 continue

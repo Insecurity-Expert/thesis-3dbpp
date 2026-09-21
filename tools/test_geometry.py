@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'optimizer'))
 
 import numpy as np
 from geometry_3d import (get_dims, vertical_lbs, place_container_dblf,
-                         is_supported, fragile_below)
+                         is_supported, fragile_below, box_above)
 from thesis_math import decode_position
 from thesis_metrics import evaluate_constraints, evaluate_constraints_reference, validate_items
 from repair import repair_arrangement, find_feasible_position
@@ -284,6 +284,38 @@ check("directly above a fragile box -> rejected", fragile_below(0, 0, 10, 10, 10
 check("high above a fragile box (z=50) -> still rejected", fragile_below(0, 0, 50, 10, 10, _frag), True)
 check("beside a fragile box -> allowed", fragile_below(20, 0, 0, 10, 10, _frag), False)
 check("footprint grazing the edge (x=10) -> allowed", fragile_below(10, 0, 10, 10, 10, _frag), False)
+
+# C4 the other direction: a fragile candidate under an overhanging box
+print("")
+print("[C4 bidirectional] a fragile box may not slide under an overhang")
+_over = [(0, 0, 20, 10, 10, 10)]                       # box floating at z=20..30
+check("fragile candidate directly under an overhang -> rejected", box_above(0, 0, 0, 10, 10, 10, _over), True)
+check("fragile candidate under it, far below (dz=5) -> still rejected", box_above(0, 0, 0, 10, 10, 5, _over), True)
+check("candidate beside the overhang -> allowed", box_above(20, 0, 0, 10, 10, 10, _over), False)
+check("footprint grazing the edge (x=10) -> allowed", box_above(10, 0, 0, 10, 10, 10, _over), False)
+check("candidate whose top is level with the overhang bottom (z=10, dz=10) -> rejected", box_above(0, 0, 10, 10, 10, 10, _over), True)
+check("candidate ABOVE the overhang (z=30) -> not box_above (that is fragile_below's job)", box_above(0, 0, 30, 10, 10, 10, _over), False)
+
+# End-to-end overhang: a wide box on a pedestal overhangs the floor next to the
+# pedestal; a fragile box must not be placed in that shadow.
+#   pedestal 10x10x10 at origin, slab 30x10x10 on top of it (overhangs x=10..30),
+#   then a fragile 10x10x10 box: EP (10,0,0) is in the shadow.
+_ob = [box(10, 10, 10), box(30, 10, 10), box(10, 10, 10, fragile=1)]
+pl, un, ors, _, _ = place_container_dblf([0, 1, 2], _ob, {0: 1, 1: 1, 2: 1}, _pc,
+                                         enforce_support=False, enforce_fragility=True)
+d = evaluate_constraints(pl, _ob, ors)[1]
+check("overhang case: C4 = 100 with enforce_fragility", d['C4_fragility_pct'], 100.0)
+check("overhang case: fragile box not under the slab", 2 in pl and not (pl[2][2] < 10 and pl[2][0] < 30 and pl[2][0] + pl[2][3] > 10), True)
+# compiled path == reference path on the overhang decision
+from geometry_3d import _first_feasible
+_eps = np.array([[10.0, 0.0, 0.0], [40.0, 0.0, 0.0]])
+_placed9 = np.array([[0, 0, 0, 10, 10, 10, 10, 10, 10], [0, 0, 10, 30, 10, 10, 30, 10, 20]], dtype=float)
+_frag9 = np.zeros((1, 9))
+k_frag = _first_feasible(_eps, 2, 10.0, 10.0, 10.0, 100.0, 100.0, 100.0, _placed9, 2, _frag9, 0, False, True, True)
+k_std = _first_feasible(_eps, 2, 10.0, 10.0, 10.0, 100.0, 100.0, 100.0, _placed9, 2, _frag9, 0, False, True, False)
+check("compiled: fragile candidate skips the shadowed EP", k_frag, 1)
+check("compiled: standard candidate takes the shadowed EP", k_std, 0)
+check("compiled == reference for the shadowed EP", box_above(10, 0, 0, 10, 10, 10, [(0, 0, 10, 30, 10, 10)]), True)
 
 # End-to-end: with enforce_fragility, DBLF must not stack on the fragile box
 _eb = [box(10, 10, 10, fragile=1), box(10, 10, 10)]
