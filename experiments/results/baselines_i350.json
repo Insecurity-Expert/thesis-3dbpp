@@ -22,7 +22,7 @@
    "C6_stop_order_pct": 63.1578947368421,
    "placed": 57,
    "n_items": 129,
-   "wall_ms": 208.36790004977956,
+   "wall_ms": 219.59100000094622,
    "budget_exhausted": false,
    "placements": {
     "47": [
@@ -551,7 +551,7 @@
    "C6_stop_order_pct": 63.1578947368421,
    "placed": 57,
    "n_items": 129,
-   "wall_ms": 2.2501000203192234,
+   "wall_ms": 2.0461000385694206,
    "budget_exhausted": false,
    "placements": {
     "47": [
@@ -1076,27 +1076,27 @@
    "seed": 42,
    "aggregate": {
     "su_pct": {
-     "mean": 49.987900367856646,
-     "sd": 4.555763042083933,
+     "mean": 49.94558278458374,
+     "sd": 4.593511628606588,
      "min": 40.71477472962437,
      "max": 56.9927868813232
     },
     "csr_pct": {
-     "mean": 45.086667555641085,
-     "sd": 5.313059709126127,
+     "mean": 45.18900758708559,
+     "sd": 5.286535958485321,
      "min": 35.483870967741936,
      "max": 58.06451612903226
     },
     "C3_weight_pct": {
-     "mean": 78.29075263872227,
-     "sd": 3.615496833296702,
+     "mean": 78.42948538193262,
+     "sd": 3.695749859731938,
      "min": 70.88607594936708,
      "max": 85.48387096774194
     },
     "C4_fragility_pct": {
-     "mean": 99.840973702914,
-     "sd": 0.47907653804780775,
-     "min": 98.21428571428571,
+     "mean": 100.0,
+     "sd": 0.0,
+     "min": 100.0,
      "max": 100.0
     },
     "C5_balance_pct": {
@@ -1106,22 +1106,22 @@
      "max": 100.0
     },
     "C6_stop_order_pct": {
-     "mean": 54.01600048516576,
-     "sd": 4.8626906043962155,
-     "min": 46.26865671641791,
+     "mean": 54.07927717530813,
+     "sd": 4.7993810475464125,
+     "min": 46.774193548387096,
      "max": 62.295081967213115
     },
     "placed": {
-     "mean": 67.26666666666667,
-     "sd": 5.807657779939249,
-     "min": 56,
+     "mean": 67.2,
+     "sd": 5.878775382679628,
+     "min": 55,
      "max": 79
     },
     "wall_ms": {
-     "mean": 4.0334066705933465,
-     "sd": 0.6911692393812267,
-     "min": 3.297800023574382,
-     "max": 6.61690003471449
+     "mean": 3.4621000037683793,
+     "sd": 0.7405239752449254,
+     "min": 2.7551999664865434,
+     "max": 7.091300038155168
     }
    },
    "best_by_su": {
@@ -1133,7 +1133,7 @@
     "C6_stop_order_pct": 47.43589743589743,
     "placed": 78,
     "n_items": 129,
-    "wall_ms": 6.61690003471449,
+    "wall_ms": 3.6011000047437847,
     "budget_exhausted": false,
     "placements": {
      "72": [
@@ -1853,7 +1853,7 @@
      "C6_stop_order_pct": 53.62318840579711,
      "placed": 69,
      "n_items": 129,
-     "wall_ms": 4.171600041445345,
+     "wall_ms": 3.4265000140294433,
      "budget_exhausted": false,
      "placements": {
       "33": [
@@ -2491,7 +2491,7 @@
      "C6_stop_order_pct": 55.714285714285715,
      "placed": 70,
      "n_items": 129,
-     "wall_ms": 3.7588999839499593,
+     "wall_ms": 3.176300029736012,
      "budget_exhausted": false,
      "placements": {
       "54": [
@@ -3138,7 +3138,7 @@
      "C6_stop_order_pct": 48.64864864864865,
      "placed": 74,
      "n_items": 129,
-     "wall_ms": 3.8014999590814114,
+     "wall_ms": 3.411400015465915,
      "budget_exhausted": false,
      "placements": {
       "64": [
@@ -3821,7 +3821,7 @@
      "C6_stop_order_pct": 51.515151515151516,
      "placed": 66,
      "n_items": 129,
-     "wall_ms": 3.792000003159046,
+     "wall_ms": 3.093999985139817,
      "budget_exhausted": false,
      "placements": {
       "15": [
@@ -4432,7 +4432,7 @@
      "C6_stop_order_pct": 49.275362318840585,
      "placed": 69,
      "n_items": 129,
-     "wall_ms": 4.348899994511157,
+     "wall_ms": 2.9420999926514924,
      "budget_exhausted": false,
      "placements": {
       "19": [
@@ -5070,7 +5070,7 @@
      "C6_stop_order_pct": 53.84615384615385,
      "placed": 78,
      "n_items": 129,
-     "wall_ms": 4.635399964172393,
+     "wall_ms": 3.762700012885034,
      "budget_exhausted": false,
      "placements": {
       "114": [
@@ -5789,7 +5789,7 @@
      "C6_stop_order_pct": 51.42857142857142,
      "placed": 70,
      "n_items": 129,
-     "wall_ms": 3.7506999797187746,
+     "wall_ms": 3.0788000440225005,
      "budget_exhausted": false,
      "placements": {
       "25": [
@@ -6428,15 +6428,15 @@
      "order_index": 6
     },
     {
-     "su_pct": 42.80842363579201,
-     "csr_pct": 48.214285714285715,
-     "C3_weight_pct": 82.14285714285714,
-     "C4_fragility_pct": 98.21428571428571,
+     "su_pct": 42.216791039567795,
+     "csr_pct": 49.09090909090909,
+     "C3_weight_pct": 83.63636363636363,
+     "C4_fragility_pct": 100.0,
      "C5_balance_pct": 100.0,
-     "C6_stop_order_pct": 57.14285714285714,
-     "placed": 56,
+     "C6_stop_order_pct": 58.18181818181818,
+     "placed": 55,
      "n_items": 129,
-     "wall_ms": 3.347199992276728,
+     "wall_ms": 2.7551999664865434,
      "budget_exhausted": false,
      "placements": {
       "112": [
@@ -6864,14 +6864,6 @@
        64.0
       ],
       "101": [
-       526.0,
-       133.0,
-       0.0,
-       60.0,
-       69.0,
-       43.0
-      ],
-      "110": [
        539.0,
        0.0,
        0.0,
@@ -6942,8 +6934,7 @@
       "83": 3,
       "30": 3,
       "29": 3,
-      "101": 2,
-      "110": 6,
+      "101": 6,
       "40": 3
      },
      "order_index": 7
@@ -6957,7 +6948,7 @@
      "C6_stop_order_pct": 57.89473684210527,
      "placed": 57,
      "n_items": 129,
-     "wall_ms": 4.765699966810644,
+     "wall_ms": 2.8695999644696712,
      "budget_exhausted": false,
      "placements": {
       "58": [
@@ -7487,7 +7478,7 @@
      "C6_stop_order_pct": 58.2089552238806,
      "placed": 67,
      "n_items": 129,
-     "wall_ms": 3.6226999945938587,
+     "wall_ms": 2.847999974619597,
      "budget_exhausted": false,
      "placements": {
       "69": [
@@ -8107,7 +8098,7 @@
      "C6_stop_order_pct": 50.81967213114754,
      "placed": 61,
      "n_items": 129,
-     "wall_ms": 4.622400039806962,
+     "wall_ms": 3.535000025294721,
      "budget_exhausted": false,
      "placements": {
       "41": [
@@ -8673,7 +8664,7 @@
      "C6_stop_order_pct": 48.529411764705884,
      "placed": 68,
      "n_items": 129,
-     "wall_ms": 4.142399993725121,
+     "wall_ms": 7.091300038155168,
      "budget_exhausted": false,
      "placements": {
       "85": [
@@ -9302,7 +9293,7 @@
      "C6_stop_order_pct": 49.275362318840585,
      "placed": 69,
      "n_items": 129,
-     "wall_ms": 4.958499979693443,
+     "wall_ms": 3.112899954430759,
      "budget_exhausted": false,
      "placements": {
       "82": [
@@ -9940,7 +9931,7 @@
      "C6_stop_order_pct": 48.484848484848484,
      "placed": 66,
      "n_items": 129,
-     "wall_ms": 3.4967000246979296,
+     "wall_ms": 3.3718000049702823,
      "budget_exhausted": false,
      "placements": {
       "3": [
@@ -10551,7 +10542,7 @@
      "C6_stop_order_pct": 50.68493150684932,
      "placed": 73,
      "n_items": 129,
-     "wall_ms": 3.749700030311942,
+     "wall_ms": 3.513100033160299,
      "budget_exhausted": false,
      "placements": {
       "108": [
@@ -11225,7 +11216,7 @@
      "C6_stop_order_pct": 46.774193548387096,
      "placed": 62,
      "n_items": 129,
-     "wall_ms": 3.3629999961704016,
+     "wall_ms": 3.297200019005686,
      "budget_exhausted": false,
      "placements": {
       "92": [
@@ -11800,7 +11791,7 @@
      "C6_stop_order_pct": 61.29032258064516,
      "placed": 62,
      "n_items": 129,
-     "wall_ms": 4.446699982509017,
+     "wall_ms": 3.1177999917417765,
      "budget_exhausted": false,
      "placements": {
       "108": [
@@ -12375,7 +12366,7 @@
      "C6_stop_order_pct": 62.295081967213115,
      "placed": 61,
      "n_items": 129,
-     "wall_ms": 3.297800023574382,
+     "wall_ms": 3.043100005015731,
      "budget_exhausted": false,
      "placements": {
       "73": [
@@ -12941,7 +12932,7 @@
      "C6_stop_order_pct": 58.730158730158735,
      "placed": 63,
      "n_items": 129,
-     "wall_ms": 3.3594000269658864,
+     "wall_ms": 3.3953000092878938,
      "budget_exhausted": false,
      "placements": {
       "119": [
@@ -13525,7 +13516,7 @@
      "C6_stop_order_pct": 49.25373134328358,
      "placed": 67,
      "n_items": 129,
-     "wall_ms": 3.417500003706664,
+     "wall_ms": 3.5952000180259347,
      "budget_exhausted": false,
      "placements": {
       "119": [
@@ -14145,7 +14136,7 @@
      "C6_stop_order_pct": 61.29032258064516,
      "placed": 62,
      "n_items": 129,
-     "wall_ms": 4.216900037135929,
+     "wall_ms": 3.13209998421371,
      "budget_exhausted": false,
      "placements": {
       "121": [
@@ -14712,15 +14703,15 @@
      "order_index": 20
     },
     {
-     "su_pct": 48.92898281865972,
-     "csr_pct": 46.26865671641791,
-     "C3_weight_pct": 77.61194029850746,
-     "C4_fragility_pct": 98.50746268656717,
+     "su_pct": 48.33735022243551,
+     "csr_pct": 46.96969696969697,
+     "C3_weight_pct": 78.78787878787878,
+     "C4_fragility_pct": 100.0,
      "C5_balance_pct": 100.0,
-     "C6_stop_order_pct": 58.2089552238806,
-     "placed": 67,
+     "C6_stop_order_pct": 57.57575757575758,
+     "placed": 66,
      "n_items": 129,
-     "wall_ms": 3.614199988078326,
+     "wall_ms": 4.017900035250932,
      "budget_exhausted": false,
      "placements": {
       "86": [
@@ -15203,14 +15194,6 @@
        73.0,
        97.0
       ],
-      "114": [
-       526.0,
-       0.0,
-       49.0,
-       60.0,
-       69.0,
-       43.0
-      ],
       "7": [
        0.0,
        197.0,
@@ -15321,7 +15304,6 @@
       "41": 1,
       "80": 6,
       "51": 6,
-      "114": 2,
       "7": 3,
       "9": 3,
       "21": 3,
@@ -15340,7 +15322,7 @@
      "C6_stop_order_pct": 53.96825396825397,
      "placed": 63,
      "n_items": 129,
-     "wall_ms": 3.4106000093743205,
+     "wall_ms": 3.8087000139057636,
      "budget_exhausted": false,
      "placements": {
       "77": [
@@ -15924,7 +15906,7 @@
      "C6_stop_order_pct": 60.317460317460316,
      "placed": 63,
      "n_items": 129,
-     "wall_ms": 3.5750000388361514,
+     "wall_ms": 3.5865999525412917,
      "budget_exhausted": false,
      "placements": {
       "20": [
@@ -16508,7 +16490,7 @@
      "C6_stop_order_pct": 47.43589743589743,
      "placed": 78,
      "n_items": 129,
-     "wall_ms": 6.61690003471449,
+     "wall_ms": 3.6011000047437847,
      "budget_exhausted": false,
      "placements": {
       "72": [
@@ -17227,7 +17209,7 @@
      "C6_stop_order_pct": 56.16438356164384,
      "placed": 73,
      "n_items": 129,
-     "wall_ms": 4.0148000116460025,
+     "wall_ms": 3.1352000078186393,
      "budget_exhausted": false,
      "placements": {
       "7": [
@@ -17901,7 +17883,7 @@
      "C6_stop_order_pct": 60.9375,
      "placed": 64,
      "n_items": 129,
-     "wall_ms": 3.357200010214001,
+     "wall_ms": 3.538199991453439,
      "budget_exhausted": false,
      "placements": {
       "121": [
@@ -18486,15 +18468,15 @@
      "order_index": 26
     },
     {
-     "su_pct": 50.22447940519022,
-     "csr_pct": 38.80597014925373,
-     "C3_weight_pct": 79.1044776119403,
-     "C4_fragility_pct": 98.50746268656717,
+     "su_pct": 50.13821709945157,
+     "csr_pct": 40.298507462686565,
+     "C3_weight_pct": 80.59701492537313,
+     "C4_fragility_pct": 100.0,
      "C5_balance_pct": 100.0,
-     "C6_stop_order_pct": 46.26865671641791,
+     "C6_stop_order_pct": 47.76119402985074,
      "placed": 67,
      "n_items": 129,
-     "wall_ms": 4.390600020997226,
+     "wall_ms": 3.6557000130414963,
      "budget_exhausted": false,
      "placements": {
       "118": [
@@ -18993,14 +18975,6 @@
        36.0,
        64.0
       ],
-      "123": [
-       536.0,
-       133.0,
-       0.0,
-       43.0,
-       69.0,
-       60.0
-      ],
       "39": [
        0.0,
        193.0,
@@ -19031,6 +19005,14 @@
        128.0,
        66.0,
        36.0,
+       64.0
+      ],
+      "14": [
+       536.0,
+       133.0,
+       0.0,
+       36.0,
+       66.0,
        64.0
       ]
      },
@@ -19097,11 +19079,11 @@
       "29": 3,
       "21": 3,
       "8": 3,
-      "123": 4,
       "39": 3,
       "24": 3,
       "2": 3,
-      "37": 3
+      "37": 3,
+      "14": 4
      },
      "order_index": 27
     },
@@ -19114,7 +19096,7 @@
      "C6_stop_order_pct": 55.69620253164557,
      "placed": 79,
      "n_items": 129,
-     "wall_ms": 4.906199988909066,
+     "wall_ms": 3.71890002861619,
      "budget_exhausted": false,
      "placements": {
       "100": [
@@ -19842,7 +19824,7 @@
      "C6_stop_order_pct": 56.75675675675676,
      "placed": 74,
      "n_items": 129,
-     "wall_ms": 4.051099997013807,
+     "wall_ms": 3.2312999828718603,
      "budget_exhausted": false,
      "placements": {
       "122": [

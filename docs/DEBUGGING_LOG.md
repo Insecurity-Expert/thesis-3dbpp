@@ -137,3 +137,37 @@ Found in the integration pass before the mock defense:
 
 All fixed in `6e98526`..`01192c4`. The result JSON now carries a `params`
 echo, rendered in the Results tab, so what ran is what is shown.
+
+## 11. C4 was one-directional at decode time (fixed; all results regenerated)
+
+**Symptom.** With `enforce_fragility` on, some arrangements still showed
+C4 = 98.2–98.8 % (DGWO quick seed 42, SEQ slide seed 4, three random
+baseline orders), confirmed by the independent validator (§8 recorded this
+as a known asymmetry).
+
+**Cause.** `fragile_below` / `_first_feasible` rejected a candidate that
+would sit *above* a fragile box, but nothing rejected a *fragile* candidate
+sliding *under* a box that already overhung its footprint (e.g. a slab on a
+pedestal). `repair.py`'s `_scan` was already bidirectional, which is why REP
+never showed it.
+
+**Fix (`42b1fe8`).** `geometry_3d.box_above(x, y, z, dx, dy, dz, placed)`
+(reference) and the matching loop in the compiled `_first_feasible`, applied
+when the candidate is fragile. Every (fragile, box-above) pair is now checked
+when the second of the pair is placed, so C4 is 100 % by construction
+wherever the flag is on. `tools/test_geometry.py` gained the overhang cases
+(75 checks); compiled ≡ reference on 300 random arrangements still holds.
+`tools/test_determinism.py` runs with the flag off, so its hash is unchanged
+(`afe1554817f5d94e`).
+
+**Consequence.** Every number produced before the fix is superseded. Slide
+table, live-demo reference, campaign-scale DGWO and baselines were rerun
+serially on an idle machine; the independent validator reports C4 = 100.00
+on all 61 arrangements. `tools/demo_check.py` now references the new DGWO
+quick row (SU 64.32 / CSR 43.82 / 89 placed). Old tables are kept at the
+bottom of `MOCK_DEFENSE_RESULTS.md` under "Superseded".
+
+**Lesson.** `experiments/baselines.py` only writes when `--out` is given;
+the first regeneration pass validated the *old* baselines file and reported
+three C4 < 100 rows before this was noticed. Always check file timestamps
+after a regeneration.

@@ -1,0 +1,64 @@
+arrangement                  n |     C3     C4     C5     C6    all | independent C1/C2/orient + verdict
+DGWO seed=1                 95 |  87.37 100.00 100.00  71.58  61.05 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=1                73 |  93.15 100.00 100.00  69.86  67.12 | C1=100 C2=100 orient=100  AGREE
+REP seed=1                  53 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=1                  64 |  93.75 100.00 100.00  67.19  65.62 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=2                 91 |  90.11 100.00 100.00  54.95  48.35 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=2                68 |  95.59 100.00 100.00  85.29  80.88 | C1=100 C2=100 orient=100  AGREE
+REP seed=2                  57 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=2                  70 |  92.86 100.00 100.00  74.29  71.43 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=3                 93 |  88.17 100.00 100.00  61.29  55.91 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=3                67 |  92.54 100.00 100.00  83.58  79.10 | C1=100 C2=100 orient=100  AGREE
+REP seed=3                  53 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=3                  70 |  97.14 100.00 100.00  72.86  72.86 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=4                 97 |  83.51 100.00 100.00  71.13  60.82 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=4                66 |  93.94 100.00 100.00  77.27  74.24 | C1=100 C2=100 orient=100  AGREE
+REP seed=4                  61 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=4                  71 |  97.18 100.00 100.00  73.24  71.83 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=5                 84 |  90.48 100.00 100.00  76.19  71.43 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=5                64 |  95.31 100.00 100.00  70.31  70.31 | C1=100 C2=100 orient=100  AGREE
+REP seed=5                  58 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=5                  78 |  87.18 100.00 100.00  66.67  62.82 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=42                89 |  84.27 100.00 100.00  50.56  43.82 | C1=100 C2=100 orient=100  AGREE
+MOGWO seed=42               66 |  90.91 100.00 100.00  62.12  59.09 | C1=100 C2=100 orient=100  AGREE
+REP seed=42                 55 | 100.00 100.00 100.00 100.00 100.00 | C1=100 C2=100 orient=100  AGREE
+SEQ seed=42                 74 |  93.24 100.00 100.00  60.81  58.11 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=1                 95 |  89.47 100.00 100.00  65.26  60.00 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=2                102 |  86.27 100.00 100.00  54.90  47.06 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=3                 95 |  88.42 100.00 100.00  65.26  60.00 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=4                 99 |  88.89 100.00 100.00  77.78  66.67 | C1=100 C2=100 orient=100  AGREE
+DGWO seed=5                 99 |  89.90 100.00 100.00  62.63  54.55 | C1=100 C2=100 orient=100  AGREE
+weight-descending           57 | 100.00 100.00 100.00  63.16  63.16 | C1=100 C2=100 orient=100  AGREE
+volume-descending           57 | 100.00 100.00 100.00  63.16  63.16 | C1=100 C2=100 orient=100  AGREE
+random#0                    69 |  72.46 100.00 100.00  53.62  40.58 | C1=100 C2=100 orient=100  AGREE
+random#1                    70 |  80.00 100.00 100.00  55.71  44.29 | C1=100 C2=100 orient=100  AGREE
+random#2                    74 |  79.73 100.00 100.00  48.65  40.54 | C1=100 C2=100 orient=100  AGREE
+random#3                    66 |  78.79 100.00 100.00  51.52  43.94 | C1=100 C2=100 orient=100  AGREE
+random#4                    69 |  79.71 100.00 100.00  49.28  37.68 | C1=100 C2=100 orient=100  AGREE
+random#5                    78 |  76.92 100.00 100.00  53.85  46.15 | C1=100 C2=100 orient=100  AGREE
+random#6                    70 |  78.57 100.00 100.00  51.43  44.29 | C1=100 C2=100 orient=100  AGREE
+random#7                    55 |  83.64 100.00 100.00  58.18  49.09 | C1=100 C2=100 orient=100  AGREE
+random#8                    57 |  80.70 100.00 100.00  57.89  50.88 | C1=100 C2=100 orient=100  AGREE
+random#9                    67 |  83.58 100.00 100.00  58.21  49.25 | C1=100 C2=100 orient=100  AGREE
+random#10                   61 |  73.77 100.00 100.00  50.82  39.34 | C1=100 C2=100 orient=100  AGREE
+random#11                   68 |  76.47 100.00 100.00  48.53  39.71 | C1=100 C2=100 orient=100  AGREE
+random#12                   69 |  73.91 100.00 100.00  49.28  39.13 | C1=100 C2=100 orient=100  AGREE
+random#13                   66 |  78.79 100.00 100.00  48.48  45.45 | C1=100 C2=100 orient=100  AGREE
+random#14                   73 |  75.34 100.00 100.00  50.68  43.84 | C1=100 C2=100 orient=100  AGREE
+random#15                   62 |  77.42 100.00 100.00  46.77  35.48 | C1=100 C2=100 orient=100  AGREE
+random#16                   62 |  83.87 100.00 100.00  61.29  58.06 | C1=100 C2=100 orient=100  AGREE
+random#17                   61 |  83.61 100.00 100.00  62.30  52.46 | C1=100 C2=100 orient=100  AGREE
+random#18                   63 |  74.60 100.00 100.00  58.73  49.21 | C1=100 C2=100 orient=100  AGREE
+random#19                   67 |  80.60 100.00 100.00  49.25  43.28 | C1=100 C2=100 orient=100  AGREE
+random#20                   62 |  85.48 100.00 100.00  61.29  56.45 | C1=100 C2=100 orient=100  AGREE
+random#21                   66 |  78.79 100.00 100.00  57.58  46.97 | C1=100 C2=100 orient=100  AGREE
+random#22                   63 |  82.54 100.00 100.00  53.97  46.03 | C1=100 C2=100 orient=100  AGREE
+random#23                   63 |  73.02 100.00 100.00  60.32  49.21 | C1=100 C2=100 orient=100  AGREE
+random#24                   78 |  75.64 100.00 100.00  47.44  41.03 | C1=100 C2=100 orient=100  AGREE
+random#25                   73 |  78.08 100.00 100.00  56.16  43.84 | C1=100 C2=100 orient=100  AGREE
+random#26                   64 |  79.69 100.00 100.00  60.94  51.56 | C1=100 C2=100 orient=100  AGREE
+random#27                   67 |  80.60 100.00 100.00  47.76  40.30 | C1=100 C2=100 orient=100  AGREE
+random#28                   79 |  70.89 100.00 100.00  55.70  43.04 | C1=100 C2=100 orient=100  AGREE
+random#29                   74 |  75.68 100.00 100.00  56.76  44.59 | C1=100 C2=100 orient=100  AGREE
+
+61/61 arrangements: independent validator agrees with evaluate_constraints on C3-C6 and total, and C1/C2/orientation hold

@@ -1,13 +1,13 @@
 # experiments/results/environment.txt — reproduction environment for the slide numbers
-generated: 2026-09-21 02:57 UTC
-commit:    8a919aa (8a919aa805b53d4814baa8249b5b75472516ee7f)  results generated at this commit; tag demo-final = fba214f
-branch:    master
+generated: 2026-09-21 10:11 UTC  (regenerated serially after the C4 fix; previous stamp 2026-09-21 02:57 UTC at 8a919aa)
+commit:    42b1fe8 (42b1fe8b2cd92c4acf41d828ec2bf4e47aac0669)  results generated after 42b1fe8 (bidirectional C4), branch bugfix, tag tier2-done
+branch:    bugfix
 
 ## machine
 cpu:       12th Gen Intel(R) Core(TM) i5-1235U (10C/12T)
 ram:       15.7 GB
 os:        Microsoft Windows 11 Home 10.0.26200
-note:      laptop; timings vary ~2x with power/thermal state, results do not
+note:      laptop; the regenerated runs were serial on an idle machine (one process at a time), so their wall-clock is reportable
 
 ## python
 Python 3.12.5
