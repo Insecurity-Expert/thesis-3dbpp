@@ -81,6 +81,8 @@ export default function Shell() {
 
   // Run History
   const [runHistory, setRunHistory] = useState([]);
+  // Non-null while the Results tab shows a saved run instead of a live one.
+  const [replay, setReplay] = useState(null);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -337,6 +339,7 @@ export default function Shell() {
     setStats(null);
     setFinalResult(null);
     setError(null);
+    setReplay(null);
 
     // wtpack (thesis) dataset: addressed by integer id, parameters are UI-driven
     if (dataset === "wtpack" && !isCustomized) {
@@ -396,12 +399,12 @@ export default function Shell() {
     if (!finalResult || !finalResult.items) return;
     const headers = "Sequence,Item ID,Bin ID,X,Y,Z,Length,Height,Depth\n";
     const rows = finalResult.items.map((item, idx) =>
-      `${idx + 1},${item.id},Bin ${item.bin_id},${item.x},${item.y},${item.z},${item.l},${item.h},${item.d}`
+      `${idx + 1},${item.id},Bin ${item.bin_id},${item.x},${item.y},${item.z},${item.dx ?? item.l},${item.dy ?? item.h},${item.dz ?? item.d}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `STACKR-Packing-Results-${isCustomized ? "custom" : finalResult.instance.split(/[\\/]/).pop().replace('.json', '')}.csv`;
+    link.download = `STACKR-Packing-Results-${isCustomized ? "custom" : String(finalResult.instance).split(/[\\/]/).pop().replace('.json', '')}.csv`;
     link.click();
   };
 
@@ -417,17 +420,114 @@ export default function Shell() {
     downloadAnchor.click();
   };
 
-  const handleLoadVisualization = useCallback((run) => {
-    if (!run || !run.placements || !run.container) return;
-    setPlacements(run.placements);
-    setInstanceInfo({
-      container: run.container,
-      n_items: run.placements.length,
-      lower_bound: 1
+  // ── Saved runs: load / label / delete / export / import ──────────────────
+  // Loading a run restores the Results page from the stored envelope. It never
+  // opens a WebSocket run and it is always marked as a replay (see banner).
+  const handleLoadRun = useCallback(async (run) => {
+    if (!run) return;
+    if (running) { setError("Stop the live run before loading a saved one."); return; }
+    // The history list omits result/convergence; fetch the full row.
+    let row = run;
+    if (!row.result) {
+      try { row = await runsApi.getRun(run.id); } catch (e) { setError(`Could not load run #${run.id}: ${e.message}`); return; }
+    }
+    const legacy = !row.result;
+    const result = legacy
+      ? {
+          // Pre-capture row: only what was stored. Fields ResultsTab reads
+          // unconditionally get neutral values so nothing crashes.
+          status: "ok", legacy: true,
+          instance: row.instance, n_items: row.n_items,
+          bins_used: row.bins_used ?? 1, placed: row.placements ? row.placements.length : null,
+          lower_bound: 1, gap_pct: 0, dissipation: row.dissipation ?? 0, composite_score: null,
+          volume_util_pct: row.space_util, runtime_s: row.runtime_s ?? 0,
+          container: row.container, items: row.placements || [],
+          metrics: { M1_space_utilization_pct: row.space_util },
+          strategy_label: row.strategy,
+        }
+      : row.result;
+    const series = Array.isArray(row.convergence) ? row.convergence : [];
+    setFinalResult(result);
+    setPlacements(result.items || null);
+    setInstanceInfo(result.container ? { container: result.container, n_items: result.n_items, lower_bound: result.lower_bound ?? 1 } : null);
+    setBinsUsed(result.bins_used ?? 1);
+    setChartData(series);
+    chartRef.current = series;
+    setStats(null);
+    setError(null);
+    setRunning(false);
+    setReplay({
+      id: row.id,
+      strategy: row.strategy || result.strategy_label || result.params?.strategy || "?",
+      instance: row.instance,
+      seed: row.seed ?? result.seed ?? result.params?.seed ?? null,
+      date: row.created_at,
+      label: row.label || null,
+      legacy,
     });
-    setBinsUsed(run.bins_used || 1);
-    setActiveTab("visualization");
+    setActiveTab("results");
+  }, [running]);
+
+  const handleLabelRun = useCallback(async (run, label) => {
+    try {
+      await runsApi.setLabel(run.id, label);
+      fetchRunHistory();
+      setReplay((r) => (r && r.id === run.id ? { ...r, label } : r));
+    } catch (e) { setError(`Could not label run #${run.id}: ${e.message}`); }
+  }, [fetchRunHistory]);
+
+  const handleDeleteRun = useCallback(async (run) => {
+    try {
+      await runsApi.deleteRun(run.id);
+      fetchRunHistory();
+    } catch (e) { setError(`Could not delete run #${run.id}: ${e.message}`); }
+  }, [fetchRunHistory]);
+
+  const handleExportRun = useCallback(async (run) => {
+    try {
+      const row = await runsApi.getRun(run.id);
+      const doc = { stackr_run: 1, exported_at: new Date().toISOString(), run: row };
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const strat = String(row.strategy_code || row.strategy || "run").replace(/[^A-Za-z0-9-]/g, "");
+      a.download = `STACKR-run-${row.id}-${strat}-${String(row.instance || "").replace(/[^A-Za-z0-9#-]/g, "")}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) { setError(`Could not export run #${run.id}: ${e.message}`); }
   }, []);
+
+  // Accepts the file written by handleExportRun. Validates shape before saving.
+  const handleImportRun = useCallback(async (file) => {
+    let doc;
+    try { doc = JSON.parse(await file.text()); }
+    catch { setError(`Import failed: ${file.name} is not valid JSON.`); return; }
+    const row = doc && doc.stackr_run === 1 && doc.run ? doc.run : null;
+    if (!row) { setError(`Import failed: ${file.name} is not a STACKR run export (missing stackr_run / run).`); return; }
+    const r = row.result;
+    const items = (r && Array.isArray(r.items)) ? r.items : (Array.isArray(row.placements) ? row.placements : null);
+    const container = (r && r.container) || row.container;
+    if (!items || !container || !row.strategy) {
+      setError(`Import failed: ${file.name} lacks placements, container or strategy.`); return;
+    }
+    if (r && (typeof r.metrics !== "object" || r.metrics === null)) {
+      setError(`Import failed: ${file.name} has a result without metrics.`); return;
+    }
+    try {
+      await runsApi.saveRun({
+        strategy: row.strategy, strategy_code: row.strategy_code ?? r?.strategy ?? null,
+        instance: row.instance, dataset: row.dataset ?? r?.dataset ?? null, seed: row.seed ?? r?.seed ?? null,
+        n_items: row.n_items ?? r?.n_items, space_util: row.space_util ?? r?.metrics?.M1_space_utilization_pct,
+        csr: row.csr ?? r?.metrics?.M2_constraint_satisfaction_pct ?? null, placed: row.placed ?? r?.placed ?? items.length,
+        dissipation: row.dissipation ?? r?.dissipation, runtime_s: row.runtime_s ?? r?.runtime_s, bins_used: row.bins_used ?? r?.bins_used,
+        placements: items, container,
+        label: row.label ? row.label : `imported ${file.name}`,
+        result: r || null, convergence: Array.isArray(row.convergence) ? row.convergence : null,
+      });
+      fetchRunHistory();
+      setError(null);
+    } catch (e) { setError(`Import failed: ${e.message}`); }
+  }, [fetchRunHistory]);
 
   // Group dataset instances
   const groupedInstances = useMemo(() => {
@@ -450,10 +550,12 @@ export default function Shell() {
     if (!finalResult || !finalResult.items || !finalResult.container) return { x: 91, y: 84, z: 78 };
     const { L, H, D } = finalResult.container;
     let maxX = 0, maxY = 0, maxZ = 0;
+    // Optimizer output carries dx/dy/dz (render axes); l/h/d is the legacy shape.
     for (const item of finalResult.items) {
-      if (item.x + item.l > maxX) maxX = item.x + item.l;
-      if (item.y + item.h > maxY) maxY = item.y + item.h;
-      if (item.z + item.d > maxZ) maxZ = item.z + item.d;
+      const dx = item.dx ?? item.l ?? 0, dy = item.dy ?? item.h ?? 0, dz = item.dz ?? item.d ?? 0;
+      if (item.x + dx > maxX) maxX = item.x + dx;
+      if (item.y + dy > maxY) maxY = item.y + dy;
+      if (item.z + dz > maxZ) maxZ = item.z + dz;
     }
     return {
       x: Math.round(Math.min(100, (maxX / L) * 100)),
@@ -674,6 +776,7 @@ export default function Shell() {
         <ResultsTab
           finalResult={finalResult}
           runHistory={runHistory}
+          replay={replay}
           strategy={strategy}
           stats={stats}
           axisUtil={axisUtil}
@@ -701,7 +804,11 @@ export default function Shell() {
         <RunHistoryTab
           runHistory={runHistory}
           handleExportHistory={handleExportHistory}
-          onLoadVisualization={handleLoadVisualization}
+          onLoadRun={handleLoadRun}
+          onLabelRun={handleLabelRun}
+          onDeleteRun={handleDeleteRun}
+          onExportRun={handleExportRun}
+          onImportRun={handleImportRun}
         />
       )}
 

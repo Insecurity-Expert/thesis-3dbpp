@@ -20,9 +20,16 @@ function StatChip({ label, value, color, subtitle }) {
   );
 }
 
+function formatWhen(dateStr) {
+  if (!dateStr) return "unknown date";
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? dateStr : d.toLocaleString();
+}
+
 export default function ResultsTab({
   finalResult,
   runHistory,
+  replay,
   strategy,
   wolfSize,
   stats,
@@ -32,8 +39,27 @@ export default function ResultsTab({
   handleExportResultsCSV,
   handleExportReport
 }) {
+  // What this page describes comes from the result envelope when it has one
+  // (a replayed run must not borrow the live UI's strategy or preset).
+  const shownStrategy = finalResult?.strategy_label || finalResult?.strategy || finalResult?.params?.strategy || strategy;
+  const shownPop  = finalResult?.params?.pop_size ?? wolfSize;
+  const shownIter = finalResult?.params?.max_iter ?? maxIter;
+  const isRepair = shownStrategy === "Repair-based" || shownStrategy === "REP";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+
+      {/* Replay banner — a saved run must never pass for a live one */}
+      {replay && (
+        <div role="status" className="replay-banner">
+          <span className="replay-banner-tag">SAVED RUN</span>
+          <span>
+            <b>{replay.strategy}</b>, instance <b>{replay.instance}</b>, seed <b>{replay.seed ?? "random"}</b>, {formatWhen(replay.date)}.
+            {replay.label ? <> Label: <b>{replay.label}</b>.</> : null}
+            {" "}<b>Not a live run.</b>
+            {replay.legacy && <> Saved before full result capture — some metrics unavailable.</>}
+          </span>
+        </div>
+      )}
 
       {/* Top row header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -51,7 +77,7 @@ export default function ResultsTab({
             fontWeight: "700",
             color: "var(--primary)"
           }}>
-            Run #{String(runHistory.length).padStart(3, "0")} - {strategy}
+            {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy}
           </span>
         )}
       </div>
@@ -78,16 +104,19 @@ export default function ResultsTab({
             const m = finalResult.metrics || {};
             const cd = m.constraint_detail;
             const thesis = cd && cd.C3_weight_pct !== undefined;   // DGWO / MOGWO / SEQ / REP
-            const isRepair = strategy === "Repair-based" || strategy === "REP";
             const placed = finalResult.placed ?? (finalResult.items ? finalResult.items.length : 0);
             const total  = finalResult.n_items ?? placed;
             if (!thesis) {
               return (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-                  <StatChip label="Space Utilization" value={`${(m.M1_space_utilization_pct || finalResult.volume_util_pct).toFixed(1)}%`} color="var(--primary)" subtitle="NAB score" />
-                  <StatChip label="Optimality Gap" value={`${finalResult.gap_pct.toFixed(1)}%`} color={finalResult.gap_pct === 0 ? "var(--green)" : "var(--amber)"} subtitle="vs. lower bound" />
-                  <StatChip label="Dissipation D(X)" value={finalResult.dissipation.toFixed(3)} color="var(--text-muted)" subtitle="C1=C2=0.5" />
-                  <StatChip label="Runtime" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`${maxIter} iterations`} />
+                  <StatChip label="Space Utilization" value={`${Number(m.M1_space_utilization_pct ?? finalResult.volume_util_pct ?? 0).toFixed(1)}%`} color="var(--primary)" subtitle={finalResult.legacy ? "as saved" : "NAB score"} />
+                  {finalResult.legacy ? (
+                    <StatChip label="Boxes placed" value={`${placed}${finalResult.n_items ? ` / ${finalResult.n_items}` : ""}`} color="var(--text-muted)" subtitle="from saved placements" />
+                  ) : (
+                    <StatChip label="Optimality Gap" value={`${Number(finalResult.gap_pct ?? 0).toFixed(1)}%`} color={finalResult.gap_pct === 0 ? "var(--green)" : "var(--amber)"} subtitle="vs. lower bound" />
+                  )}
+                  {!finalResult.legacy && <StatChip label="Dissipation D(X)" value={Number(finalResult.dissipation ?? 0).toFixed(3)} color="var(--text-muted)" subtitle="C1=C2=0.5" />}
+                  <StatChip label="Runtime" value={`${Number(finalResult.runtime_s ?? 0).toFixed(1)}s`} color="var(--text-muted)" subtitle={finalResult.legacy ? "as saved" : `${shownIter} iterations`} />
                 </div>
               );
             }
@@ -101,7 +130,7 @@ export default function ResultsTab({
                   subtitle={isRepair ? "100% by construction (repair R1–R5)" : "placed boxes satisfying C3–C6"}
                 />
                 <StatChip label="Boxes placed" value={`${placed} / ${total}`} color={placed === total ? "var(--green)" : "var(--amber)"} subtitle={`${(100 * placed / Math.max(total, 1)).toFixed(0)}% of the load`} />
-                <StatChip label="Execution time (M-3)" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`pop ${wolfSize ?? "—"} × ${maxIter} iterations`} />
+                <StatChip label="Execution time (M-3)" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`pop ${shownPop ?? "—"} × ${shownIter} iterations`} />
                 <StatChip label="Peak memory (M-4)" value={`${(m.M4_peak_memory_mb ?? 0).toFixed(1)} MB`} color="var(--text-muted)" subtitle="tracemalloc peak" />
               </div>
             );
@@ -132,7 +161,6 @@ export default function ResultsTab({
           {/* Per-constraint compliance (M-2a..M-2d) — thesis strategies only */}
           {finalResult.metrics?.constraint_detail?.C3_weight_pct !== undefined && (() => {
             const cd = finalResult.metrics.constraint_detail;
-            const isRepair = strategy === "Repair-based" || strategy === "REP";
             const rows = [
               { k: "C3", name: "Load-bearing (C3)",   v: cd.C3_weight_pct,     note: "borne mass ≤ LBS × contact area" },
               { k: "C4", name: "Fragility (C4)",      v: cd.C4_fragility_pct,  note: "nothing rests on a fragile box" },
@@ -194,13 +222,13 @@ export default function ResultsTab({
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>NAB (space fill)</span>
-                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{((finalResult.metrics?.M1_space_utilization_pct || finalResult.volume_util_pct) / 100).toFixed(3)}</span>
+                  <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{(Number(finalResult.metrics?.M1_space_utilization_pct ?? finalResult.volume_util_pct ?? 0) / 100).toFixed(3)}</span>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Optimality gap</span>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{finalResult.gap_pct.toFixed(1)}%</span>
+                    <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{Number(finalResult.gap_pct ?? 0).toFixed(1)}%</span>
                     <span className={`badge badge-${finalResult.gap_pct === 0 ? 'success' : 'fragile'}`}>
                       {finalResult.gap_pct === 0 ? 'Optimal' : 'Moderate'}
                     </span>

@@ -467,3 +467,82 @@ input:checked + .slider:before {
   justify-content: center;
   font-size: 20px;
 }
+
+/* Saved-run replay banner (Results tab). Must be impossible to miss. */
+.replay-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+  background: var(--amber-light);
+  border: 2px solid var(--amber);
+  border-left-width: 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 14px; line-height: 1.5;
+}
+.replay-banner-tag {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  background: var(--amber);
+  color: #1a1200;
+  font-weight: 800; font-size: 11px; letter-spacing: 0.08em;
+  border-radius: 4px;
+}
+
+/* ── Generic button / field / table classes (used by Run History, restyled in Part B) ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 14px; width: auto;
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700; line-height: 1.2;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.btn-primary { width: auto; padding: 8px 14px; background: var(--primary); color: #ffffff; }
+.btn.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+.btn-secondary { background: transparent; color: var(--text-muted); border-color: var(--border); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-input); color: var(--text-main); }
+.btn-danger { background: var(--red); color: #ffffff; }
+.btn-danger-outline { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-danger-outline:hover:not(:disabled) { background: var(--red-light); }
+.btn-xs { padding: 5px 9px; font-size: 11px; }
+.link-btn { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--primary); }
+.link-btn:hover { text-decoration: underline; }
+
+.field-input {
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 13px; font-family: inherit;
+  outline: none;
+}
+.field-input:focus { border-color: var(--primary); }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.data-table thead tr { background: var(--bg-input); border-bottom: 2px solid var(--border); }
+.data-table th { padding: 12px 14px; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table tbody tr:hover td { background: var(--bg-input); }
+
+.chip { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(--bg-input); color: var(--text-muted); white-space: nowrap; }
+.chip-dgwo { background: var(--primary-light); color: var(--primary); }
+.chip-mogwo { background: var(--blue-light); color: var(--blue); }
+.chip-seq, .chip-sequential { background: var(--green-light); color: var(--green); }
+.chip-rep, .chip-repairbased { background: var(--amber-light); color: var(--amber); }
+
+.confirm-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--red-light); border: 1px solid var(--red); border-radius: var(--radius-sm);
+  color: var(--text-main); font-size: 13px;
+}

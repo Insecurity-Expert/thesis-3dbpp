@@ -118,6 +118,22 @@ export const runsApi = {
       body: JSON.stringify(runData),
     });
   },
+
+  /** Full row including result_json / convergence_json (the list omits them). */
+  async getRun(id) {
+    return request(`/api/auth/runs/${encodeURIComponent(id)}`);
+  },
+
+  async setLabel(id, label) {
+    return request(`/api/auth/runs/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ label }),
+    });
+  },
+
+  async deleteRun(id) {
+    return request(`/api/auth/runs/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

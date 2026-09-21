@@ -64,6 +64,11 @@ class MockStatement {
       }
       return undefined;
     }
+    // 5. SELECT * FROM runs WHERE id = ? AND user_id = ?
+    if (this.sql.includes("SELECT * FROM runs WHERE id = ? AND user_id = ?")) {
+      const id = parseInt(params[0], 10), user_id = parseInt(params[1], 10);
+      return data.runs.find(r => r.id === id && r.user_id === user_id);
+    }
     return undefined;
   }
 
@@ -85,10 +90,12 @@ class MockStatement {
       saveData(data);
       return { lastInsertRowid: id };
     }
-    // 2. INSERT INTO runs
+    // 2. INSERT INTO runs (must mirror the column list in auth.js)
     if (this.sql.includes("INSERT INTO runs")) {
-      const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json] = params;
+      const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json,
+             strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json] = params;
       const id = data.runs.length ? Math.max(...data.runs.map(r => r.id)) + 1 : 1;
+      const num = (v) => (v === null || v === undefined || v === "" || Number.isNaN(Number(v))) ? null : Number(v);
       const newRun = {
         id,
         user_id: parseInt(user_id, 10),
@@ -101,11 +108,37 @@ class MockStatement {
         bins_used: parseInt(bins_used, 10),
         placements: placements_json ? JSON.parse(placements_json) : null,
         container: container_json ? JSON.parse(container_json) : null,
+        strategy_code: strategy_code ?? null,
+        dataset: dataset ?? null,
+        seed: num(seed),
+        csr: num(csr),
+        placed: num(placed),
+        label: label ?? null,
+        result: result_json ? JSON.parse(result_json) : null,
+        convergence: convergence_json ? JSON.parse(convergence_json) : null,
         created_at: new Date().toISOString()
       };
       data.runs.push(newRun);
       saveData(data);
       return { lastInsertRowid: id };
+    }
+    // 3. UPDATE runs SET label = ? WHERE id = ? AND user_id = ?
+    if (this.sql.includes("UPDATE runs SET label = ?")) {
+      const [label, id, user_id] = params;
+      const row = data.runs.find(r => r.id === parseInt(id, 10) && r.user_id === parseInt(user_id, 10));
+      if (!row) return { changes: 0 };
+      row.label = label;
+      saveData(data);
+      return { changes: 1 };
+    }
+    // 4. DELETE FROM runs WHERE id = ? AND user_id = ?
+    if (this.sql.includes("DELETE FROM runs WHERE id = ?")) {
+      const [id, user_id] = params;
+      const before = data.runs.length;
+      data.runs = data.runs.filter(r => !(r.id === parseInt(id, 10) && r.user_id === parseInt(user_id, 10)));
+      if (data.runs.length === before) return { changes: 0 };
+      saveData(data);
+      return { changes: 1 };
     }
     return { lastInsertRowid: 0 };
   }

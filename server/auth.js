@@ -70,20 +70,58 @@ router.get("/runs", authRequired, (req, res) => {
   const rows = db
     .prepare("SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 100")
     .all(req.user.id);
-  res.json(rows);
+  // Listing stays light: the full envelope is fetched per run on load.
+  res.json(rows.map(({ result, convergence, ...rest }) => ({
+    ...rest,
+    has_result: !!result,
+    has_convergence: Array.isArray(convergence) && convergence.length > 0,
+  })));
+});
+
+router.get("/runs/:id", authRequired, (req, res) => {
+  const row = db
+    .prepare("SELECT * FROM runs WHERE id = ? AND user_id = ?")
+    .get(Number(req.params.id), req.user.id);
+  if (!row) return res.status(404).json({ error: "Run not found" });
+  res.json(row);
 });
 
 router.post("/runs", authRequired, (req, res) => {
   const r = req.body || {};
+  // Legacy columns stay so old rows keep loading; result_json holds the full
+  // instance_complete envelope and convergence_json the streamed series.
+  // NOTE: db.js pattern-matches this literal — any new column goes in BOTH.
   const info = db
     .prepare(`INSERT INTO runs
-      (user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      (user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json,
+       strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(req.user.id, r.strategy, r.instance, r.n_items, r.space_util,
          r.dissipation, r.runtime_s, r.bins_used,
          r.placements ? JSON.stringify(r.placements) : null,
-         r.container ? JSON.stringify(r.container) : null);
+         r.container ? JSON.stringify(r.container) : null,
+         r.strategy_code ?? null, r.dataset ?? null, r.seed ?? null, r.csr ?? null, r.placed ?? null,
+         r.label ?? null,
+         r.result ? JSON.stringify(r.result) : null,
+         r.convergence ? JSON.stringify(r.convergence) : null);
   res.json({ id: info.lastInsertRowid });
+});
+
+router.patch("/runs/:id", authRequired, (req, res) => {
+  const label = req.body && typeof req.body.label === "string" ? req.body.label.slice(0, 120) : null;
+  const info = db
+    .prepare("UPDATE runs SET label = ? WHERE id = ? AND user_id = ?")
+    .run(label, Number(req.params.id), req.user.id);
+  if (!info.changes) return res.status(404).json({ error: "Run not found" });
+  res.json({ id: Number(req.params.id), label });
+});
+
+router.delete("/runs/:id", authRequired, (req, res) => {
+  const info = db
+    .prepare("DELETE FROM runs WHERE id = ? AND user_id = ?")
+    .run(Number(req.params.id), req.user.id);
+  if (!info.changes) return res.status(404).json({ error: "Run not found" });
+  res.json({ ok: true });
 });
 
 module.exports = { router, authRequired };
