@@ -121,7 +121,9 @@ const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
       <lineSegments geometry={doorFrame} position={[L / 2, H / 2, 0]} scale={[1.02, 1.02, 1]}>
         <lineBasicMaterial color={DOOR_COLOR} transparent opacity={0.6} />
       </lineSegments>
-      <mesh position={[L / 2, H / 2, 0.3]}>
+      {/* Just OUTSIDE the cargo volume (z < 0). A panel at z = +0.3 would cut
+          through any box loaded flush against the door and tint it. */}
+      <mesh position={[L / 2, H / 2, -0.3]}>
         <planeGeometry args={[L, H]} />
         <meshBasicMaterial color={DOOR_COLOR} transparent opacity={0.10} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
@@ -133,7 +135,9 @@ const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
       </Html>
 
       {/* 2. Front (cab) end, render z = D: solid shaded wall + label */}
-      <mesh position={[L / 2, H / 2, D - 0.3]}>
+      {/* Likewise just outside the front face, so a box flush at z = D is
+          never intersected by the wall plane. */}
+      <mesh position={[L / 2, H / 2, D + 0.3]}>
         <planeGeometry args={[L, H]} />
         <meshStandardMaterial color={FRONT_COLOR} transparent opacity={0.55} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
