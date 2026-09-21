@@ -1,7 +1,7 @@
 instance 350 | n=129 | orientation: first allowed | enforce C5=True C4=True
-weight-descending    SU= 61.24% CSR= 63.16% C3=100.00 C4=100.00 C5=100.00 C6= 63.16 placed= 57/129    219.6 ms
-volume-descending    SU= 61.24% CSR= 63.16% C3=100.00 C4=100.00 C5=100.00 C6= 63.16 placed= 57/129      2.0 ms
-random (mean)        SU= 49.95% CSR= 45.19% C3= 78.43 C4=100.00 C5=100.00 C6= 54.08 placed= 67.2/129      3.5 ms   (n=30)
-random (sd)          SU=  4.59  CSR=  5.29  placed=  5.9
-random (best by SU)  SU= 56.99% CSR= 41.03% C3= 75.64 C4=100.00 C5=100.00 C6= 47.44 placed= 78/129      3.6 ms
+weight-descending    SU= 69.74% CSR= 48.65% C3= 91.89 C4=100.00 C5=100.00 C6= 54.05 placed= 74/129    422.5 ms
+volume-descending    SU= 69.74% CSR= 48.65% C3= 91.89 C4=100.00 C5=100.00 C6= 54.05 placed= 74/129      6.4 ms
+random (mean)        SU= 51.40% CSR= 34.88% C3= 77.21 C4=100.00 C5=100.00 C6= 43.99 placed= 69.9/129      7.6 ms   (n=30)
+random (sd)          SU=  3.89  CSR=  5.11  placed=  4.5
+random (best by SU)  SU= 59.10% CSR= 30.38% C3= 73.42 C4=100.00 C5=100.00 C6= 39.24 placed= 79/129     12.1 ms
 wrote experiments/results/baselines_i350.json

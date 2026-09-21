@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'optimizer'))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from geometry_3d import (get_dims, vertical_lbs, place_container_dblf,
@@ -175,6 +176,28 @@ boxes = [box(10, 10, 10, stop=1), box(10, 10, 10, stop=2)]
 d = evaluate(boxes, {0: (0, 20, 0, 10, 10, 10),
                      1: (50, 0, 0, 10, 10, 10)})
 check("stop-2 in another lane passes C6", d['C6_stop_order_pct'], 100.0)
+
+# Rear-door container: pipeline emits x = width (233, across the truck),
+# y = length (587, depth from the rear door), z = height (220). C6 is judged
+# ALONG THE LENGTH (y); boxes side by side ACROSS THE WIDTH (x) never block.
+print("")
+print("[C6 rear door] depth runs along the 587 cm length")
+from preprocessing.pipeline import container_from_file_dims
+_rc = container_from_file_dims({'L': 587.0, 'W': 233.0, 'H': 220.0})
+check("rear-door container: x extent is the 233 width", _rc['L'], 233.0)
+check("rear-door container: y extent (depth from door) is the 587 length", _rc['W'], 587.0)
+check("rear-door container: z extent is the 220 height", _rc['H'], 220.0)
+check("raw file dims kept for display", (_rc['length_cm'], _rc['width_cm'], _rc['height_cm']), (587.0, 233.0, 220.0))
+boxes = [box(50, 50, 50, stop=1), box(50, 50, 50, stop=2)]
+# stop-1 deep in the truck (y=300), stop-2 between it and the rear door along the length
+d = evaluate(boxes, {0: (0, 300, 0, 50, 50, 50), 1: (0, 100, 0, 50, 50, 50)})
+check("stop-2 between stop-1 and the rear door ALONG THE LENGTH violates C6", d['C6_stop_order_pct'], 50.0)
+# same two boxes side by side ACROSS THE WIDTH at the same depth -> no obstruction
+d = evaluate(boxes, {0: (0, 300, 0, 50, 50, 50), 1: (100, 300, 0, 50, 50, 50)})
+check("stop-2 beside stop-1 ACROSS THE WIDTH passes C6", d['C6_stop_order_pct'], 100.0)
+# and a stop-2 box nearer the door but in another lane across the width also passes
+d = evaluate(boxes, {0: (0, 300, 0, 50, 50, 50), 1: (100, 100, 0, 50, 50, 50)})
+check("stop-2 nearer the door in another lane across the width passes C6", d['C6_stop_order_pct'], 100.0)
 
 # ── Part B: the genome is live ────────────────────────────────────────────────
 print("\n[encoding] 2n random-key genome drives sequence and orientation")

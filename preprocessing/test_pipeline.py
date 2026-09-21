@@ -239,6 +239,17 @@ class TestStopAssignment:
 
 class TestPipeline:
 
+    def test_container_is_rear_door_rotated(self, minimal_config, wtpack1_instances):
+        """Pipeline rotates the file's length x width x height so depth (y)
+        runs along the length: door = small end face. Loader stays raw."""
+        raw = wtpack1_instances[REF_INDEX]["container"]
+        inst = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID)
+        c = inst["container"]
+        assert c["L"] == raw["W"] and c["W"] == raw["L"] and c["H"] == raw["H"]
+        assert (c["length_cm"], c["width_cm"], c["height_cm"]) == (raw["L"], raw["W"], raw["H"])
+        assert c["door"] == "rear"
+        assert c["W"] >= c["L"]          # depth is the long axis on every wtpack container
+
     def test_load_augmented_instance_end_to_end(self, minimal_config):
         inst = load_augmented_instance(minimal_config, instance_id=REF_INSTANCE_ID)
         assert "container" in inst

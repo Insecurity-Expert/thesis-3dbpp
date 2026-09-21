@@ -539,7 +539,7 @@ export default function LogisticsTab({
                   {selectedWtpack && (
                     <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "10px", fontSize: "12px", color: "var(--text-dim)" }}>
                       <span>Class <b style={{ color: "var(--text-main)" }}>{selectedWtpack.br_class}</b> ({selectedWtpack.n_types} box types)</span>
-                      <span>Container <b style={{ color: "var(--text-main)" }}>{selectedWtpack.container.L} × {selectedWtpack.container.W} × {selectedWtpack.container.H} cm</b></span>
+                      <span>Container <b style={{ color: "var(--text-main)" }}>{selectedWtpack.container.L} × {selectedWtpack.container.W} × {selectedWtpack.container.H} cm</b> (length × width × height), rear door</span>
                       <span>Boxes <b style={{ color: "var(--text-main)" }}>{selectedWtpack.n_boxes}</b></span>
                       <span>Fragile <b style={{ color: "var(--amber)" }}>{selectedWtpack.fragile_count} ({Math.round(selectedWtpack.fragile_rate * 100)}%)</b></span>
                     </div>

@@ -19,6 +19,13 @@ respecting:
 
 The delivery order is an input; STACKR respects it, it does not plan routes.
 
+Coordinate convention: **x = across the truck, y = from the rear door
+(y = 0) toward the cab, z = height.** The container is a rear-door truck
+body — 587 × 233 × 220 cm (length × width × height) — so depth runs along
+the 587 cm length; the loader keeps the file's dimensions and
+`preprocessing/pipeline.container_from_file_dims` is the one place that
+maps them to physics extents.
+
 Reported metrics: **M-1** space utilisation (SU), **M-2** constraint
 satisfaction over placed boxes (CSR) plus the Chapter-3 figure over all
 boxes (CSR × placed / n), per-constraint compliance C3–C6, **M-3** wall-clock,
