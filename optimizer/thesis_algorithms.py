@@ -103,7 +103,7 @@ class ThesisOptimizerBase:
     def __init__(self, items, container, pop_size=30, max_iter=500,
                  lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
                  stream_cb=None, seed=None, lambda_penalty=None,
-                 enforce_support=False, enforce_fragility=False):
+                 enforce_support=False, enforce_fragility=False, record_history=False):
         self.items = items
         self.container = container
         self.pop_size = pop_size
@@ -117,12 +117,24 @@ class ThesisOptimizerBase:
         self.enforce_support = enforce_support
         self.enforce_fragility = enforce_fragility
         self.stream_cb = stream_cb
+        self.record_history = record_history
+        self.history = []
         self.n = len(items)
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
         # Real physics only — raises rather than inventing missing fields
         validate_items(self.items)
+
+    def _record(self, iteration, best):
+        """Observation only: best-so-far by this configuration's own return
+        criterion, for convergence curves. Never touches the RNG or a decision."""
+        if self.record_history:
+            self.history.append((iteration, best.su, best.csr, len(best.placements)))
+
+    @staticmethod
+    def _archive_best(archive):
+        return max(archive, key=lambda w: (w.csr, len(w.placements), w.su))
 
     def _new_wolf(self):
         return WolfContinuous(self.n, lambda_w=self.lambda_w, lambda_f=self.lambda_f,
@@ -154,6 +166,7 @@ class StandaloneDGWO(ThesisOptimizerBase):
 
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
+            self._record(iteration, alpha)
 
             if self.stream_cb:
                 self._emit(iteration, alpha)
@@ -195,6 +208,7 @@ class StandaloneMOGWO(ThesisOptimizerBase):
                 archive = self._prune_archive(archive, max_size=100)
 
             alpha, beta, delta = self._select_leaders(archive)
+            self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:
                 self._emit(iteration, alpha)
@@ -322,6 +336,8 @@ class SequentialHybrid(StandaloneMOGWO):
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
 
+            self._record(iteration, alpha)
+
             if self.stream_cb:
                 self._emit(iteration, alpha, T1, "Phase 1: DGWO")
 
@@ -345,6 +361,7 @@ class SequentialHybrid(StandaloneMOGWO):
                 archive = self._prune_archive(archive, max_size=100)
 
             alpha, beta, delta = self._select_leaders(archive)
+            self._record(T1 + iteration, self._archive_best(archive))
 
             if self.stream_cb:
                 self._emit(T1 + iteration, alpha, T2, "Phase 2: MOGWO")
@@ -406,6 +423,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
                 archive = self._prune_archive(archive, max_size=100)
 
             alpha, beta, delta = self._select_leaders(archive)
+            self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:
                 self._emit(iteration, alpha)
