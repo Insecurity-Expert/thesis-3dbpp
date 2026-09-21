@@ -15,6 +15,8 @@ export default function Shell() {
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [activeTab, setActiveTab] = useState("logistics"); // logistics, results, visualization, history
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem("sidebar", sidebarCollapsed ? "collapsed" : "open"); } catch {} }, [sidebarCollapsed]);
 
   // Profile dropdown state
   const [profileOpen, setProfileOpen] = useState(false);
@@ -569,160 +571,101 @@ export default function Shell() {
     (dataset === "wtpack" && wtpackId !== null)
   );
 
+  const NAV = [
+    { id: "logistics", label: "Start analysis", title: "Logistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
+    { id: "results", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "visualization", label: "3D viewer", title: "Visualization", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
+    { id: "history", label: "Run history", title: "Run history", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+  ];
+  const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-app)", color: "var(--text-main)" }}>
+    <div className="app">
 
-      {/* ── HEADER (STACKR BRANDING) ────────────────────────────────────────── */}
-      <header style={{
-        background: "var(--bg-card)",
-        borderBottom: "1px solid var(--border)",
-        padding: "14px 28px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        boxShadow: "var(--shadow)",
-        position: "sticky",
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={logoImg} alt="STACKR Logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "contain" }} />
+      {/* ── SIDEBAR ─────────────────────────────────────────────────────────── */}
+      <aside className={`sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+        <div className="sidebar-brand">
+          <div className="brand-mark"><img src={logoImg} alt="STACKR" /></div>
           <div>
-            <h1 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text-main)", letterSpacing: "-0.5px", lineHeight: 1.1 }}>STACKR</h1>
-            <span style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "600" }}>3D Bin Packing Optimizer</span>
+            <div className="brand-text">STACKR</div>
+            <div className="brand-sub">3D Bin Packing Optimizer</div>
           </div>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {selectedInstanceObj && (
-            <div style={{
-              background: "var(--primary-light)",
-              border: "1px solid var(--border)",
-              borderRadius: "20px",
-              padding: "6px 14px",
-              fontSize: "12px",
-              fontWeight: "700",
-              color: "var(--primary)",
-              display: "flex",
-              alignItems: "center",
-              gap: 8
-            }}>
-              OR-Library Benchmark: {selectedInstanceObj.label}
-            </div>
-          )}
-
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
-            style={{
-              background: "var(--bg-input)",
-              border: "1px solid var(--border)",
-              borderRadius: "50%",
-              width: "36px",
-              height: "36px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text-main)",
-              boxShadow: "var(--shadow)",
-            }}
-            title="Toggle Theme"
-          >
-            {theme === "light" ? "🌙" : "☀️"}
-          </button>
-
-          {/* Profile Dropdown */}
-          <div ref={dropdownRef} style={{ position: "relative" }}>
-            <div
-              onClick={() => setProfileOpen((o) => !o)}
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                background: "var(--primary)",
-                color: "#ffffff",
-                fontWeight: "800",
-                fontSize: "13px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                boxShadow: "var(--shadow)"
-              }}
+        <nav className="sidebar-nav">
+          <div className="nav-section-label">Workflow</div>
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`nav-item${activeTab === n.id ? " active" : ""}`}
+              onClick={() => setActiveTab(n.id)}
+              title={n.label}
             >
-              {initials}
-            </div>
-            {profileOpen && (
-              <div style={{
-                position: "absolute",
-                right: 0,
-                top: "46px",
-                background: "var(--bg-card)",
-                border: "1px solid var(--border)",
-                borderRadius: "12px",
-                width: "220px",
-                boxShadow: "var(--shadow-lg)",
-                padding: "16px",
-                zIndex: 1000
-              }}>
-                <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "12px" }}>
-                  <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--text-main)" }}>{user?.name || "User"}</div>
-                  <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "capitalize" }}>{user?.role || "Researcher"}</div>
-                </div>
-                <button
-                  onClick={() => {
-                    logout();
-                    setProfileOpen(false);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    background: "transparent",
-                    border: "1px solid var(--red)",
-                    borderRadius: "6px",
-                    color: "var(--red)",
-                    fontWeight: "600",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    textAlign: "center"
-                  }}
-                >
-                  Log out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* ── ERROR DISPLAY ── */}
-      {error && (
-        <div style={{ margin: "16px 28px 0", background: "var(--red-light)", border: "1px solid var(--red)", borderRadius: "8px", padding: "12px 18px", color: "var(--red)", fontSize: "14px" }}>
-          ⚠ {error}
-        </div>
-      )}
-
-      {/* ── TAB BAR ──────────────────────────────────────────────────────────── */}
-      <div style={{ padding: "12px 28px 0", display: "flex", gap: "10px", borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
-        {[
-          { id: "logistics", label: "Logistics" },
-          { id: "results", label: "Results" },
-          { id: "visualization", label: "Visualization" },
-          { id: "history", label: "Run history" }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-          >
-            {tab.label}
+              {n.icon}
+              <span>{n.label}</span>
+              {n.id === "results" && replay && <span className="badge badge-warn" style={{ marginLeft: "auto" }}>saved</span>}
+              {n.id === "visualization" && running && <span className="badge badge-primary" style={{ marginLeft: "auto" }}>live</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <button type="button" className="collapse-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? "Expand" : "Collapse"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M15 18l-6-6 6-6"/></svg>
+            <span>Collapse</span>
           </button>
-        ))}
-      </div>
+        </div>
+      </aside>
 
-      {/* ── MAIN LAYOUT ──────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, padding: "28px" }}>
+      {/* ── MAIN ────────────────────────────────────────────────────────────── */}
+      <div className="main">
+        <header className="topbar">
+          <div className="topbar-left">
+            <div className="crumb">STACKR / <b>{activeNav.title}</b></div>
+            <div className="page-title">{activeNav.title}</div>
+          </div>
+          <div className="topbar-right">
+            {selectedInstanceObj && (
+              <span className="chip"><span className="chip-dot" />OR-Library: {selectedInstanceObj.label}</span>
+            )}
+            {dataset === "wtpack" && wtpackId !== null && (
+              <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />wtpack #{wtpackId}</span>
+            )}
+            {running && <span className="chip"><span className="chip-dot warn" />Running · {elapsed}s</span>}
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+              title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            >
+              {theme === "light"
+                ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+                : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>}
+            </button>
+            <div ref={dropdownRef} style={{ position: "relative" }}>
+              <button type="button" className="avatar-btn" onClick={() => setProfileOpen((o) => !o)} title="Account">{initials}</button>
+              {profileOpen && (
+                <div className="card" style={{ position: "absolute", right: 0, top: "46px", width: "220px", boxShadow: "var(--shadow-2)", padding: "16px", zIndex: 1000 }}>
+                  <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "12px" }}>
+                    <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-main)" }}>{user?.name || "User"}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "capitalize" }}>{user?.role || "Researcher"}</div>
+                  </div>
+                  <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { logout(); setProfileOpen(false); }}>
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* ── ERROR DISPLAY ── */}
+        {error && (
+          <div className="alert-danger" style={{ margin: "16px 28px 0" }}>
+            ⚠ {error}
+          </div>
+        )}
+
+        <main className="content">
 
       {/* ── LOGISTICS TAB ── */}
       {activeTab === "logistics" && (
@@ -812,7 +755,8 @@ export default function Shell() {
         />
       )}
 
-    </main>
+        </main>
+      </div>
     </div>
   );
 }

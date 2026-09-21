@@ -56,9 +56,10 @@ export default function LandingPage({ onEnter }) {
         textAlign: 'center',
       }}>
         <h1 style={{
+          fontFamily: "'Playfair Display', serif",
           fontSize: 'clamp(36px, 6vw, 56px)',
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
+          fontWeight: 700,
+          letterSpacing: '0',
           color: 'var(--primary)',
           margin: '0 0 20px',
         }}>
@@ -80,7 +81,7 @@ export default function LandingPage({ onEnter }) {
           style={{
             padding: '15px 40px',
             background: 'var(--primary)',
-            color: '#fff',
+            color: 'var(--on-primary)',
             border: 'none',
             borderRadius: 'var(--radius)',
             fontSize: 16,
@@ -220,7 +221,7 @@ export default function LandingPage({ onEnter }) {
           style={{
             padding: '14px 36px',
             background: 'var(--primary)',
-            color: '#fff',
+            color: 'var(--on-primary)',
             border: 'none',
             borderRadius: 'var(--radius)',
             fontSize: 15,

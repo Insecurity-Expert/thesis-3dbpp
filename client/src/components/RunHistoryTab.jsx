@@ -95,7 +95,7 @@ export default function RunHistoryTab({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h3 style={{ fontSize: "18px", fontWeight: "800" }}>Run history</h3>
+          <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Run history</h3>
           <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
             Saved runs on this machine (server/data). Load one to replay its full Results page; export it to move it to another laptop.
           </span>

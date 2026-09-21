@@ -3,19 +3,10 @@ import ConvergenceChart from "./ConvergenceChart";
 
 function StatChip({ label, value, color, subtitle }) {
   return (
-    <div style={{
-      background: "var(--bg-card)",
-      border: "1px solid var(--border)",
-      borderRadius: "12px",
-      padding: "20px 24px",
-      flex: "1 1 calc(25% - 16px)",
-      boxShadow: "var(--shadow)",
-      transition: "transform 0.15s ease",
-      textAlign: "left"
-    }}>
-      <div style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)" }}>{label}</div>
-      <div style={{ fontSize: "28px", fontWeight: "800", color: color || "var(--primary)", marginTop: "4px", lineHeight: 1.1 }}>{value}</div>
-      {subtitle && <div style={{ fontSize: "11px", color: "var(--text-dim)", marginTop: "4px" }}>{subtitle}</div>}
+    <div className="stat-chip">
+      <div className="stat-chip-label">{label}</div>
+      <div className="stat-chip-value" style={{ color: color || "var(--primary)" }}>{value}</div>
+      {subtitle && <div className="stat-chip-sub">{subtitle}</div>}
     </div>
   );
 }
@@ -64,19 +55,11 @@ export default function ResultsTab({
       {/* Top row header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h3 style={{ fontSize: "18px", fontWeight: "800" }}>Metrics Panel</h3>
+          <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Metrics Panel</h3>
           <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>Compare visual layout achievements with mathematical bounds.</span>
         </div>
         {finalResult && (
-          <span style={{
-            padding: "6px 14px",
-            background: "var(--primary-light)",
-            border: "1px solid var(--border)",
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: "700",
-            color: "var(--primary)"
-          }}>
+          <span className="badge badge-primary" style={{ padding: "6px 14px", fontSize: "12px", textTransform: "none" }}>
             {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy}
           </span>
         )}
@@ -90,7 +73,7 @@ export default function ResultsTab({
             <span>{stats.iteration} / {stats.maxIter} Iterations</span>
           </div>
           <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(stats.iteration / stats.maxIter) * 100}%`, background: "linear-gradient(90deg, var(--primary), #a78bfa)", transition: "width 0.3s ease" }} />
+            <div style={{ height: "100%", width: `${(stats.iteration / stats.maxIter) * 100}%`, background: "linear-gradient(90deg, var(--primary), var(--blush))", transition: "width 0.3s ease" }} />
           </div>
         </div>
       )}
@@ -138,8 +121,8 @@ export default function ResultsTab({
 
           {/* Parameters the optimizer actually ran with — echoed by main_optimizer.py */}
           {finalResult.params && (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "16px 24px", boxShadow: "var(--shadow)" }}>
-              <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
+            <div className="card" style={{ padding: "16px 20px" }}>
+              <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
                 Parameters used — as reported by the optimizer
               </h4>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 22px", fontSize: "13px" }}>
@@ -168,8 +151,8 @@ export default function ResultsTab({
               { k: "C6", name: "Stop order (C6)",     v: cd.C6_stop_order_pct, note: "no later stop blocks an earlier one" },
             ];
             return (
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-                <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+              <div className="card">
+                <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
                   Constraint compliance — share of placed boxes satisfying each constraint
                 </h4>
                 {isRepair && (
@@ -199,7 +182,7 @@ export default function ResultsTab({
 
             {/* Left Column (Metrics Summary) */}
             <div style={{ flex: "1 1 380px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-              <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "20px" }}>
+              <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "20px" }}>
                 Metrics summary
               </h4>
 
@@ -264,8 +247,8 @@ export default function ResultsTab({
             <div style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "20px" }}>
 
               {/* Axis utilization Card */}
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-                <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+              <div className="card">
+                <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
                   Axis utilization
                 </h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -300,22 +283,16 @@ export default function ResultsTab({
               </div>
 
               {/* Convergence Card */}
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+              <div className="card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "0" }}>
+                  <h4 className="section-tag" style={{ marginBottom: 0 }}>
                     CONVERGENCE CURVE
                   </h4>
                   <div style={{ display: "flex", gap: "10px" }}>
-                    <button
-                      onClick={handleExportResultsCSV}
-                      style={{ padding: "6px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", cursor: "pointer" }}
-                    >
+                    <button onClick={handleExportResultsCSV} className="btn btn-secondary btn-sm">
                       Export CSV
                     </button>
-                    <button
-                      onClick={handleExportReport}
-                      style={{ padding: "6px 12px", background: "var(--primary)", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "#ffffff", cursor: "pointer" }}
-                    >
+                    <button onClick={handleExportReport} className="btn btn-primary btn-sm">
                       Export report
                     </button>
                   </div>

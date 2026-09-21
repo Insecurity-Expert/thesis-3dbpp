@@ -180,9 +180,9 @@ export default function LogisticsTab({
     flex: 1,
     padding: "12px 16px",
     borderRadius: "8px",
-    border: activeOption === opt ? "2px solid var(--primary)" : "2px solid var(--border)",
-    background: activeOption === opt ? "var(--primary)" : "var(--bg-input)",
-    color: activeOption === opt ? "#ffffff" : "var(--text-muted)",
+    border: activeOption === opt ? "1px solid var(--primary)" : "1px solid var(--border)",
+    background: activeOption === opt ? "var(--primary-light)" : "var(--bg-card)",
+    color: activeOption === opt ? "var(--primary-hover)" : "var(--text-muted)",
     fontSize: "13px",
     fontWeight: "700",
     cursor: "pointer",
@@ -202,7 +202,7 @@ export default function LogisticsTab({
         <div style={{ flex: "1 1 350px", display: "flex", flexDirection: "column", gap: "20px" }}>
 
           {/* Container card */}
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+          <div className="card">
             <h4
               className="form-label"
               style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}
@@ -257,7 +257,7 @@ export default function LogisticsTab({
           </div>
 
           {/* Algorithm settings card */}
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+          <div className="card">
             <h4
               className="form-label"
               style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}
@@ -269,18 +269,12 @@ export default function LogisticsTab({
                 <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
                   Configuration
                 </label>
-                <div style={{ display: "flex", gap: "6px" }}>
+                <div className="tabs-inline grow">
                   {["DGWO", "MOGWO", "Sequential", "Repair-based"].map((s) => (
                     <button
                       key={s}
                       onClick={() => setStrategy(s)}
-                      style={{
-                        flex: 1, padding: "8px 4px", borderRadius: "6px",
-                        border: "1px solid var(--border)",
-                        background: strategy === s ? "var(--primary)" : "var(--bg-input)",
-                        color: strategy === s ? "#ffffff" : "var(--text-muted)",
-                        fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "all 0.15s ease"
-                      }}
+                      className={strategy === s ? "active" : ""}
                     >
                       {s}
                     </button>
@@ -293,20 +287,14 @@ export default function LogisticsTab({
                 <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
                   Run preset
                 </label>
-                <div style={{ display: "flex", gap: "6px" }}>
+                <div className="tabs-inline grow">
                   {Object.entries(PRESET_INFO).map(([key, p]) => (
                     <button
                       key={key}
                       onClick={() => setPreset(key)}
                       disabled={running}
                       title={`pop ${p.pop} × ${p.iter} iterations — ${p.note}`}
-                      style={{
-                        flex: 1, padding: "8px 4px", borderRadius: "6px",
-                        border: preset === key ? "1px solid var(--primary)" : "1px solid var(--border)",
-                        background: preset === key ? "var(--primary)" : "var(--bg-input)",
-                        color: preset === key ? "#ffffff" : "var(--text-muted)",
-                        fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "all 0.15s ease"
-                      }}
+                      className={preset === key ? "active" : ""}
                     >
                       {p.label}
                     </button>
@@ -398,7 +386,7 @@ export default function LogisticsTab({
               OPTION A — Manual Item / Box log
           ───────────────────────────────────────── */}
           {activeOption === "A" && (
-            <div style={{ background: "var(--bg-card)", border: "2px solid var(--primary)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+            <div style={{ background: "var(--bg-card)", border: "2px solid var(--primary)", borderRadius: "var(--radius-lg)", padding: "20px" }}>
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "18px" }}>
                 <div>
@@ -420,7 +408,7 @@ export default function LogisticsTab({
                   </button>
                   <button
                     onClick={handleAddItem}
-                    style={{ padding: "6px 12px", background: "var(--primary)", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "#ffffff", cursor: "pointer" }}
+                    style={{ padding: "6px 12px", background: "var(--primary)", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "var(--on-primary)", cursor: "pointer" }}
                   >
                     Add item
                   </button>
@@ -457,7 +445,7 @@ export default function LogisticsTab({
                     <option value="Heavy">Heavy</option>
                   </select>
                 </div>
-                <button type="submit" style={{ padding: "8px 16px", background: "var(--primary)", border: "none", borderRadius: "4px", color: "#ffffff", fontSize: "13px", fontWeight: "700", cursor: "pointer", height: "35px" }}>
+                <button type="submit" style={{ padding: "8px 16px", background: "var(--primary)", border: "none", borderRadius: "4px", color: "var(--on-primary)", fontSize: "13px", fontWeight: "700", cursor: "pointer", height: "35px" }}>
                   ✓ Add
                 </button>
               </form>
@@ -504,7 +492,7 @@ export default function LogisticsTab({
               OPTION B — OR-Library Benchmark Dataset
           ───────────────────────────────────────── */}
           {activeOption === "B" && (
-            <div style={{ background: "var(--bg-card)", border: "2px solid var(--primary)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+            <div style={{ background: "var(--bg-card)", border: "2px solid var(--primary)", borderRadius: "var(--radius-lg)", padding: "20px" }}>
               <div style={{ marginBottom: "16px" }}>
                 <h4 style={{ fontSize: "16px", fontWeight: "800", color: "var(--text-main)", marginBottom: "4px" }}>Built-in OR-Library Benchmark</h4>
                 <p style={{ fontSize: "12px", color: "var(--text-dim)" }}>
@@ -513,7 +501,7 @@ export default function LogisticsTab({
               </div>
 
               {/* Dataset toggle: wtpack (thesis, real physics) vs legacy BR JSON */}
-              <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+              <div className="tabs-inline grow" style={{ marginBottom: "14px" }}>
                 {[
                   { key: "wtpack", label: "OR-Library wtpack (thesis)" },
                   { key: "br",     label: "BR JSON (legacy)" },
@@ -522,13 +510,7 @@ export default function LogisticsTab({
                     key={d.key}
                     onClick={() => setDataset(d.key)}
                     disabled={running}
-                    style={{
-                      flex: 1, padding: "8px 6px", borderRadius: "6px",
-                      border: dataset === d.key ? "1px solid var(--primary)" : "1px solid var(--border)",
-                      background: dataset === d.key ? "var(--primary)" : "var(--bg-input)",
-                      color: dataset === d.key ? "#ffffff" : "var(--text-muted)",
-                      fontSize: "12px", fontWeight: "700", cursor: "pointer"
-                    }}
+                    className={dataset === d.key ? "active" : ""}
                   >
                     {d.label}
                   </button>
@@ -701,14 +683,8 @@ export default function LogisticsTab({
             <button
               onClick={handleStartRun}
               disabled={!canRun}
-              style={{
-                padding: "10px 24px",
-                background: canRun ? "var(--primary)" : "var(--text-dim)",
-                color: "#ffffff", border: "none", borderRadius: "6px",
-                fontSize: "14px", fontWeight: "700",
-                cursor: canRun ? "pointer" : "not-allowed",
-                transition: "all 0.15s ease", whiteSpace: "nowrap"
-              }}
+              className="btn btn-primary"
+              style={{ padding: "10px 24px", fontSize: "14px", whiteSpace: "nowrap" }}
             >
               Run optimizer
             </button>

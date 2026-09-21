@@ -55,8 +55,8 @@ export default function VisualizationTab({
       <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: "20px" }}>
 
         {/* View controls panel */}
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-          <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+        <div className="card">
+          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
             ● VIEW CONTROLS
           </h4>
 
@@ -66,17 +66,13 @@ export default function VisualizationTab({
               <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
                 Rotate view
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+              <div className="tabs-inline grow">
                 {["Front", "Side", "Top", "3D"].map((dir) => (
                   <button
                     key={dir}
                     onClick={() => triggerViewReset(dir)}
+                    className={viewportOrientation === dir ? "active" : ""}
                     style={{
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid var(--border)",
-                      background: viewportOrientation === dir ? "var(--primary)" : "var(--bg-input)",
-                      color: viewportOrientation === dir ? "#ffffff" : "var(--text-muted)",
                       fontSize: "12px",
                       fontWeight: "700",
                       cursor: "pointer"
