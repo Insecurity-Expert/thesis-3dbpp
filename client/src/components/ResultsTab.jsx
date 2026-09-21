@@ -142,9 +142,15 @@ export default function ResultsTab({
                   ["λ (C3 / C4 / C5 / C6)", [finalResult.params.lambda_w, finalResult.params.lambda_f, finalResult.params.lambda_b, finalResult.params.lambda_a].map((v) => v ?? "—").join(" / ")],
                   ["Enforce C5 / C4", `${finalResult.params.enforce_support ? "on" : "off"} / ${finalResult.params.enforce_fragility ? "on" : "off"}`],
                   ["Seed", finalResult.params.seed ?? "random"],
+                  ["Container", finalResult.container
+                    ? `${finalResult.container.length_cm ?? finalResult.container.D} × ${finalResult.container.width_cm ?? finalResult.container.L} × ${finalResult.container.height_cm ?? finalResult.container.H} cm (length × width × height), rear door`
+                    : "—"],
                 ].map(([k, v]) => (
                   <span key={k}><span style={{ color: "var(--text-dim)" }}>{k}:</span> <b style={{ color: "var(--text-main)" }}>{String(v)}</b></span>
                 ))}
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "10px" }}>
+                Loaded and unloaded through the rear door. Stop 1 is unloaded first, so its boxes should sit nearest the door.
               </div>
             </div>
           )}

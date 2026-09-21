@@ -75,6 +75,7 @@ export default function VisualizationTab({
   const [filterFragile, setFilterFragile] = useState(true);
   const [filterHeavy, setFilterHeavy] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
+  const [showGuides, setShowGuides] = useState(true);   // rear door / cab end / depth arrow
   const [selectedStop, setSelectedStop] = useState("All");
   const [selectedItemInfo, setSelectedItemInfo] = useState(null);
 
@@ -181,6 +182,24 @@ export default function VisualizationTab({
                   <span className="slider" />
                 </label>
               </div>
+              <div className="switch-container">
+                <span className="switch-label" style={{ fontWeight: "700" }} title="Rear-door frame, cab-end wall and the door-to-cab arrow">Show orientation guides</span>
+                <label className="switch">
+                  <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} />
+                  <span className="slider" />
+                </label>
+              </div>
+            </div>
+
+            {/* Container: the rear-door truck body this arrangement is loaded into */}
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", fontSize: "12px", lineHeight: 1.5 }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>Container</div>
+              <div style={{ color: "var(--text-main)", fontWeight: 600 }}>
+                {instanceInfo?.container
+                  ? `${instanceInfo.container.length_cm ?? instanceInfo.container.D} × ${instanceInfo.container.width_cm ?? instanceInfo.container.L} × ${instanceInfo.container.height_cm ?? instanceInfo.container.H} cm (length × width × height), rear door`
+                  : "587 × 233 × 220 cm (length × width × height), rear door"}
+              </div>
+              <div style={{ color: "var(--text-dim)" }}>Loaded and unloaded through the rear door. Stop 1 is unloaded first, so its boxes should sit nearest the door.</div>
             </div>
 
             {/* Stop Select Dropdown */}
@@ -281,6 +300,7 @@ export default function VisualizationTab({
             container={instanceInfo.container}
             binsUsed={binsUsed}
             showLabels={showLabels}
+            showGuides={showGuides}
             running={running}
             orientation={viewportOrientation}
             resetTrigger={viewportTrigger}

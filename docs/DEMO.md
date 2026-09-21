@@ -63,7 +63,7 @@ wtpack (thesis)** is preselected → the dropdown is populated from
 
 > BR1 — instance 350 — 129 boxes — 26% fragile
 
-Below it: class, container 587 × 233 × 220 cm, 129 boxes, 33 fragile (26%).
+Below it: class, container 587 × 233 × 220 cm (length × width × height), rear door, 129 boxes, 33 fragile (26%).
 
 Algorithm settings: pick the **Configuration** (DGWO / MOGWO / Sequential /
 Repair-based) and the **Run preset**. *Quick demo* is preselected.

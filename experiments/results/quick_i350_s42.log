@@ -1,5 +1,5 @@
-[inst 350] DGWO   placed= 89/129 SU= 64.32% CSR= 43.82% C3= 84.27 C4=100.00 C5=100.00 C6= 50.56 budget_exhausted=False 5353ms
-[inst 350] MOGWO  placed= 66/129 SU= 50.84% CSR= 59.09% C3= 90.91 C4=100.00 C5=100.00 C6= 62.12 budget_exhausted=False 4001ms
-[inst 350] REP    placed= 55/129 SU= 44.29% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 33443ms
-[inst 350] SEQ    placed= 74/129 SU= 56.83% CSR= 58.11% C3= 93.24 C4=100.00 C5=100.00 C6= 60.81 budget_exhausted=False 4058ms
+[inst 350] DGWO   placed= 78/129 SU= 63.21% CSR= 43.59% C3= 91.03 C4=100.00 C5=100.00 C6= 46.15 budget_exhausted=False 9904ms
+[inst 350] MOGWO  placed= 70/129 SU= 54.07% CSR= 52.86% C3= 82.86 C4=100.00 C5=100.00 C6= 61.43 budget_exhausted=False 7414ms
+[inst 350] REP    placed= 43/129 SU= 33.35% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 44463ms
+[inst 350] SEQ    placed= 74/129 SU= 58.43% CSR= 48.65% C3= 94.59 C4=100.00 C5=100.00 C6= 50.00 budget_exhausted=False 7002ms
 wrote experiments/results/quick_i350_s42.json

@@ -49,8 +49,9 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
         />
       </mesh>
 
-      {/* Semi-transparent back wall */}
-      <mesh position={[cx, cy, nz]}>
+      {/* Semi-transparent end wall at the FRONT (cab) end, render z = D.
+          The z = 0 face is the rear door and is drawn by OrientationGuides. */}
+      <mesh position={[cx, cy, nz + nd]}>
         <planeGeometry args={[nl, nh]} />
         <meshStandardMaterial
           color="#111827"
@@ -72,6 +73,79 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
           side={THREE.DoubleSide}
         />
       </mesh>
+    </group>
+  );
+});
+
+// ── Orientation guides: rear door, cab end, depth arrow ──────────────────────
+// Render coordinates (after main_optimizer's render flip): x = across the
+// truck (L), y = height (H), z = depth from the rear door (D). Physics y = 0
+// (the door) is render z = 0; physics y = max (the cab end) is render z = D.
+// Everything here is placed in RENDER coordinates.
+const DOOR_COLOR  = '#22c55e';
+const FRONT_COLOR = '#94a3b8';
+const ARROW_COLOR = '#38bdf8';
+
+const guideLabelStyle = {
+  whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none',
+  fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
+  padding: '4px 9px', borderRadius: 6, color: '#0b1020',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.45)',
+};
+
+const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
+  const doorFrame = useMemo(() => new THREE.EdgesGeometry(new THREE.PlaneGeometry(L, H)), [L, H]);
+  const arrow = useMemo(() => {
+    // On the floor, just outside the left wall so no box can cover it; from
+    // the door end toward the cab end.
+    const len = D * 0.8;
+    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-L * 0.08, 0.5, D * 0.1), len, ARROW_COLOR, Math.min(30, len * 0.12), Math.min(14, len * 0.06));
+    return a;
+  }, [L, D]);
+  const cornerMarks = useMemo(() => {
+    // Short ticks on the floor at the door corners, pointing inward.
+    const pts = [];
+    const t = Math.min(L * 0.15, 30);
+    pts.push(0, 0.6, 0, t, 0.6, 0);  pts.push(0, 0.6, 0, 0, 0.6, t);
+    pts.push(L, 0.6, 0, L - t, 0.6, 0);  pts.push(L, 0.6, 0, L, 0.6, t);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, [L]);
+  return (
+    <group>
+      {/* 1. Rear door face, render z = 0: coloured frame + faint translucent panel */}
+      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, 0]}>
+        <lineBasicMaterial color={DOOR_COLOR} linewidth={2} />
+      </lineSegments>
+      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, 0]} scale={[1.02, 1.02, 1]}>
+        <lineBasicMaterial color={DOOR_COLOR} transparent opacity={0.6} />
+      </lineSegments>
+      <mesh position={[L / 2, H / 2, 0.3]}>
+        <planeGeometry args={[L, H]} />
+        <meshBasicMaterial color={DOOR_COLOR} transparent opacity={0.10} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <lineSegments geometry={cornerMarks}>
+        <lineBasicMaterial color={DOOR_COLOR} />
+      </lineSegments>
+      <Html position={[L / 2, H + 14, 0]} center zIndexRange={[5, 0]}>
+        <div style={{ ...guideLabelStyle, background: DOOR_COLOR }}>REAR DOOR — load and unload here</div>
+      </Html>
+
+      {/* 2. Front (cab) end, render z = D: solid shaded wall + label */}
+      <mesh position={[L / 2, H / 2, D - 0.3]}>
+        <planeGeometry args={[L, H]} />
+        <meshStandardMaterial color={FRONT_COLOR} transparent opacity={0.55} roughness={0.8} side={THREE.DoubleSide} />
+      </mesh>
+      <Html position={[L / 2, H + 14, D]} center zIndexRange={[5, 0]}>
+        <div style={{ ...guideLabelStyle, background: FRONT_COLOR }}>FRONT — cab end</div>
+      </Html>
+
+      {/* 3. Depth arrow on the floor, door -> cab */}
+      <primitive object={arrow} />
+      <Html position={[-L * 0.08, 2, D * 0.5]} center zIndexRange={[5, 0]}>
+        <div style={{ ...guideLabelStyle, background: ARROW_COLOR }}>toward cab →</div>
+      </Html>
     </group>
   );
 });
@@ -162,7 +236,7 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
 });
 
 // ── Interactive Camera Controller ───────────────────────────────────────────
-function CameraController({ orientation, target, H, camDist, resetTrigger }) {
+function CameraController({ orientation, target, H, camDist, totalWidth, D, resetTrigger }) {
   const { camera, controls } = useThree();
   const lastTriggerRef = useRef(-1);
 
@@ -172,37 +246,73 @@ function CameraController({ orientation, target, H, camDist, resetTrigger }) {
 
     if (!orientation) return;
     const nH = Number(H || 0);
-    const nCamDist = Number(camDist || 0);
+    const nW = Number(totalWidth || 0);
+    const nD = Number(D || 0);
+
+    // Fit the extents that actually face the camera. A rear-door container is
+    // 587 deep but only 233 across, so one distance for every view either
+    // overflows the frame (Top, where depth runs up the screen) or leaves the
+    // load tiny (Front). MARGIN leaves room for the orientation labels, which
+    // sit outside the shell at the door and cab ends.
+    // Per view, because the labels sit outside the shell in different
+    // directions: Side and Top carry a label at each end of the 587 cm axis,
+    // and Top must also clear the playback bar along the canvas bottom.
+    const MARGIN = { Front: 1.35, Side: 1.50, Top: 1.60, "3D": 1.45 };
+    const vFov = (Number(camera.fov || 30) * Math.PI) / 180;
+    const aspect = Number(camera.aspect || 1.6);
+    const fit = (screenW, screenH) => {
+      const byH = (screenH / 2) / Math.tan(vFov / 2);
+      const byW = (screenW / 2) / (Math.tan(vFov / 2) * aspect);
+      return Math.max(byH, byW, 1) * (MARGIN[orientation] || 1.4);
+    };
+    // Render axes: x = across (totalWidth), y = height, z = depth from door.
+    const dist =
+      orientation === "Front" ? fit(nW, nH) :
+      orientation === "Side"  ? fit(nD, nH) :
+      orientation === "Top"   ? fit(nW, nD) :
+      fit(Math.hypot(nW, nD) * 0.85, Math.max(nH, nD * 0.55));
+    const nCamDist = dist > 0 ? dist : Number(camDist || 0);
 
     // Set camera up vector based on orientation to prevent gimbal lock in Top view
     if (orientation === "Top") {
-      camera.up.set(0, 0, -1);
+      camera.up.set(0, 0, 1);   // door (z = 0) at the bottom of the screen, cab at the top
     } else {
       camera.up.set(0, 1, 0);
     }
 
+    // Render z = 0 is the rear door, z = D the cab end. "Front" looks in
+    // through the door; "3D" is a three-quarter view from behind and above
+    // the door so the long axis runs away from the viewer toward the cab.
+    // Each view is framed against the plane it actually shows. Front looks in
+    // through the door, so its distance is measured from the door plane
+    // (z = 0), not from the container centre 293 cm further in - otherwise a
+    // box at the door looms over the frame and its label projects off-screen.
+    // Top is aimed slightly doorward so the door label clears the playback bar
+    // along the bottom of the canvas.
+    const aim = [target[0], target[1], target[2]];
     if (orientation === "Front") {
-      camera.position.set(target[0], target[1], target[2] + nCamDist);
+      camera.position.set(target[0], target[1], -nCamDist);
     } else if (orientation === "Side") {
       camera.position.set(target[0] + nCamDist, target[1], target[2]);
     } else if (orientation === "Top") {
-      camera.position.set(target[0], target[1] + nCamDist, target[2]);
+      aim[2] = target[2] - nD * 0.09;
+      camera.position.set(target[0], target[1] + nCamDist, aim[2]);
     } else if (orientation === "3D") {
-      camera.position.set(target[0] + nCamDist * 0.6, target[1] + nH * 1.0, target[2] + nCamDist * 0.8);
+      camera.position.set(target[0] + nCamDist * 0.55, target[1] + nH * 1.3, target[2] - nCamDist * 0.75);
     }
-    camera.lookAt(target[0], target[1], target[2]);
+    camera.lookAt(aim[0], aim[1], aim[2]);
     if (controls) {
-      controls.target.set(target[0], target[1], target[2]);
+      controls.target.set(aim[0], aim[1], aim[2]);
       controls.update();
     }
     camera.updateProjectionMatrix();
-  }, [orientation, target, H, camDist, camera, controls, resetTrigger]);
+  }, [orientation, target, H, camDist, totalWidth, D, camera, controls, resetTrigger]);
 
   return null;
 }
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract }) {
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, showGuides = true, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract }) {
   // Parse container specs to numbers
   const container = useMemo(() => {
     const raw = result ? result.container : containerProp;
@@ -299,7 +409,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
   const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
 
   const cameraConfig = useMemo(() => ({
-    position: [target[0], target[1] + H * 0.8, target[2] + camDist],
+    position: [target[0] + camDist * 0.55, target[1] + H * 1.3, target[2] - camDist * 0.75],
     fov: 30,
     near: 1,
     far: Math.max(10000, camDist * 10)
@@ -335,6 +445,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
             return (
               <group key={binId} position={[offsetX, 0, 0]}>
                 <WireBox x={0} y={0} z={0} l={L} h={H} d={D} />
+                {showGuides && <OrientationGuides L={L} H={H} D={D} />}
                 {binItems.map((it) => (
                   <ItemBox
                     key={it.item_idx}
@@ -363,7 +474,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
             );
           })}
 
-          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} resetTrigger={resetTrigger} />
+          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} totalWidth={totalWidth} D={D} resetTrigger={resetTrigger} />
           <OrbitControls makeDefault target={target} onStart={onInteract} />
         </Canvas>
 

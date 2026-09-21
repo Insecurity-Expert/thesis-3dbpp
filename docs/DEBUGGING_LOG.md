@@ -171,3 +171,72 @@ bottom of `MOCK_DEFENSE_RESULTS.md` under "Superseded".
 the first regeneration pass validated the *old* baselines file and reported
 three C4 < 100 rows before this was noticed. Always check file timestamps
 after a regeneration.
+
+## 12. The door was a side wall, not the rear end (fixed; all results regenerated)
+
+**Symptom.** Nothing failed. C6 sat at 67 % for DGWO and 77 % for MOGWO on
+the slide table, the validator agreed with the evaluator on every
+arrangement, and the viewer drew a container of the right volume. The
+geometry was self-consistent and wrong.
+
+**Cause.** The wtpack line gives a container as *length × width × height*
+(587 × 233 × 220). `preprocessing/pipeline.py` passed it straight through as
+`{L, W, H}` = (x, y, z). But C6, R4, the extreme-point sort and
+`tools/validate_arrangement.py` all read **y as depth from the door**, with
+the door at the `y = 0` face. With y = 233 (the width), the door was a
+587 × 220 cm **long side wall** — a curtain-sider, not the rear-door truck
+the thesis describes. The removal corridor every stop-order argument rests
+on ran across the truck's 233 cm width instead of along its 587 cm length,
+so C6 was being measured over a corridor 2.5× too short.
+
+Because the loader, the constraint code and the independent validator all
+shared the same wrong axis assignment, no cross-check could catch it: the
+validator is independent of `optimizer/`, but not of the container the
+pipeline hands it.
+
+**Fix (`eee6b70`).** One documented function,
+`preprocessing.pipeline.container_from_file_dims`, is now the only place the
+file's dimensions become physics extents:
+
+    x extent ('L') = width   (233)  across the truck
+    y extent ('W') = length  (587)  from the rear door (y = 0) toward the cab
+    z extent ('H') = height  (220)
+
+The raw file dimensions ride along as `length_cm` / `width_cm` /
+`height_cm` for display. `preprocessing/loader.py` stays faithful to the
+file. No constraint code, no extreme-point sort, no validator and no box
+orientation mapping changed — they were already correct about y; they were
+being handed the wrong y. The render flip in `main_optimizer.py` is
+unchanged and now carries the raw dims through for the UI.
+
+**Consequence.** Every number is superseded. Slide table (4 configurations ×
+seeds 1–5), live-demo reference and baselines were rerun serially on an idle
+machine; the independent validator agrees on all 56 arrangements. The
+determinism hash moved from `afe1554817f5d94e` to **`aece641ca949cb2d`** —
+expected, since the container the search explores is a different shape.
+`tools/demo_check.py` now references DGWO SU 63.2115 / CSR 43.5897 / 78
+placed. Old tables are kept in `MOCK_DEFENSE_RESULTS.md` under "Superseded
+(side-door geometry)". The pop-30 campaign and the convergence CSVs were
+**not** rerun and are marked as side-door numbers.
+
+C6 moved most, as it must — it is the only constraint whose definition
+depends on which face is the door: DGWO −18.2 pp, MOGWO −13.1 pp, SEQ
+−9.8 pp. C4 and C5 are unchanged at 100 %. The weight-descending greedy
+moved the *other* way on utilisation (SU 61.24 → 69.74, +8.5 pp) because a
+size-descending sequence suits the long run, which leaves DGWO only
++0.74 pp above it on SU — inside its own seed spread.
+
+**Viewer.** The 3-D viewer gained orientation guides (rear-door frame,
+shaded cab-end wall, floor arrow toward the cab, labels that face the
+camera) behind a "Show orientation guides" toggle, on by default, plus a
+per-view camera fit: one camera distance for all four views either
+overflowed the frame in Top (where the 587 cm axis runs up the screen) or
+let a box at the door loom over Front. Each view is now framed against the
+plane it actually shows.
+
+**Lesson.** An independent validator only checks what it is given. It shared
+the pipeline's container, so it could confirm the arrangement was physically
+consistent while the container itself was the wrong way round. A geometric
+convention needs a test that pins it to a *physical* claim — here, "a
+stop-2 box between a stop-1 box and the door violates C6 **along the
+length**, and does not **across the width**" (`tools/test_geometry.py`).

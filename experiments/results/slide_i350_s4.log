@@ -1,5 +1,5 @@
-[inst 350] DGWO   placed= 97/129 SU= 77.91% CSR= 60.82% C3= 83.51 C4=100.00 C5=100.00 C6= 71.13 budget_exhausted=False 21920ms
-[inst 350] MOGWO  placed= 66/129 SU= 55.59% CSR= 74.24% C3= 93.94 C4=100.00 C5=100.00 C6= 77.27 budget_exhausted=False 19284ms
-[inst 350] REP    placed= 61/129 SU= 45.38% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 189544ms
-[inst 350] SEQ    placed= 71/129 SU= 57.73% CSR= 71.83% C3= 97.18 C4=100.00 C5=100.00 C6= 73.24 budget_exhausted=False 20398ms
+[inst 350] DGWO   placed= 91/129 SU= 70.73% CSR= 48.35% C3= 86.81 C4=100.00 C5=100.00 C6= 53.85 budget_exhausted=False 26509ms
+[inst 350] MOGWO  placed= 66/129 SU= 53.61% CSR= 65.15% C3= 92.42 C4=100.00 C5=100.00 C6= 69.70 budget_exhausted=False 29902ms
+[inst 350] REP    placed= 46/129 SU= 37.06% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 238430ms
+[inst 350] SEQ    placed= 73/129 SU= 63.49% CSR= 63.01% C3= 95.89 C4=100.00 C5=100.00 C6= 63.01 budget_exhausted=False 33123ms
 wrote experiments/results/slide_i350_s4.json
