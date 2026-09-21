@@ -25,7 +25,8 @@ def _overlap(a0, a1, b0, b1):
 def _is_above(i, j, placements):
     """
     Returns True if box j rests above box i.
-    Canonical convention: x = length, y = depth (y=0 at the door), z = height.
+    Canonical convention: x = across the truck, y = depth from the rear door
+    (y=0 at the door, toward the cab), z = height.
     j is above i if z_j >= z_i + dz_i AND their xy footprints overlap.
     """
     (x_i, y_i, z_i, dx_i, dy_i, dz_i) = placements[i]
@@ -70,7 +71,7 @@ def space_utilization(placements, container):
 def evaluate_constraints_reference(placements, items, orientations):
     """
     Evaluates C3 (Weight/LBS), C4 (Fragility), C5 (Stability), C6 (Stop-Order)
-    under the canonical convention (x=length, y=depth from the door, z=height).
+    under the canonical convention (x=across the truck, y=depth from the rear door, z=height).
 
     `orientations` maps item index -> orientation code, so C3 can charge the
     load against whichever face is actually bearing it.

@@ -9,7 +9,8 @@ import numpy as np
 from numba import njit
 
 # ── Orientation table ─────────────────────────────────────────────────────────
-# Canonical convention: x = length, y = depth (y=0 is the door), z = height
+# Canonical convention: x = across the truck, y = depth from the rear door
+# (y=0 is the door, y grows toward the cab), z = height
 # (z=0 is the floor, gravity along -z). Codes are 1-indexed and match the
 # encoding documented in preprocessing/loader.py._allowed_orientations.
 #

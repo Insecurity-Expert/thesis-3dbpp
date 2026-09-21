@@ -187,7 +187,12 @@ def main():
     # (H = height, D = depth). Physics is {L, W, H}; the legacy schema is
     # already {L, H, D}.
     if args.dataset == "wtpack":
-        render_container = {"L": container['L'], "H": container['H'], "D": container['W']}
+        # Physics x (across the truck) -> render x; physics y (depth from the
+        # rear door) -> render z; physics z (height) -> render y. The raw file
+        # dimensions (length x width x height) ride along for display.
+        render_container = {"L": container['L'], "H": container['H'], "D": container['W'],
+                            "length_cm": container.get('length_cm'), "width_cm": container.get('width_cm'),
+                            "height_cm": container.get('height_cm'), "door": container.get('door', 'rear')}
     else:
         render_container = container
 
