@@ -117,7 +117,7 @@ export function OmnibusCard({ cmp, measureCode, holm }) {
       <div className="stat-chip" style={{ flex: "1 1 160px" }}>
         <div className="stat-chip-label">{holm ? "Holm-corrected p" : "p-value"}</div>
         <div className="stat-chip-value" style={{ fontSize: 22, color: sig ? "var(--green)" : "var(--text-muted)" }}>{o.testable ? fmt.p(holm ? o.p_holm : o.p) : "—"}</div>
-        <div className="stat-chip-sub">{holm && o.testable ? `raw p = ${fmt.p(o.p)} · family of ${o.holm_family_size}` : `two-tailed, α = 0.05`}</div>
+        <div className="stat-chip-sub">{holm && o.testable ? `raw ${fmt.peq(o.p)} · family of ${o.holm_family_size}` : `two-tailed, α = 0.05`}</div>
       </div>
       <div className="stat-chip" style={{ flex: "2 1 260px" }}>
         <div className="stat-chip-label">Result</div>
@@ -130,7 +130,8 @@ export function OmnibusCard({ cmp, measureCode, holm }) {
   );
 }
 
-export function PairsTable({ stats, cmp, measureCode }) {
+export function PairsTable({ stats, cmp, measureCode, valueFmt }) {
+  const vf = valueFmt || ((v) => fmt.num(v, 2));
   if (!cmp.pairs || !cmp.pairs.length) {
     return <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>No pairwise comparisons: {cmp.omnibus.reason || "the omnibus test could not be run"}.</p>;
   }
@@ -147,7 +148,7 @@ export function PairsTable({ stats, cmp, measureCode }) {
               return (
                 <tr key={p.a + p.b}>
                   <td style={{ ...td, fontWeight: 600 }}>{label(stats, p.a)} vs {label(stats, p.b)}</td>
-                  <td style={td}>{fmt.num(p.mean_a, 2)} vs {fmt.num(p.mean_b, 2)}</td>
+                  <td style={td}>{vf(p.mean_a)} vs {vf(p.mean_b)}</td>
                   <td style={td}>{fmt.p(p.p)}</td>
                   <td style={{ ...td, color: p.significant ? "var(--green)" : "var(--text-dim)" }}>{p.significant ? "Yes" : "No"}</td>
                   <td style={td}>{effectPlain(p.effect)}{p.effect.practical ? "" : " — below threshold"}</td>

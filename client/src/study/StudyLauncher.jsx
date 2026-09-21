@@ -50,9 +50,8 @@ export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed }) {
 
 export default function StudyLauncher({
   sizesInfo, studies, available, onLaunch, onImport, onOpenStudy, onDeleteStudy, onRefresh,
-  wtpackId, wtpackInstances, seed, busy,
+  wtpackId, wtpackInstances, seed, busy, size, setSize,
 }) {
-  const [size, setSize] = useState("demo");
   const [customInstance, setCustomInstance] = useState(false);
   const sizes = (sizesInfo && sizesInfo.sizes) || [];
   const chosen = sizes.find((s) => s.key === size);

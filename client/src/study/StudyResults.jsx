@@ -131,7 +131,7 @@ function ComplianceTable({ stats }) {
                   </td>
                   {configs.map((c) => <td key={c} style={{ ...td, fontWeight: isPrimary ? 700 : 500 }}>{fmt.pct(stats.descriptives[m][d][c].mean, 2)}</td>)}
                   <td style={{ ...td, fontSize: 12, color: o.testable ? (o.significant_holm ? "var(--green)" : "var(--text-muted)") : "var(--text-dim)" }}>
-                    {o.testable ? (o.significant_holm ? `Yes (Holm p = ${fmt.p(o.p_holm)})` : `No (Holm p = ${fmt.p(o.p_holm)})`) : o.reason}
+                    {o.testable ? (o.significant_holm ? `Yes (Holm ${fmt.peq(o.p_holm)})` : `No (Holm ${fmt.peq(o.p_holm)})`) : o.reason}
                   </td>
                 </tr>
               );

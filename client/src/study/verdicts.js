@@ -41,6 +41,8 @@ export const fmt = {
   num: (v, d = 2) => (v === null || v === undefined || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(d)),
   pct: (v, d = 1) => (v === null || v === undefined ? "—" : `${Number(v).toFixed(d)}%`),
   p: (p) => (p === null || p === undefined ? "—" : p < 0.0001 ? "< 0.0001" : Number(p).toFixed(4)),
+  // "p = 0.0359" or "p < 0.0001" — for prose
+  peq: (p) => (p === null || p === undefined ? "p = —" : p < 0.0001 ? "p < 0.0001" : `p = ${Number(p).toFixed(4)}`),
   ms: (ms) => (ms === null || ms === undefined ? "—" : ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`),
   mb: (mb) => (mb === null || mb === undefined ? "—" : `${Number(mb).toFixed(1)} MB`),
   pm: (d) => (d && d.mean !== null && d.mean !== undefined ? `${Number(d.mean).toFixed(2)} ± ${d.sd === null || d.sd === undefined ? "—" : Number(d.sd).toFixed(2)}` : "—"),
@@ -84,7 +86,7 @@ export function omnibusSentence(cmp, measureCode, opts = {}) {
   if (!o.testable) return `${capitalize(what)}: ${o.reason}.`;
   const sig = opts.holm ? o.significant_holm : o.significant;
   const p = opts.holm ? o.p_holm : o.p;
-  const corr = opts.holm ? ` (Holm-corrected p = ${fmt.p(p)}, family of ${o.holm_family_size})` : ` (p = ${fmt.p(p)})`;
+  const corr = opts.holm ? ` (Holm-corrected ${fmt.peq(p)}, family of ${o.holm_family_size})` : ` (${fmt.peq(p)})`;
   const stat = `${o.test}: ${o.statistic_name} = ${fmt.num(o.statistic, 3)}${o.df ? `, df = ${o.df.join(", ")}` : ""}`;
   return sig
     ? `${capitalize(what)}: the four configurations are not all the same — ${stat}${corr}.`
@@ -117,12 +119,12 @@ export function pairSentence(stats, pair, measureCode) {
   const v = pairVerdict(stats, pair);
   const what = MEASURE_PLAIN[measureCode] || measureCode;
   if (v.kind === "outperforms") {
-    return `${v.text} on ${what}: corrected p = ${fmt.p(pair.p)}, ${effectPlain(pair.effect)} effect.`;
+    return `${v.text} on ${what}: corrected ${fmt.peq(pair.p)}, ${effectPlain(pair.effect)} effect.`;
   }
   if (v.kind === "detectable") {
-    return `${label(stats, pair.a)} vs ${label(stats, pair.b)} on ${what}: the difference is real (p = ${fmt.p(pair.p)}) but too small to matter in practice (${effectPlain(pair.effect)}, below the threshold of ${pair.effect.threshold}).`;
+    return `${label(stats, pair.a)} vs ${label(stats, pair.b)} on ${what}: the difference is real (${fmt.peq(pair.p)}) but too small to matter in practice (${effectPlain(pair.effect)}, below the threshold of ${pair.effect.threshold}).`;
   }
-  return `${label(stats, pair.a)} vs ${label(stats, pair.b)} on ${what}: no significant difference (p = ${fmt.p(pair.p)}).`;
+  return `${label(stats, pair.a)} vs ${label(stats, pair.b)} on ${what}: no significant difference (${fmt.peq(pair.p)}).`;
 }
 
 // ── SP1 ──────────────────────────────────────────────────────────────────────
@@ -131,10 +133,10 @@ export function sp1Summary(stats) {
   if (!cmp) return "";
   const o = cmp.omnibus;
   if (!o.testable) return `Container fill could not be tested: ${o.reason}.`;
-  if (!o.significant) return `No configuration filled the container significantly better than another (${o.test}, p = ${fmt.p(o.p)}).`;
+  if (!o.significant) return `No configuration filled the container significantly better than another (${o.test}, ${fmt.peq(o.p)}).`;
   const wins = cmp.pairs.filter((p) => p.outperforms);
   const detect = cmp.pairs.filter((p) => p.significant && !p.outperforms);
-  const bits = [`The configurations differ on container fill (${o.test}, p = ${fmt.p(o.p)}).`];
+  const bits = [`The configurations differ on container fill (${o.test}, ${fmt.peq(o.p)}).`];
   if (wins.length) bits.push(wins.map((p) => pairVerdict(stats, p).text).join("; ") + ".");
   if (detect.length) bits.push(`${detect.length} pair${detect.length > 1 ? "s" : ""} differ${detect.length > 1 ? "" : "s"} detectably but not meaningfully.`);
   if (!wins.length && !detect.length) bits.push("No pair reached a significant post-hoc difference.");
@@ -175,8 +177,8 @@ export function sp3Summary(stats) {
     if (fr && fr.testable) {
       const order = Object.entries(fr.mean_rank).sort((a, b) => a[1] - b[1]).map(([c]) => label(stats, c));
       bits.push(fr.significant
-        ? `Across test cases (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, p = ${fmt.p(fr.p)}) the ranking on ${MEASURE_PLAIN[m]} is consistent: ${order.join(" < ")} (lower is better).`
-        : `Across test cases the ranking on ${MEASURE_PLAIN[m]} is not consistent (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, p = ${fmt.p(fr.p)}).`);
+        ? `Across test cases (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)}) the ranking on ${MEASURE_PLAIN[m]} is consistent: ${order.join(" < ")} (lower is better).`
+        : `Across test cases the ranking on ${MEASURE_PLAIN[m]} is not consistent (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)}).`);
     } else if (fr) {
       bits.push(`Ranking across test cases on ${MEASURE_PLAIN[m]}: ${fr.reason}.`);
     }
@@ -193,7 +195,7 @@ export function compositeSummary(stats) {
   const ranking = cs.ranking.map((c, i) => `${i + 1}. ${label(stats, c)} (${fmt.num(cs.mean_cs[c] * 5, 2)} / 5)`).join(", ");
   if (!fr.testable) return `Overall scores: ${ranking}. The ranking could not be tested: ${fr.reason}.`;
   if (!fr.significant) {
-    return `Overall scores: ${ranking}. The Friedman test does not separate them (χ² = ${fmt.num(fr.statistic, 2)}, p = ${fmt.p(fr.p)} over ${fr.blocks} test cases), so no configuration is recommended — the differences are within what chance could produce.`;
+    return `Overall scores: ${ranking}. The Friedman test does not separate them (χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases), so no configuration is recommended — the differences are within what chance could produce.`;
   }
   const rec = cs.recommendation;
   const ties = ((fr.posthoc && fr.posthoc.pairs) || [])
@@ -202,7 +204,7 @@ export function compositeSummary(stats) {
   const beats = ((fr.posthoc && fr.posthoc.pairs) || [])
     .filter((p) => p.significant && p.favours === rec.configuration)
     .map((p) => label(stats, p.a === rec.configuration ? p.b : p.a));
-  let s = `Overall scores: ${ranking}. The ranking is reliable (Friedman χ² = ${fmt.num(fr.statistic, 2)}, p = ${fmt.p(fr.p)} over ${fr.blocks} test cases). Recommended: ${label(stats, rec.configuration)} with the best mean score, ${fmt.num(rec.mean_cs * 5, 2)} / 5.`;
+  let s = `Overall scores: ${ranking}. The ranking is reliable (Friedman χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases). Recommended: ${label(stats, rec.configuration)} with the best mean score, ${fmt.num(rec.mean_cs * 5, 2)} / 5.`;
   if (beats.length) s += ` Nemenyi separates it from ${beats.join(" and ")}.`;
   if (ties.length) s += ` It is statistically tied with ${ties.join(" and ")}.`;
   return s;
@@ -215,7 +217,7 @@ export function outcomeBanner(stats) {
   const oc = stats.outcome;
   if (cs && cs.available && cs.friedman && cs.friedman.significant && cs.recommendation) {
     return { kind: "winner", title: `Recommended: ${label(stats, cs.recommendation.configuration)}`,
-             sub: `Best mean overall score across ${cs.n_instances} test cases; the ranking passed the Friedman test (p = ${fmt.p(cs.friedman.p)}).`,
+             sub: `Best mean overall score across ${cs.n_instances} test cases; the ranking passed the Friedman test (${fmt.peq(cs.friedman.p)}).`,
              config: cs.recommendation.configuration };
   }
   if (cs && !cs.available && /2 instances/.test(cs.reason || "")) {
@@ -226,7 +228,7 @@ export function outcomeBanner(stats) {
     return { kind: "info", title: "No overall ranking for this study", sub: `${cs.reason}. ` + outcomeText(oc) };
   }
   if (cs && cs.available) {
-    return { kind: "pattern", title: outcomeTitle(oc), sub: `${outcomeText(oc)} The overall ranking did not pass the Friedman test (p = ${fmt.p(cs.friedman.p)}), so no single configuration is recommended.` };
+    return { kind: "pattern", title: outcomeTitle(oc), sub: `${outcomeText(oc)} The overall ranking did not pass the Friedman test (${fmt.peq(cs.friedman.p)}), so no single configuration is recommended.` };
   }
   return { kind: "pattern", title: outcomeTitle(oc), sub: outcomeText(oc) };
 }

@@ -9,7 +9,7 @@ const COLORS = { DGWO: "var(--primary)", MOGWO: "var(--blush, #B86B7A)", SEQ: "v
  */
 export default function LineChart({ series, xLabels, yLabel, yFmt = (v) => v.toFixed(0), height = 240 }) {
   const W = 680, H = height;
-  const PAD = { t: 18, r: 20, b: 52, l: 58 };
+  const PAD = { t: 18, r: 60, b: 52, l: 58 };
   const iw = W - PAD.l - PAD.r, ih = H - PAD.t - PAD.b;
   const n = xLabels.length;
   const ys = series.flatMap((s) => s.points.map((p) => p.y).filter((v) => v !== null && v !== undefined));

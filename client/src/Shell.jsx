@@ -98,6 +98,7 @@ export default function Shell() {
   const [studyProgress, setStudyProgress] = useState(null);
   const [resultsMode, setResultsMode] = useState("quick"); // "quick" (single run) | "study"
   const [studyBusy, setStudyBusy] = useState(false);
+  const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -811,7 +812,7 @@ export default function Shell() {
           setWolfSizeCustom={setWolfSizeCustom}
           setMaxIterCustom={setMaxIterCustom}
           optimizerReady={optimizerReady}
-          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} />}
+          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} />}
           studyLauncher={
             <StudyLauncher
               sizesInfo={sizesInfo}
@@ -826,6 +827,8 @@ export default function Shell() {
               wtpackInstances={wtpackInstances}
               seed={seed}
               busy={studyBusy}
+              size={studySize}
+              setSize={setStudySize}
             />
           }
         />

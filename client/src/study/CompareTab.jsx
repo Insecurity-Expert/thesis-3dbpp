@@ -139,7 +139,7 @@ function SP3({ stats, study }) {
         <OmnibusCard cmp={cmp} measureCode={metric} holm />
       </Section>
       <Section title="Which methods are different from each other?">
-        <PairsTable stats={stats} cmp={cmp} measureCode={metric} />
+        <PairsTable stats={stats} cmp={cmp} measureCode={metric} valueFmt={(v) => (metric === "ET" ? fmt.ms(v) : fmt.mb(v))} />
       </Section>
       <Section title="Is the ranking consistent across test cases?" desc="Friedman test with the test cases as blocks (per-instance means).">
         {fr && fr.testable ? (
