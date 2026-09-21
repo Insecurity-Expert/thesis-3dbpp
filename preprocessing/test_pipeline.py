@@ -9,6 +9,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Anchor data paths to the repo, not the cwd, so the suite passes from anywhere.
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
+
 import numpy as np
 import pytest
 
@@ -23,7 +26,7 @@ from preprocessing.pipeline import load_augmented_instance
 @pytest.fixture(scope="module")
 def wtpack1_instances():
     """Parse wtpack1 once and reuse across all tests in this module."""
-    return parse_wtpack("data/raw/wtpack1.txt")
+    return parse_wtpack(str(RAW_DIR / "wtpack1.txt"))
 
 
 # wtpack1 has only 3 box types, so the greedy 25% cut is coarse and most of
@@ -47,7 +50,7 @@ def fresh_instance(wtpack1_instances):
 
 @pytest.fixture
 def minimal_config():
-    return {"data": {"raw_dir": "data/raw/"}}
+    return {"data": {"raw_dir": str(RAW_DIR)}}
 
 
 # ── Loader tests ─────────────────────────────────────────────────────────────
@@ -106,7 +109,7 @@ class TestLoader:
 
     def test_missing_file_raises(self):
         with pytest.raises(FileNotFoundError):
-            parse_wtpack("data/raw/does_not_exist.txt")
+            parse_wtpack(str(RAW_DIR / "does_not_exist.txt"))
 
 
 # ── Fragility tests ──────────────────────────────────────────────────────────
