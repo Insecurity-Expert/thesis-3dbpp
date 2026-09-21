@@ -139,7 +139,7 @@ const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
           never intersected by the wall plane. */}
       <mesh position={[L / 2, H / 2, D + 0.3]}>
         <planeGeometry args={[L, H]} />
-        <meshStandardMaterial color={FRONT_COLOR} transparent opacity={0.55} roughness={0.8} side={THREE.DoubleSide} />
+        <meshStandardMaterial color={FRONT_COLOR} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
       <Html position={[L / 2, H + 14, D]} center zIndexRange={[5, 0]}>
         <div style={{ ...guideLabelStyle, background: FRONT_COLOR }}>FRONT — cab end</div>
