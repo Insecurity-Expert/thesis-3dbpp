@@ -196,7 +196,7 @@ export default function VisualizationTab({
               <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>Container</div>
               <div style={{ color: "var(--text-main)", fontWeight: 600 }}>
                 {instanceInfo?.container
-                  ? `${instanceInfo.container.length_cm ?? instanceInfo.container.D} × ${instanceInfo.container.width_cm ?? instanceInfo.container.L} × ${instanceInfo.container.height_cm ?? instanceInfo.container.H} cm (length × width × height), rear door`
+                  ? `${instanceInfo.container.length_cm ?? instanceInfo.container.L} × ${instanceInfo.container.width_cm ?? instanceInfo.container.D} × ${instanceInfo.container.height_cm ?? instanceInfo.container.H} cm (length × width × height), rear door`
                   : "587 × 233 × 220 cm (length × width × height), rear door"}
               </div>
               <div style={{ color: "var(--text-dim)" }}>Loaded and unloaded through the rear door. Stop 1 is unloaded first, so its boxes should sit nearest the door.</div>

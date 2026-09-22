@@ -143,7 +143,7 @@ export default function ResultsTab({
                   ["Enforce C5 / C4", `${finalResult.params.enforce_support ? "on" : "off"} / ${finalResult.params.enforce_fragility ? "on" : "off"}`],
                   ["Seed", finalResult.params.seed ?? "random"],
                   ["Container", finalResult.container
-                    ? `${finalResult.container.length_cm ?? finalResult.container.D} × ${finalResult.container.width_cm ?? finalResult.container.L} × ${finalResult.container.height_cm ?? finalResult.container.H} cm (length × width × height), rear door`
+                    ? `${finalResult.container.length_cm ?? finalResult.container.L} × ${finalResult.container.width_cm ?? finalResult.container.D} × ${finalResult.container.height_cm ?? finalResult.container.H} cm (length × width × height), rear door`
                     : "—"],
                 ].map(([k, v]) => (
                   <span key={k}><span style={{ color: "var(--text-dim)" }}>{k}:</span> <b style={{ color: "var(--text-main)" }}>{String(v)}</b></span>
