@@ -42,3 +42,4 @@ server/data/
 experiments/results/studies/*
 !experiments/results/studies/studyA_*.json
 !experiments/results/studies/studyB_*.json
+experiments/results/studies/*.progress.json
