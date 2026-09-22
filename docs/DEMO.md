@@ -165,7 +165,7 @@ page reload or a dropped socket; progress is polled from
 | size | what | measured on this laptop |
 |---|---|---|
 | Demo | instance 350, Quick, seeds 1–5 × 4 configurations, 6 parallel workers | **150 s wall** (6 seeds / 8 workers = 176 s, 10 seeds / 10 workers = 277 s — concurrent REP runs slow each other ~3×, so 5 seeds is what fits the 3-minute target) |
-| Standard (Study A) | instance 350, Standard (10 × 300), seeds 1–30, parallel | see `docs/STUDIES.md` |
+| Standard (Study A) | instance 350, Standard (10 × 300), seeds 1–30, 10 parallel workers | **3 609 s wall** (REP Standard ≈ 900 s each under 10-way contention) |
 | Multi-instance (Study B) | `sample8_seed42.json` (BR1–BR7), Quick, seeds 1–10, **serial** | 11 146 s wall on a machine that was also in use (~75 min idle) |
 
 Studies A and B are precomputed in `experiments/results/studies/` and appear

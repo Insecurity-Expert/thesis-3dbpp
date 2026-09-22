@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
-const STANDARD_ESTIMATE_S = 60 * 60;   // replaced by the Study A measurement below
+const STANDARD_ESTIMATE_S = 3609;      // measured: Study A, 120 runs, 10 workers, idle laptop
 if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 
 // The three sizes of the "Full Comparison" picker. Estimates are MEASURED on
@@ -34,6 +34,7 @@ if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 //   Demo (Quick, parallel): 5 seeds x 4 with 6 workers = 150 s wall (6 seeds/8 workers = 176 s,
 //   10 seeds/10 workers = 277 s) - concurrent REP runs slow each other ~3x, so 5 seeds is
 //   what fits the 3-minute target.
+//   Study A (Standard, parallel, 120 runs, 10 workers): 3609 s wall (REP Standard ~900 s each under contention).
 //   Study B (serial, 320 runs): 11146 s wall on a machine that was also in use; ~75 min idle.
 const DEMO_SEEDS = Number(process.env.STACKR_DEMO_SEEDS || 5);
 const SIZES = {
