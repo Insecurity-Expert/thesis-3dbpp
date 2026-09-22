@@ -85,8 +85,9 @@ R_THRESHOLD = 0.3       # rank-biserial r practical threshold
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
-def _f(x, nd=6):
-    """JSON-safe float: NaN / inf -> None."""
+def _f(x, sig=6):
+    """JSON-safe float to `sig` significant digits (p-values keep their exact
+    magnitude, e.g. 3.2e-09, instead of rounding to 0); NaN / inf -> None."""
     if x is None:
         return None
     try:
@@ -95,7 +96,7 @@ def _f(x, nd=6):
         return None
     if math.isnan(v) or math.isinf(v):
         return None
-    return round(v, nd)
+    return float(f"{v:.{sig}g}")
 
 
 def descriptives(values):
