@@ -223,9 +223,23 @@ def run_task(task):
 
 
 def _write_progress(path, prog):
+    """Atomic-ish progress write. On Windows os.replace fails with WinError 5
+    while another process (the server's poll) has the file open, so retry
+    briefly and fall back to an in-place write rather than kill the study."""
     tmp = path.with_suffix('.tmp')
-    tmp.write_text(json.dumps(prog), encoding='utf-8')
-    os.replace(tmp, path)
+    data = json.dumps(prog)
+    tmp.write_text(data, encoding='utf-8')
+    for attempt in range(20):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            time.sleep(0.05 * (attempt + 1))
+    try:
+        path.write_text(data, encoding='utf-8')
+        tmp.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lambdas,
