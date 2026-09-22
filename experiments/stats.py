@@ -407,10 +407,10 @@ def analyse(study):
         out["SP3"] = sp3
 
     # ── composite ────────────────────────────────────────────────────────────
-    if not timing_valid:
-        out["composite"] = {"available": False, "reason": "concurrent timing - the composite uses ET and PM; requires a serial study"}
-    elif n_inst < 2:
+    if n_inst < 2:
         out["composite"] = {"available": False, "reason": "requires >= 2 instances (the overall ranking is tested across instances)"}
+    elif not timing_valid:
+        out["composite"] = {"available": False, "reason": "concurrent timing - the composite uses ET and PM; requires a serial study"}
     else:
         out["composite"] = composite(rows, configs, instances)
 
