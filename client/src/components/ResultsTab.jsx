@@ -1,4 +1,5 @@
 import React from "react";
+import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import ConvergenceChart from "./ConvergenceChart";
 
 function StatChip({ label, value, color, subtitle, title }) {
@@ -51,6 +52,9 @@ export default function ResultsTab({
           </span>
         </div>
       )}
+
+      {/* A custom load is never thesis data: say so above every number. */}
+      <CustomLoadBanner info={customLoadOf(finalResult)} />
 
       {/* Top row header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

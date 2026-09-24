@@ -168,6 +168,30 @@ export const studiesApi = {
   async remove(id) { return request(`/api/studies/${encodeURIComponent(id)}`, { method: "DELETE" }); },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom loads (typed in / CSV) and ready-made OR-Library samples.
+// The server's converter (preprocessing/custom_load.py) is authoritative.
+// ─────────────────────────────────────────────────────────────────────────────
+export const customLoadsApi = {
+  /** -> { ok: true, id, summary } | { ok: false, errors: [{ row, column, message, line? }] } */
+  async convert(payload) {
+    const res = await fetch("/api/instances/custom-load", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    let body = null;
+    try { body = await res.json(); } catch { /* non-JSON */ }
+    if (res.ok && body && body.id) return { ok: true, ...body };
+    const errors = body && Array.isArray(body.errors) ? body.errors
+      : [{ row: null, column: null, message: (body && body.error) || `Request failed with status ${res.status}` }];
+    return { ok: false, errors };
+  },
+  async list() { return request("/api/instances/custom-loads"); },
+  async get(id) { return request(`/api/instances/custom-load/${encodeURIComponent(id)}`); },
+  async template(mode) { return request(`/api/instances/custom-load-template/${mode === "advanced" ? "advanced" : "simple"}`); },
+  async samples() { return request("/api/instances/samples"); },
+};
+
 const api = {
   auth: authApi,
   studies: studiesApi,

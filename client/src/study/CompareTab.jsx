@@ -2,6 +2,7 @@
 // better?" Four sub-tabs (SP1 / SP2 / SP3 / composite) over a study's stats
 // block, plus a side-by-side view of saved single runs.
 import React, { useState, useMemo } from "react";
+import CustomLoadBanner, { customLoadOf, CustomLoadBadge, CUSTOM_LOAD_LABEL } from "../components/CustomLoadBanner";
 import { Section, Empty, DescriptivesTable, NormalityTable, OmnibusCard, PairsTable, ConfoundNote, cell, ConfigName } from "./StatsTables";
 import { ProvenanceStrip } from "./StudyResults";
 import LineChart from "./LineChart";
@@ -248,7 +249,7 @@ function SavedRuns({ runHistory }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {runHistory.slice(0, 40).map((r) => (
             <button key={r.id} className={`btn btn-sm ${picked.includes(r.id) ? "btn-primary" : "btn-secondary"}`} onClick={() => toggle(r.id)}>
-              #{r.id} {r.strategy} · {r.instance} · seed {r.seed ?? "?"}
+              #{r.id} {r.strategy} · {r.instance} · seed {r.seed ?? "?"}{r.custom_load ? " · custom load" : ""}
             </button>
           ))}
         </div>
@@ -257,7 +258,7 @@ function SavedRuns({ runHistory }) {
         <Section title="Side by side">
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={th}>Measure</th>{rows.map((r) => <th key={r.id} style={th}>#{r.id} {r.strategy}<div style={{ fontWeight: 400 }}>{r.instance} · seed {r.seed ?? "?"}</div></th>)}</tr></thead>
+              <thead><tr><th style={th}>Measure</th>{rows.map((r) => <th key={r.id} style={th}>#{r.id} {r.strategy}<div style={{ fontWeight: 400 }}>{r.instance} · seed {r.seed ?? "?"}</div>{r.custom_load && <CustomLoadBadge info={r.custom_load} />}</th>)}</tr></thead>
               <tbody>
                 {[
                   ["Container full", (r) => fmt.pct(r.space_util, 2)],
@@ -298,6 +299,7 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
         </div>
         <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
       </div>
+      {sub !== "saved" && <CustomLoadBanner info={customLoadOf(study) || (row && row.custom_load ? { id: row.custom_load, label: row.custom_load_label } : null)} />}
       <div className="tabs-inline">
         {SUBTABS.map((t) => <button key={t.id} className={sub === t.id ? "active" : ""} onClick={() => setSub(t.id)}>{t.label}</button>)}
       </div>
@@ -322,7 +324,7 @@ export function StudySelect({ studies, value, onChange }) {
       style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, minWidth: 260 }}>
       <option value="">— {studies.length ? "select a study" : "no studies yet"} —</option>
       {studies.map((s) => (
-        <option key={s.id} value={s.id}>#{s.id} {s.name} · {s.status}{s.n_runs ? ` · ${s.n_runs} runs` : ""}</option>
+        <option key={s.id} value={s.id}>#{s.id} {s.name} · {s.status}{s.n_runs ? ` · ${s.n_runs} runs` : ""}{s.custom_load ? ` · ${CUSTOM_LOAD_LABEL}` : ""}</option>
       ))}
     </select>
   );

@@ -4,6 +4,7 @@
 import React from "react";
 import { Section, Empty, ConfigName, cell, ConfoundNote } from "./StatsTables";
 import { fmt, label, outcomeBanner, compositeSummary, sp1Summary, sp2Summary, sp3Summary, provenanceItems, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import CustomLoadBanner, { customLoadOf, CustomLoadBadge } from "../components/CustomLoadBanner";
 
 const { th, td } = cell;
 
@@ -14,7 +15,10 @@ export function ProvenanceStrip({ study, stats }) {
       {pv.preliminary && (
         <span className="badge badge-warn" title={pv.preliminary_reason} style={{ textTransform: "none" }}>Preliminary — {pv.preliminary_reason}</span>
       )}
-      {provenanceItems(study, stats).map(([k, v]) => (
+      {study && study.custom_load && <CustomLoadBadge info={customLoadOf(study)} />}
+      {provenanceItems(study, stats).map(([k, v]) => (k === "Test cases" && study && study.custom_load
+        ? [k, `your custom load (${(study.instances || [])[0] ? `${study.instances[0].n_boxes} boxes, ${study.instances[0].n_types} box types` : "?"}), id ${study.custom_load}`]
+        : [k, v])).map(([k, v]) => (
         <span key={k}><span style={{ fontWeight: 700 }}>{k}:</span> <span style={{ color: "var(--text-muted)" }}>{String(v)}</span></span>
       ))}
     </div>
@@ -216,6 +220,7 @@ export default function StudyResults({ study, stats, progress, row, onOpenCompar
   if (row.status === "running" || (progress && progress.status === "running")) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <CustomLoadBanner info={customLoadOf(study) || (row.params && row.params.customLoad ? { id: row.params.customLoad, label: row.custom_load_label } : null)} />
         <StudyProgress progress={progress} study={study} />
         <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Container fill (SP1) and safety rules (SP2) appear here when every run has finished. {row.n_instances === 1 || (row.params && row.params.instanceId !== null && row.params.instanceId !== undefined) ? "The overall ranking needs ≥ 2 test cases, so this study will not name a winner." : ""}</p>
       </div>
@@ -227,6 +232,7 @@ export default function StudyResults({ study, stats, progress, row, onOpenCompar
   if (!study || !stats) return <Empty title="No results yet" text="The study file has no statistics attached." />;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <CustomLoadBanner info={customLoadOf(study)} />
       <Banner stats={stats} />
       <ProvenanceStrip study={study} stats={stats} />
       <ScoreTable stats={stats} />

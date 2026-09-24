@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import CustomLoadBanner, { customLoadOf, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, PROBLEM_OUTLINE, stopColor } from "../BinViewer";
 import { studiesApi } from "../services/api";
 import {
@@ -142,8 +143,8 @@ function StudyRunPicker({ studies, onLoaded, onError }) {
           <select className="form-input" style={sel} value={cfg ?? ""} onChange={(e) => setCfg(e.target.value)}>
             {cfgs.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select className="form-input" style={sel} value={inst ?? ""} onChange={(e) => setInst(Number(e.target.value))}>
-            {insts.map((i) => <option key={i} value={i}>Instance {i}</option>)}
+          <select className="form-input" style={sel} value={inst ?? ""} onChange={(e) => setInst(e.target.value === "" ? null : Number(e.target.value))}>
+            {insts.map((i) => <option key={i ?? "custom"} value={i ?? ""}>{i === null ? `Custom load (${CUSTOM_LOAD_LABEL.split(" \u2014 ")[1]})` : `Instance ${i}`}</option>)}
           </select>
           <select className="form-input" style={sel} value={seed ?? ""} onChange={(e) => setSeed(Number(e.target.value))}>
             {seeds.map((s) => <option key={s} value={s}>Repeat code (seed) {s}</option>)}
@@ -320,6 +321,7 @@ export default function VisualizationTab({
           ) : (
             <StudyRunPicker studies={studies} onLoaded={(v) => { setStudyError(null); setStudyView(v); }} onError={(m) => { setStudyView(null); setStudyError(m); }} />
           )}
+          {customLoadOf(result) && <div style={{ marginTop: 12 }}><CustomLoadBanner info={customLoadOf(result)} /></div>}
         </div>
 
         {/* View controls */}

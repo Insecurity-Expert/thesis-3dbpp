@@ -11,16 +11,17 @@ const FILE_PATH = process.env.STACKR_DB_FILE ? path.resolve(process.env.STACKR_D
 
 function loadData() {
   if (!fs.existsSync(FILE_PATH)) {
-    const initial = { users: [], runs: [], studies: [] };
+    const initial = { users: [], runs: [], studies: [], custom_loads: [] };
     fs.writeFileSync(FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
     return initial;
   }
   try {
     const data = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
     if (!Array.isArray(data.studies)) data.studies = [];   // older files predate studies
+    if (!Array.isArray(data.custom_loads)) data.custom_loads = [];   // ... and custom loads
     return data;
   } catch (e) {
-    return { users: [], runs: [], studies: [] };
+    return { users: [], runs: [], studies: [], custom_loads: [] };
   }
 }
 
@@ -72,6 +73,11 @@ class MockStatement {
     if (this.sql.includes("SELECT * FROM runs WHERE id = ? AND user_id = ?")) {
       const id = parseInt(params[0], 10), user_id = parseInt(params[1], 10);
       return data.runs.find(r => r.id === id && r.user_id === user_id);
+    }
+    // 7. SELECT * FROM custom_loads WHERE id = ? AND user_id = ?
+    if (this.sql.includes("SELECT * FROM custom_loads WHERE id = ? AND user_id = ?")) {
+      const id = String(params[0]), user_id = parseInt(params[1], 10);
+      return data.custom_loads.find(c => c.id === id && c.user_id === user_id);
     }
     // 6. SELECT * FROM studies WHERE id = ? AND user_id = ?
     if (this.sql.includes("SELECT * FROM studies WHERE id = ? AND user_id = ?")) {
@@ -178,6 +184,31 @@ class MockStatement {
       saveData(data);
       return { changes: 1 };
     }
+    // 8. INSERT INTO custom_loads (id, user_id, name, source, n_boxes, file, summary)
+    if (this.sql.includes("INSERT INTO custom_loads")) {
+      const [id, user_id, name, source, n_boxes, file, summary_json] = params;
+      data.custom_loads.push({
+        id: String(id),
+        user_id: parseInt(user_id, 10),
+        name: name ?? null,
+        source,
+        n_boxes: parseInt(n_boxes, 10),
+        file,
+        summary: summary_json ? JSON.parse(summary_json) : null,
+        created_at: new Date().toISOString()
+      });
+      saveData(data);
+      return { lastInsertRowid: id };
+    }
+    // 9. DELETE FROM custom_loads WHERE id = ? AND user_id = ?
+    if (this.sql.includes("DELETE FROM custom_loads WHERE id = ?")) {
+      const [id, user_id] = params;
+      const before = data.custom_loads.length;
+      data.custom_loads = data.custom_loads.filter(c => !(c.id === String(id) && c.user_id === parseInt(user_id, 10)));
+      if (data.custom_loads.length === before) return { changes: 0 };
+      saveData(data);
+      return { changes: 1 };
+    }
     // 4. DELETE FROM runs WHERE id = ? AND user_id = ?
     if (this.sql.includes("DELETE FROM runs WHERE id = ?")) {
       const [id, user_id] = params;
@@ -200,6 +231,12 @@ class MockStatement {
         .sort((a, b) => b.id - a.id)
         .slice(0, 100);
       return filtered;
+    }
+    // SELECT * FROM custom_loads WHERE user_id = ? ORDER BY created_at DESC
+    if (this.sql.includes("SELECT * FROM custom_loads WHERE user_id = ?")) {
+      const user_id = parseInt(params[0], 10);
+      return data.custom_loads.filter(c => c.user_id === user_id)
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     }
     // SELECT * FROM studies WHERE user_id = ? ORDER BY id DESC
     if (this.sql.includes("SELECT * FROM studies WHERE user_id = ?")) {

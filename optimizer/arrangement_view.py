@@ -81,11 +81,16 @@ def study_run_view(study_path, run_index, raw_dir=None):
     from preprocessing.pipeline import load_augmented_instance
     doc = json.loads(Path(study_path).read_text(encoding='utf-8'))
     run = doc['runs'][run_index]
+    custom_doc = None
     if run.get('custom_load'):
-        raise ValueError("custom-load study runs are not supported by the viewer yet")
-    inst = load_augmented_instance({'data': {'raw_dir': raw_dir or str(REPO_ROOT / 'data' / 'raw')}},
-                                   instance_id=run['instance_id'],
-                                   stop_seed=doc['stop_seed'], stop_count=doc['stop_count'])
+        # The stored load, with the stop labels and fragile flags every run used.
+        from preprocessing.custom_load import load_stored
+        inst = load_stored(run['custom_load'])
+        custom_doc = inst['doc']
+    else:
+        inst = load_augmented_instance({'data': {'raw_dir': raw_dir or str(REPO_ROOT / 'data' / 'raw')}},
+                                       instance_id=run['instance_id'],
+                                       stop_seed=doc['stop_seed'], stop_count=doc['stop_count'])
     items, container = inst['boxes'], inst['container']
     placements = {int(k): tuple(float(v) for v in vals) for k, vals in run['placements'].items()}
     orientations = {int(k): int(v) for k, v in run['orientations'].items()}
@@ -109,7 +114,7 @@ def study_run_view(study_path, run_index, raw_dir=None):
     render_container = {"L": container['L'], "H": container['H'], "D": container['W'],
                         "length_cm": container.get('length_cm'), "width_cm": container.get('width_cm'),
                         "height_cm": container.get('height_cm'), "door": container.get('door', 'rear')}
-    return {
+    out = {
         "status": "ok", "source": "study", "study": doc.get('name'), "run_index": run_index,
         "strategy": run['configuration'], "instance": run['instance_id'], "seed": run['seed'],
         "preset": doc.get('preset'), "dataset": "wtpack",
@@ -122,6 +127,16 @@ def study_run_view(study_path, run_index, raw_dir=None):
         "problem_view": pv,
         "items": entries,
     }
+    if custom_doc is not None:
+        out["dataset"] = "custom"
+        out["instance"] = run['custom_load']
+        out["custom_load"] = {"id": run['custom_load'], "label": custom_doc.get('label'),
+                              "name": custom_doc.get('name'), "source": custom_doc.get('source'),
+                              "total_mass_kg": round(sum(b['mass'] for b in items), 4),
+                              "packed_mass_kg": round(sum(items[i]['mass'] for i in placements), 4),
+                              "max_weight_kg": custom_doc.get('max_weight_kg'),
+                              "weight_check_note": "not part of the optimization"}
+    return out
 
 
 if __name__ == '__main__':

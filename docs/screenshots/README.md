@@ -13,3 +13,5 @@ scratch database via `STACKR_DB_FILE`), Edge headless via Playwright, 1440 px wi
 | `viewer_study_*` | Study A, MOGWO seed 7, rebuilt from the stored arrangement; SU/CSR match the study. |
 
 The `rd_*` files are older (rear-door orientation guides, Prompt 0) and are not part of this set.
+
+| `inputs_*` | Prompt 3, custom loads (scratch database). `src_sample`: ready-made OR-Library samples with computed box counts, the 200-box-cap labels and why the 476-box instance is not offered. `src_typed_checked`: a typed 36-box load after the server check (stops assigned once, seed 42). `src_csv_errors`: row/column errors from the server. `quick_*`, `launcher_custom`, `study_*`: the same load through Quick Test and a Demo Full Comparison, labelled "Custom load — not part of the thesis dataset" on every tab. |

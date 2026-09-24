@@ -57,8 +57,9 @@ def main():
     parser = argparse.ArgumentParser(description="3-D Bin Packing — HD-GWO Optimizer")
     parser.add_argument("instance_path",
                         help="BR dataset JSON path, or wtpack instance id when --dataset wtpack")
-    parser.add_argument("--dataset", choices=["br", "wtpack"], default="br",
-                        help="Data source: br = BR JSON (legacy), wtpack = OR-Library wtpack")
+    parser.add_argument("--dataset", choices=["br", "wtpack", "custom"], default="br",
+                        help="Data source: br = BR JSON (legacy), wtpack = OR-Library wtpack, "
+                             "custom = a stored custom load id (preprocessing/custom_load.py)")
     parser.add_argument("--raw-dir", default=str(DEFAULT_RAW_DIR),
                         help="Directory holding wtpack*.txt (used with --dataset wtpack)")
     parser.add_argument("--stream", action="store_true",
@@ -87,6 +88,10 @@ def main():
 
     streaming = args.stream
     thesis_strategy = args.strategy != "HDGWO"
+    # A custom load carries the same physics schema as wtpack (custom_load.py
+    # converts to loader.py's format and applies the same pipeline steps).
+    physics = args.dataset in ("wtpack", "custom")
+    custom_doc = None
 
     # ── Load instance ──────────────────────────────────────────────────────────
     # The dataset decides the schema; the strategy never does. Synthesising
@@ -105,6 +110,11 @@ def main():
             inst = load_augmented_instance({'data': {'raw_dir': args.raw_dir}},
                                            instance_id=int(args.instance_path))
             container, items = inst['container'], inst['boxes']
+        elif args.dataset == "custom":
+            # Stored stops and fragile flags: nothing is re-drawn per run.
+            from preprocessing.custom_load import load_stored
+            inst = load_stored(args.instance_path)
+            container, items, custom_doc = inst['container'], inst['boxes'], inst['doc']
         else:
             container, items = load_instance(args.instance_path)
     except Exception as e:
@@ -113,7 +123,7 @@ def main():
 
     n  = len(items)
 
-    if args.dataset == "wtpack":
+    if physics:
         lb = lower_bound(items, container)
         weight_cap = None
     else:
@@ -125,7 +135,7 @@ def main():
     print(f"Instance  : {args.instance_path} ({args.dataset})", file=sys.stderr, flush=True)
     print(f"Container : {container}", file=sys.stderr, flush=True)
     # Single-container formulation on the wtpack path: no bins to lower-bound.
-    print(f"Items     : {n}  (single container)" if args.dataset == "wtpack"
+    print(f"Items     : {n}  (single container)" if physics
           else f"Items     : {n}  (lower bound: {lb} bin(s))",
           file=sys.stderr, flush=True)
 
@@ -187,7 +197,7 @@ def main():
     # RENDER BOUNDARY for the container: the viewer reads {L, H, D} in y-up
     # (H = height, D = depth). Physics is {L, W, H}; the legacy schema is
     # already {L, H, D}.
-    if args.dataset == "wtpack":
+    if physics:
         # Physics x (across the truck) -> render x; physics y (depth from the
         # rear door) -> render z; physics z (height) -> render y. The raw file
         # dimensions (length x width x height) ride along for display.
@@ -253,13 +263,13 @@ def main():
     packed_items = []
     for item_idx, placement in best.placements.items():
         box = items[item_idx]
-        if args.dataset == "wtpack":
+        if physics:
             # Single container: no bin id in the tuple
             x, y, z, d1, d2, d3 = placement
             bin_id = 0
         else:
             bin_id, x, y, z, d1, d2, d3 = placement
-        if args.dataset == "wtpack":
+        if physics:
             # RENDER BOUNDARY — see arrangement_view.wtpack_entry
             entry = wtpack_entry(box, item_idx, placement)
         else:
@@ -282,18 +292,18 @@ def main():
 
     # Per-box C3-C6 for the viewer's problem view (additive; after M-3 timing).
     problem_view = (annotate(packed_items, best.placements, best.orientations, items)
-                    if args.dataset == "wtpack" else None)
+                    if physics else None)
 
-    if args.dataset == "wtpack":
+    if physics:
         cap_vol = container['L'] * container['W'] * container['H']
     else:
         cap_vol = container['L'] * container['H'] * container['D']
     items_vol    = sum(p['dx'] * p['dy'] * p['dz'] for p in packed_items)
-    n_containers = 1 if args.dataset == "wtpack" else best.n_bins
+    n_containers = 1 if physics else best.n_bins
     vol_util_pct = round(items_vol / (n_containers * cap_vol) * 100, 2) if cap_vol > 0 else 0.0
 
     # ── Thesis metrics (M-1 .. M-5) ────────────────────────────────────────────
-    if args.dataset == "wtpack":
+    if physics:
         su_pct = thesis_space_utilization(best.placements, container) * 100.0         # M-1
         csr_pct, csr_detail = evaluate_constraints(best.placements, items, best.orientations)
     else:
@@ -338,6 +348,22 @@ def main():
     }
     if problem_view is not None:
         result["problem_view"] = problem_view
+    if custom_doc is not None:
+        # Post-run check only: the optimizer has no payload constraint.
+        packed_mass = sum(items[i]['mass'] for i in best.placements)
+        result["custom_load"] = {
+            "id": args.instance_path,
+            "label": custom_doc.get("label"),
+            "name": custom_doc.get("name"),
+            "source": custom_doc.get("source"),
+            "mode": custom_doc.get("mode"),
+            "stops": custom_doc.get("augmentation", {}).get("stops"),
+            "fragility": custom_doc.get("augmentation", {}).get("fragility"),
+            "total_mass_kg": round(sum(b['mass'] for b in items), 4),
+            "packed_mass_kg": round(packed_mass, 4),
+            "max_weight_kg": custom_doc.get("max_weight_kg"),
+            "weight_check_note": "not part of the optimization",
+        }
 
     if streaming:
         # Emit as a typed message so Node.js/React can handle it

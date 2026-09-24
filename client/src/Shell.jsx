@@ -11,7 +11,9 @@ import DashboardTab from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import ThingsToKnow from "./components/ThingsToKnow";
-import { instancesApi, runsApi, studiesApi } from "./services/api";
+import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
+import { blankRow } from "./components/LoadSources";
+import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
 import StudyResults from "./study/StudyResults";
 import CompareTab, { StudySelect } from "./study/CompareTab";
@@ -41,12 +43,24 @@ export default function Shell() {
   const [wtpackId, setWtpackId] = useState(null);
   const [optimizerReady, setOptimizerReady] = useState({ state: "cold", seconds: null });
 
-  // Dynamic Custom Configurations
-  const [containerSpecs, setContainerSpecs] = useState({ L: 587, H: 233, D: 220 });
+  // Where the boxes come from: "standard" (thesis wtpack sample), "sample"
+  // (ready-made OR-Library instance), "typed" or "csv" (custom loads).
+  const [source, setSource] = useState("standard");
+  const [samples, setSamples] = useState(null);
+  const [sampleId, setSampleId] = useState(null);
+  // Custom-load container: length runs door -> cab (loader.py 'L'), then width, height.
+  const [containerSpecs, setContainerSpecs] = useState({ length: 587, width: 233, height: 220, max_weight: "" });
+  const [typedRows, setTypedRows] = useState(() => [blankRow()]);
+  const [fragileShare, setFragileShare] = useState({ on: false, target: 25 });
+  const [csvFile, setCsvFile] = useState(null);
+  // The converted load for the current inputs: { id, summary, key }; key = the request it was made from.
+  const [customLoad, setCustomLoad] = useState(null);
+  const [customErrors, setCustomErrors] = useState([]);
+  const [checking, setChecking] = useState(false);
   const [maxLoad, setMaxLoad] = useState(null);   // never sent to the optimizer; not shown
   const [itemsList, setItemsList] = useState([]);
   const [instanceItems, setInstanceItems] = useState([]);
-  const [isCustomized, setIsCustomized] = useState(false);
+  const [, setIsCustomized] = useState(false);   // legacy BR preview flag
 
   // Algorithm Settings & Constraints
   const [strategy, setStrategy] = useState("DGWO");
@@ -179,6 +193,48 @@ export default function Shell() {
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
+  useEffect(() => {
+    if (source !== "sample" || samples) return;
+    customLoadsApi.samples()
+      .then((d) => { setSamples(d); if (sampleId === null && d.samples && d.samples.length) setSampleId(d.samples[0].instance_id); })
+      .catch((e) => setSamples({ error: `Could not load the samples: ${e.message}` }));
+  }, [source, samples, sampleId]);
+
+  // ── custom loads: the request the server converts, and whether the stored
+  // conversion still matches the inputs on screen.
+  const customRequest = useMemo(() => {
+    if (source !== "typed" && source !== "csv") return null;
+    const base = {
+      source,
+      container: { ...containerSpecs },
+      fragile_share: fragileShare.on ? Number(fragileShare.target) / 100 : null,
+    };
+    if (source === "csv") return csvFile ? { ...base, csv: csvFile.text, name: csvFile.name } : null;
+    return {
+      ...base,
+      name: null,
+      rows: typedRows.map(({ key, fragile, ...r }) => ({ ...r, fragile: fragile ? "yes" : "no" })),
+    };
+  }, [source, containerSpecs, fragileShare, csvFile, typedRows]);
+  const customKey = customRequest ? JSON.stringify(customRequest) : null;
+  const customCurrent = customLoad && customLoad.key === customKey && customLoad.source === source ? customLoad : null;
+  const customShown = customLoad && customLoad.source === source ? customLoad : null;
+
+  // Convert (or reuse) the load on screen. -> its id, or null with the errors shown.
+  const ensureCustomLoad = useCallback(async () => {
+    if (!customRequest) { setCustomErrors([{ row: null, column: null, message: source === "csv" ? "Choose a CSV file first." : "Add at least one row." }]); return null; }
+    if (customCurrent) return customCurrent.id;
+    setChecking(true);
+    const r = await customLoadsApi.convert(customRequest);
+    setChecking(false);
+    if (!r.ok) { setCustomErrors(r.errors); setCustomLoad(null); return null; }
+    setCustomErrors([]);
+    setCustomLoad({ id: r.id, summary: r.summary, key: customKey, source });
+    return r.id;
+  }, [customRequest, customCurrent, customKey, source]);
+  // Errors belong to the inputs they were found in.
+  useEffect(() => { setCustomErrors([]); }, [source, csvFile]);
+
   // Load selected instance details
   useEffect(() => {
     if (!selected) {
@@ -188,9 +244,6 @@ export default function Shell() {
     instancesApi
       .getDetails(selected)
       .then((data) => {
-        if (data.container) {
-          setContainerSpecs({ L: data.container.L, H: data.container.H, D: data.container.D });
-        }
         if (data.items) {
           setInstanceItems(data.items);
         }
@@ -251,18 +304,24 @@ export default function Shell() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [studyDoc, loadStudy, fetchStudies]);
 
-  const handleLaunchStudy = useCallback(async ({ size, instanceId }) => {
+  const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom }) => {
     setStudyBusy(true);
     setError(null);
     try {
-      const r = await studiesApi.create({ size, instanceId });
+      let payload = { size, instanceId };
+      if (useCustom) {
+        const id = await ensureCustomLoad();
+        if (!id) { setStudyBusy(false); setError("Fix the problems listed under your load, then run the Full Comparison again."); return; }
+        payload = { size, customLoad: id };
+      }
+      const r = await studiesApi.create(payload);
       fetchStudies();
       setSelectedStudyId(r.id);
       setResultsMode("study");
       setActiveTab("results");
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
-  }, [fetchStudies]);
+  }, [fetchStudies, ensureCustomLoad]);
 
   const handleImportStudy = useCallback(async (file) => {
     try {
@@ -341,6 +400,7 @@ export default function Shell() {
           strategy: msg.strategy_label || msg.strategy || msg.params?.strategy || "unknown",
           strategy_code: msg.strategy || msg.params?.strategy || null,
           instance: msg.dataset === "wtpack" ? `wtpack #${msg.instance}`
+                  : msg.dataset === "custom" ? `Custom load ${msg.custom_load && msg.custom_load.name ? `"${msg.custom_load.name}" ` : ""}(${msg.instance})`
                   : String(msg.instance).split(/[\\/]/).pop(),
           dataset: msg.dataset ?? null,
           seed: msg.seed ?? msg.params?.seed ?? null,
@@ -373,7 +433,7 @@ export default function Shell() {
           if (sp) {
             runsApi.saveRun({
               strategy: sp.strategy_label || sp.strategy, strategy_code: sp.strategy,
-              instance: sp.dataset === "wtpack" ? `wtpack #${sp.instance}` : String(sp.instance).split(/[\\/]/).pop(),
+              instance: sp.dataset === "wtpack" ? `wtpack #${sp.instance}` : sp.dataset === "custom" ? `Custom load (${sp.instance})` : String(sp.instance).split(/[\\/]/).pop(),
               dataset: sp.dataset, seed: sp.seed, n_items: null, space_util: null, csr: null, placed: null,
               dissipation: null, runtime_s: null, bins_used: null, placements: null, container: null,
               result: null, convergence: null, status: "failed",
@@ -465,53 +525,47 @@ export default function Shell() {
     setError(null);
     setReplay(null);
 
-    // wtpack (thesis) dataset: addressed by integer id, parameters are UI-driven
-    if (dataset === "wtpack" && !isCustomized) {
-      if (wtpackId === null) {
-        setError("Select a wtpack instance first.");
+    const tuning = {
+      strategy,
+      popSize: wolfSize,
+      maxIter,
+      lambda: lam,
+      enforceSupport,
+      enforceFragility,
+      seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
+    };
+
+    // Custom load (typed / CSV): converted and stored by the server first.
+    if (source === "typed" || source === "csv") {
+      const id = await ensureCustomLoad();
+      if (!id) {
         setRunning(false);
+        setError("Fix the problems listed under your load, then run again.");
+        setActiveTab("logistics");
         return;
       }
-      wsRef.current.send(JSON.stringify({
-        action: "run",
-        dataset: "wtpack",
-        instanceId: wtpackId,
-        strategy,
-        popSize: wolfSize,
-        maxIter,
-        lambda: lam,
-        enforceSupport,
-        enforceFragility,
-        seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
-      }));
+      wsRef.current.send(JSON.stringify({ action: "run", dataset: "custom", customLoadId: id, ...tuning }));
       setActiveTab("visualization");
       return;
     }
 
-    let runPath = selected;
-
-    // Use custom path if user added manual items OR if no OR-Library instance is selected
-    if (isCustomized || !selected) {
-      try {
-        const data = await instancesApi.saveCustom({
-          container: containerSpecs,
-          items: itemsList
-        });
-        if (data.path) {
-          runPath = data.path;
-        } else {
-          throw new Error(data.error || "Failed to compile custom configuration");
-        }
-      } catch (err) {
-        setError(err.message);
+    // OR-Library: the standard test case or a ready-made sample, both wtpack ids.
+    if (dataset === "wtpack") {
+      const id = source === "sample" ? sampleId : wtpackId;
+      if (id === null) {
+        setError(source === "sample" ? "Pick a ready-made sample first." : "Select a wtpack instance first.");
         setRunning(false);
         return;
       }
+      wsRef.current.send(JSON.stringify({ action: "run", dataset: "wtpack", instanceId: id, ...tuning }));
+      setActiveTab("visualization");
+      return;
     }
 
-    wsRef.current.send(JSON.stringify({ action: "run", instancePath: runPath, maxTime, strategy }));
+    // Legacy BR JSON path (not offered in the UI).
+    wsRef.current.send(JSON.stringify({ action: "run", instancePath: selected, maxTime, strategy }));
     setActiveTab("visualization");
-  }, [selected, running, wsConnected, maxTime, isCustomized, containerSpecs, itemsList, strategy,
+  }, [selected, running, wsConnected, maxTime, strategy, source, sampleId, ensureCustomLoad,
       dataset, wtpackId, wolfSize, maxIter, lam, enforceSupport, enforceFragility, seed]);
 
   const handleStopRun = useCallback(() => {
@@ -521,14 +575,17 @@ export default function Shell() {
   // Exporters
   const handleExportResultsCSV = () => {
     if (!finalResult || !finalResult.items) return;
-    const headers = "Sequence,Item ID,Bin ID,X,Y,Z,Length,Height,Depth\n";
+    const cl = customLoadOf(finalResult);
+    // A custom load is labelled on every row, so the file cannot pass as thesis data.
+    const headers = "Sequence,Item ID,Bin ID,X,Y,Z,Length,Height,Depth" + (cl ? ",Dataset" : "") + "\n";
+    const tag = cl ? `,"${cl.label || CUSTOM_LOAD_LABEL}"` : "";
     const rows = finalResult.items.map((item, idx) =>
-      `${idx + 1},${item.id},Bin ${item.bin_id},${item.x},${item.y},${item.z},${item.dx ?? item.l},${item.dy ?? item.h},${item.dz ?? item.d}`
+      `${idx + 1},${item.id},Bin ${item.bin_id},${item.x},${item.y},${item.z},${item.dx ?? item.l},${item.dy ?? item.h},${item.dz ?? item.d}${tag}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `STACKR-Packing-Results-${isCustomized ? "custom" : String(finalResult.instance).split(/[\\/]/).pop().replace('.json', '')}.csv`;
+    link.download = `STACKR-Packing-Results-${cl ? `custom-load-${finalResult.instance}` : String(finalResult.instance).split(/[\\/]/).pop().replace('.json', '')}.csv`;
     link.click();
   };
 
@@ -610,7 +667,9 @@ export default function Shell() {
   const handleExportRun = useCallback(async (run) => {
     try {
       const row = await runsApi.getRun(run.id);
-      const doc = { stackr_run: 1, exported_at: new Date().toISOString(), run: row };
+      const cl = customLoadOf(row.result) || customLoadOf(row);
+      const doc = { stackr_run: 1, exported_at: new Date().toISOString(),
+                    ...(cl ? { dataset_note: cl.label || CUSTOM_LOAD_LABEL } : {}), run: row };
       const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -689,9 +748,32 @@ export default function Shell() {
   }, [finalResult]);
 
   const canRun = wsConnected && !running && (
-    itemsList.length > 0 || instanceItems.length > 0 ||
-    (dataset === "wtpack" && wtpackId !== null)
+    source === "typed" ? typedRows.length > 0
+    : source === "csv" ? !!csvFile
+    : source === "sample" ? sampleId !== null
+    : dataset === "wtpack" && wtpackId !== null
   );
+
+  // What the footer, the top chip and the study launcher say about the chosen load.
+  const sampleMeta = samples && samples.samples ? samples.samples.find((x) => x.instance_id === sampleId) : null;
+  const standardMeta = wtpackInstances.find((i) => i.instance_id === wtpackId) || null;
+  const selectedLoad = useMemo(() => {
+    if (source === "typed" || source === "csv") {
+      const sm = customShown && customShown.summary;
+      return { kind: "custom", custom: true, label: CUSTOM_LOAD_LABEL,
+               text: source === "csv" ? `CSV${csvFile ? ` (${csvFile.name})` : ""}` : "typed-in boxes",
+               n_boxes: sm ? sm.totals.boxes : null, checked: !!customCurrent };
+    }
+    if (source === "sample") {
+      return { kind: "sample", custom: false, instanceId: sampleId,
+               text: sampleMeta ? `sample — ${sampleMeta.br_class}, instance ${sampleMeta.instance_id}` : "ready-made sample",
+               label: sampleMeta ? `${sampleMeta.br_class}, instance ${sampleMeta.instance_id}, ${sampleMeta.n_boxes} boxes (OR-Library benchmark)` : null,
+               n_boxes: sampleMeta ? sampleMeta.n_boxes : null };
+    }
+    return { kind: "standard", custom: false, instanceId: wtpackId,
+             text: `wtpack #${wtpackId ?? "—"}`, label: standardMeta ? standardMeta.label : null,
+             n_boxes: standardMeta ? standardMeta.n_boxes : null };
+  }, [source, customShown, customCurrent, csvFile, sampleId, sampleMeta, wtpackId, standardMeta]);
 
   const NAV = [
     { id: "home", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
@@ -753,8 +835,8 @@ export default function Shell() {
             {selectedInstanceObj && (
               <span className="chip"><span className="chip-dot" />OR-Library: {selectedInstanceObj.label}</span>
             )}
-            {dataset === "wtpack" && wtpackId !== null && (
-              <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />wtpack #{wtpackId}</span>
+            {dataset === "wtpack" && (selectedLoad.custom || selectedLoad.instanceId !== null) && (
+              <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />{selectedLoad.custom ? "Custom load" : selectedLoad.text}</span>
             )}
             {running && <span className="chip"><span className="chip-dot warn" />Running · {elapsed}s</span>}
             <button
@@ -856,7 +938,15 @@ export default function Shell() {
           setMaxIterCustom={setMaxIterCustom}
           optimizerReady={optimizerReady}
           runHistory={runHistory}
-          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} />}
+          loadSources={{
+            source, setSource, stopCount: sizesInfo && sizesInfo.defaults ? sizesInfo.defaults.stop_count : 3,
+            samples, sampleId, setSampleId,
+            typedRows, setTypedRows, fragileShare, setFragileShare, csvFile, setCsvFile,
+            customLoad: customShown, customStale: !!customShown && !customCurrent, customErrors, checking,
+            onCheck: () => { ensureCustomLoad(); },
+          }}
+          loadSummary={{ boxes: selectedLoad.n_boxes, text: selectedLoad.text }}
+          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
           studyLauncher={
             <StudyLauncher
               sizesInfo={sizesInfo}
@@ -869,6 +959,7 @@ export default function Shell() {
               onRefresh={fetchStudies}
               wtpackId={wtpackId}
               wtpackInstances={wtpackInstances}
+              selectedLoad={selectedLoad}
               seed={seed}
               busy={studyBusy}
               size={studySize}
