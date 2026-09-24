@@ -358,10 +358,27 @@ export default function Shell() {
         break;
 
       case "run_closed":
-        if (msg.code !== 0) {
+        if (msg.code !== 0 && !msg.stopped) {
           setError((prev) => prev || (msg.error
             ? `Optimizer exited with code ${msg.code}: ${msg.error}`
             : `Optimizer process exited with code ${msg.code}`));
+          // Failed runs are kept in Run history (status "failed") so how
+          // often they happen stays visible. A run the user stopped is not.
+          const sp = msg.spawn;
+          if (sp) {
+            runsApi.saveRun({
+              strategy: sp.strategy_label || sp.strategy, strategy_code: sp.strategy,
+              instance: sp.dataset === "wtpack" ? `wtpack #${sp.instance}` : String(sp.instance).split(/[\\/]/).pop(),
+              dataset: sp.dataset, seed: sp.seed, n_items: null, space_util: null, csr: null, placed: null,
+              dissipation: null, runtime_s: null, bins_used: null, placements: null, container: null,
+              result: null, convergence: null, status: "failed",
+              // The traceback / usage tail's last line that names the error.
+              error: (() => {
+                const lines = String(msg.error || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+                return lines.reverse().find((l) => /error/i.test(l)) || lines[0] || `exit code ${msg.code}`;
+              })(),
+            }).then(() => fetchRunHistory()).catch(() => {});
+          }
         }
         setRunning(false);
         break;
@@ -649,7 +666,7 @@ export default function Shell() {
 
   // Calculate actual X, Y, Z axis utilization dynamically
   const axisUtil = useMemo(() => {
-    if (!finalResult || !finalResult.items || !finalResult.container) return { x: 91, y: 84, z: 78 };
+    if (!finalResult || !finalResult.items || !finalResult.container) return null;
     const { L, H, D } = finalResult.container;
     let maxX = 0, maxY = 0, maxZ = 0;
     // Optimizer output carries dx/dy/dz (render axes); l/h/d is the legacy shape.
@@ -812,6 +829,7 @@ export default function Shell() {
           setWolfSizeCustom={setWolfSizeCustom}
           setMaxIterCustom={setMaxIterCustom}
           optimizerReady={optimizerReady}
+          runHistory={runHistory}
           testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} />}
           studyLauncher={
             <StudyLauncher

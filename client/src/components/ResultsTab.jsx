@@ -269,28 +269,28 @@ export default function ResultsTab({
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "6px" }}>
                       <span>X-axis</span>
-                      <span>{axisUtil.x}%</span>
+                      <span>{axisUtil ? `${axisUtil.x}%` : "—"}</span>
                     </div>
                     <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${axisUtil.x}%`, backgroundColor: "var(--primary)" }} />
+                      <div style={{ height: "100%", width: `${axisUtil ? axisUtil.x : 0}%`, backgroundColor: "var(--primary)" }} />
                     </div>
                   </div>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "6px" }}>
                       <span>Y-axis</span>
-                      <span>{axisUtil.y}%</span>
+                      <span>{axisUtil ? `${axisUtil.y}%` : "—"}</span>
                     </div>
                     <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${axisUtil.y}%`, backgroundColor: "var(--green)" }} />
+                      <div style={{ height: "100%", width: `${axisUtil ? axisUtil.y : 0}%`, backgroundColor: "var(--green)" }} />
                     </div>
                   </div>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "6px" }}>
                       <span>Z-axis</span>
-                      <span>{axisUtil.z}%</span>
+                      <span>{axisUtil ? `${axisUtil.z}%` : "—"}</span>
                     </div>
                     <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${axisUtil.z}%`, backgroundColor: "var(--amber)" }} />
+                      <div style={{ height: "100%", width: `${axisUtil ? axisUtil.z : 0}%`, backgroundColor: "var(--amber)" }} />
                     </div>
                   </div>
                 </div>

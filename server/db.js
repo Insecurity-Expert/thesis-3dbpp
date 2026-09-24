@@ -102,7 +102,7 @@ class MockStatement {
     // 2. INSERT INTO runs (must mirror the column list in auth.js)
     if (this.sql.includes("INSERT INTO runs")) {
       const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json,
-             strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json] = params;
+             strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json, status, error] = params;
       const id = data.runs.length ? Math.max(...data.runs.map(r => r.id)) + 1 : 1;
       const num = (v) => (v === null || v === undefined || v === "" || Number.isNaN(Number(v))) ? null : Number(v);
       const newRun = {
@@ -125,6 +125,8 @@ class MockStatement {
         label: label ?? null,
         result: result_json ? JSON.parse(result_json) : null,
         convergence: convergence_json ? JSON.parse(convergence_json) : null,
+        status: status || "ok",          // ok | failed (the optimizer process exited with an error)
+        error: error ?? null,
         created_at: new Date().toISOString()
       };
       data.runs.push(newRun);

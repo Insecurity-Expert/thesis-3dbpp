@@ -1,5 +1,26 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 
+import { methodOf, methodLabel } from "../methods";
+
+// "on this machine: DGWO 9.9 s (median of 3) · …" from saved, finished runs
+// at exactly this pop x iterations. Nothing measured -> say so.
+function timingNote(runs, pop, iter) {
+  const by = {};
+  for (const r of runs || []) {
+    if (r.status === "failed" || r.pop_size !== pop || r.max_iter !== iter || r.runtime_s == null) continue;
+    const m = methodOf(r.strategy_code || r.strategy);
+    if (!m) continue;
+    (by[m.code] = by[m.code] || []).push(Number(r.runtime_s));
+  }
+  const parts = ["DGWO", "MOGWO", "SEQ", "REP"].filter((c) => by[c]).map((c) => {
+    const a = by[c].slice().sort((x, y) => x - y);
+    const med = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
+    const txt = med >= 120 ? `${(med / 60).toFixed(1)} min` : `${med.toFixed(1)} s`;
+    return `${c} ${txt} (median of ${a.length})`;
+  });
+  return parts.length ? `on this machine: ${parts.join(" · ")}` : "no timed runs at this size on this machine yet";
+}
+
 export default function LogisticsTab({
   containerSpecs,
   setContainerSpecs,
@@ -47,17 +68,19 @@ export default function LogisticsTab({
   // SOP: the locked "Test settings" panel and the Full Comparison launcher (Shell builds both)
   testSettings = null,
   studyLauncher = null,
+  runHistory = [],
 }) {
   const onWolfSize = setWolfSizeCustom || setWolfSize;
   const onMaxIter  = setMaxIterCustom  || setMaxIter;
 
-  // Measured on the demo machine (i5-1235U), instance 350 (129 boxes), Quick
-  // preset. See docs/DEMO.md for the full table.
-  const PRESET_INFO = {
-    quick:    { label: "Quick demo", pop: 10, iter: 60,  note: "measured: DGWO/MOGWO/SEQ ≈ 25 s · REP ≈ 2.5 min (for a faster REP use pop 5 × 15 ≈ 30 s)" },
-    standard: { label: "Standard",   pop: 10, iter: 300, note: "measured: DGWO 149 s · MOGWO 160 s · SEQ 138 s · REP ≈ 27 min (est.)" },
-    full:     { label: "Full",       pop: 30, iter: 500, note: "estimated: ≈ 12 min per strategy · REP ≈ 2.5 h — not for live use" },
+  // Preset sizes only. How long each takes is read from this machine's own
+  // saved runs (median per method), never typed in.
+  const PRESET_SIZES = {
+    quick:    { label: "Quick demo", pop: 10, iter: 60 },
+    standard: { label: "Standard",   pop: 10, iter: 300 },
+    full:     { label: "Full",       pop: 30, iter: 500 },
   };
+  const PRESET_INFO = Object.fromEntries(Object.entries(PRESET_SIZES).map(([k, p]) => [k, { ...p, note: timingNote(runHistory, p.pop, p.iter) }]));
   const selectedWtpack = wtpackInstances.find((i) => i.instance_id === wtpackId) || null;
 
   const fileInputRef = useRef(null);
@@ -278,11 +301,17 @@ export default function LogisticsTab({
                       key={s}
                       onClick={() => setStrategy(s)}
                       className={strategy === s ? "active" : ""}
+                      title={methodLabel(s)}
                     >
-                      {s}
+                      {methodOf(s) ? methodOf(s).name : s}
                     </button>
                   ))}
                 </div>
+                {methodOf(strategy) && (
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", lineHeight: 1.45 }}>
+                    <b>{methodLabel(strategy)}.</b> {methodOf(strategy).how}
+                  </div>
+                )}
               </div>
 
               {/* Demo presets: drive pop_size / max_iter. Durations are measured, not guessed. */}
