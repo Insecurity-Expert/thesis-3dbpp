@@ -237,7 +237,7 @@ export default function VisualizationTab({
       {colorMode === "type" && (
         <>
           <Swatch color={TYPE_COLOR.standard} label="Standard" />
-          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: ≥ ${fmtNum(heavy.threshold, 2)} kg (${HEAVY_PERCENTILE}th percentile of the ${heavy.scope})`} />
+          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: mass ≥ ${fmtNum(heavy.threshold, 2)} kg (${heavy.nHeavy} of ${heavy.n} ${pv ? "boxes" : "placed boxes"})`} />
         </>
       )}
       {colorMode === "box" && <span style={LEGEND_TXT}>Each box has its own colour</span>}

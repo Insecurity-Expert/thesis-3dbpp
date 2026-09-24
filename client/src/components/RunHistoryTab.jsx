@@ -24,7 +24,7 @@ export function runStatus(run) {
   if (run.status === "failed") return { key: "failed", text: "Failed", cls: "badge-danger", title: run.error || "The optimizer process exited with an error" };
   if (run.budget_exhausted === true) return { key: "limit", text: "Hit attempt limit", cls: "badge-warn", title: "The placement routine reached its limit on position checks; the boxes after that point were left unplaced" };
   if (run.budget_exhausted === false) return { key: "ok", text: "OK", cls: "badge-safe", title: "Finished normally" };
-  return { key: "ok-legacy", text: "OK", cls: "badge-neutral", title: "Finished; saved before the attempt-limit flag was recorded" };
+  return { key: "not-recorded", text: "Not recorded", cls: "badge-neutral", title: "Saved before the attempt-limit flag was recorded, so whether it hit the limit is unknown" };
 }
 
 const customRules = (run) => run.enforce_support === false || run.enforce_fragility === false;

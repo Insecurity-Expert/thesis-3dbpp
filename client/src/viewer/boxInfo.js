@@ -23,7 +23,8 @@ export function heavyRule(result) {
   const pv = result && result.problem_view;
   const all = pv ? placed.concat(pv.unplaced.map((u) => Number(u.mass))) : placed;
   const threshold = percentile(all, HEAVY_PERCENTILE);
-  return { threshold, scope: pv ? "whole load" : "placed boxes only", n: all.length };
+  const nHeavy = threshold === null ? 0 : all.filter((m) => m >= threshold).length;
+  return { threshold, scope: pv ? "whole load" : "placed boxes only", n: all.length, nHeavy };
 }
 
 export const isHeavy = (mass, rule) =>
