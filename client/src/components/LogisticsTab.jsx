@@ -256,18 +256,6 @@ export default function LogisticsTab({
                   ))}
                 </div>
               </div>
-              <div>
-                <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                  Max load capacity (kg)
-                </label>
-                <input
-                  type="number"
-                  value={maxLoad}
-                  onChange={(e) => { setMaxLoad(Number(e.target.value)); setIsCustomized(true); }}
-                  style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none" }}
-                  disabled={running}
-                />
-              </div>
               <div className="dashed-preview">
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -275,8 +263,7 @@ export default function LogisticsTab({
                   <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
                 <span>
-                  {containerSpecs.L} × {containerSpecs.D} × {containerSpecs.H} cm<br />
-                  {maxLoad.toLocaleString()} kg max load
+                  {containerSpecs.L} × {containerSpecs.D} × {containerSpecs.H} cm
                 </span>
               </div>
             </div>

@@ -61,7 +61,7 @@ export default function ThingsToKnow({ result = null, studies = [] }) {
       </Item>
 
       <Item n={4} title="Timing depends on how and where a run was made">
-        {done.length === 0 ? "No finished study is loaded, so there is no timing record to show." : (
+        {done.length === 0 ? "No finished study is loaded, so there is no timing record to show. " : (
           <ul style={{ margin: "4px 0 6px", paddingLeft: 18 }}>
             {done.map((s) => (
               <li key={s.id}>

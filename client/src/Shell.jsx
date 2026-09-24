@@ -43,7 +43,7 @@ export default function Shell() {
 
   // Dynamic Custom Configurations
   const [containerSpecs, setContainerSpecs] = useState({ L: 587, H: 233, D: 220 });
-  const [maxLoad, setMaxLoad] = useState(28000);
+  const [maxLoad, setMaxLoad] = useState(null);   // never sent to the optimizer; not shown
   const [itemsList, setItemsList] = useState([]);
   const [instanceItems, setInstanceItems] = useState([]);
   const [isCustomized, setIsCustomized] = useState(false);
