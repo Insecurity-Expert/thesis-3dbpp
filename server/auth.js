@@ -66,16 +66,42 @@ router.get("/me", authRequired, (req, res) => {
   res.json(u);
 });
 
+// Per-row summary for the history table, read from the stored envelope.
+// null means "not recorded for this row", never zero.
+function runSummary(row) {
+  const r = row.result || null;
+  const cd = r && r.metrics && r.metrics.constraint_detail;
+  const p = r && r.params;
+  const pct = (k) => (cd && typeof cd[k] === "number" ? cd[k] : null);
+  return {
+    status: row.status || "ok",
+    c3_pct: pct("C3_weight_pct"), c4_pct: pct("C4_fragility_pct"),
+    c5_pct: pct("C5_balance_pct"), c6_pct: pct("C6_stop_order_pct"),
+    unplaced: r && typeof r.unplaced === "number" ? r.unplaced
+      : (row.n_items != null && row.placed != null ? row.n_items - row.placed : null),
+    budget_exhausted: r && typeof r.budget_exhausted === "boolean" ? r.budget_exhausted : null,
+    enforce_support: p && typeof p.enforce_support === "boolean" ? p.enforce_support : null,
+    enforce_fragility: p && typeof p.enforce_fragility === "boolean" ? p.enforce_fragility : null,
+    pop_size: p && p.pop_size != null ? p.pop_size : null,
+    max_iter: p && p.max_iter != null ? p.max_iter : null,
+    has_problem_view: !!(r && r.problem_view),
+  };
+}
+
 router.get("/runs", authRequired, (req, res) => {
   const rows = db
     .prepare("SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 100")
     .all(req.user.id);
   // Listing stays light: the full envelope is fetched per run on load.
-  res.json(rows.map(({ result, convergence, ...rest }) => ({
-    ...rest,
-    has_result: !!result,
-    has_convergence: Array.isArray(convergence) && convergence.length > 0,
-  })));
+  res.json(rows.map((row) => {
+    const { result, convergence, ...rest } = row;
+    return {
+      ...rest,
+      ...runSummary(row),
+      has_result: !!result,
+      has_convergence: Array.isArray(convergence) && convergence.length > 0,
+    };
+  }));
 });
 
 router.get("/runs/:id", authRequired, (req, res) => {
@@ -94,8 +120,8 @@ router.post("/runs", authRequired, (req, res) => {
   const info = db
     .prepare(`INSERT INTO runs
       (user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json,
-       strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+       strategy_code, dataset, seed, csr, placed, label, result_json, convergence_json, status, error)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(req.user.id, r.strategy, r.instance, r.n_items, r.space_util,
          r.dissipation, r.runtime_s, r.bins_used,
          r.placements ? JSON.stringify(r.placements) : null,
@@ -103,7 +129,9 @@ router.post("/runs", authRequired, (req, res) => {
          r.strategy_code ?? null, r.dataset ?? null, r.seed ?? null, r.csr ?? null, r.placed ?? null,
          r.label ?? null,
          r.result ? JSON.stringify(r.result) : null,
-         r.convergence ? JSON.stringify(r.convergence) : null);
+         r.convergence ? JSON.stringify(r.convergence) : null,
+         r.status === "failed" ? "failed" : "ok",
+         r.error ? String(r.error).slice(0, 2000) : null);
   res.json({ id: info.lastInsertRowid });
 });
 

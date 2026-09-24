@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { methodLabel, methodOf } from "../methods";
 
 function formatDate(dateStr) {
   if (!dateStr) return "N/A";
@@ -15,6 +16,42 @@ function formatDate(dateStr) {
 // Chapter 3 compliance: over all n boxes, unplaced = non-compliant. Exact from the stored ratio.
 const allBoxCompliance = (run) => (run.csr == null || run.placed == null || !run.n_items) ? null : run.csr * run.placed / run.n_items;
 const fmtPct = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? "—" : `${Number(v).toFixed(2)}%`);
+
+// Status: Failed = the optimizer process exited with an error; Hit attempt
+// limit = result.budget_exhausted (the placement routine stopped checking
+// positions at its work limit and left the remaining boxes unplaced).
+export function runStatus(run) {
+  if (run.status === "failed") return { key: "failed", text: "Failed", cls: "badge-danger", title: run.error || "The optimizer process exited with an error" };
+  if (run.budget_exhausted === true) return { key: "limit", text: "Hit attempt limit", cls: "badge-warn", title: "The placement routine reached its limit on position checks; the boxes after that point were left unplaced" };
+  if (run.budget_exhausted === false) return { key: "ok", text: "OK", cls: "badge-safe", title: "Finished normally" };
+  return { key: "not-recorded", text: "Not recorded", cls: "badge-neutral", title: "Saved before the attempt-limit flag was recorded, so whether it hit the limit is unknown" };
+}
+
+const customRules = (run) => run.enforce_support === false || run.enforce_fragility === false;
+const customRulesText = (run) => [run.enforce_support === false && "support (C5) not enforced while placing",
+                                   run.enforce_fragility === false && "fragility (C4) not enforced while placing"].filter(Boolean).join("; ");
+
+const CSV_COLS = [
+  ["id", (r) => r.id], ["label", (r) => r.label ?? ""], ["test_case", (r) => r.instance ?? ""],
+  ["method", (r) => r.strategy_code || r.strategy || ""], ["repeat_code_seed", (r) => r.seed ?? ""],
+  ["rules_setting", (r) => (customRules(r) ? "custom rules: " + customRulesText(r) : r.enforce_support === null || r.enforce_support === undefined ? "" : "standard")],
+  ["container_full_pct", (r) => r.space_util ?? ""], ["rules_loaded_boxes_pct", (r) => r.csr ?? ""],
+  ["rules_all_boxes_pct", (r) => { const v = allBoxCompliance(r); return v === null ? "" : v; }],
+  ["C3_pct", (r) => r.c3_pct ?? ""], ["C4_pct", (r) => r.c4_pct ?? ""], ["C5_pct", (r) => r.c5_pct ?? ""], ["C6_pct", (r) => r.c6_pct ?? ""],
+  ["boxes", (r) => r.n_items ?? ""], ["loaded", (r) => r.placed ?? ""], ["not_loaded", (r) => r.unplaced ?? ""],
+  ["time_s", (r) => r.runtime_s ?? ""], ["status", (r) => runStatus(r).text], ["error", (r) => r.error ?? ""],
+  ["saved_at", (r) => r.created_at ?? ""],
+];
+
+function downloadCsv(rows) {
+  const esc = (v) => { const s = String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const text = [CSV_COLS.map(([h]) => h).join(","), ...rows.map((r) => CSV_COLS.map(([, f]) => esc(f(r))).join(","))].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  a.download = "STACKR-run-history.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // Inline, click-to-edit label cell.
 function LabelCell({ run, onLabelRun }) {
@@ -99,7 +136,7 @@ export default function RunHistoryTab({
         <div>
           <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Run history</h3>
           <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
-            Saved runs on this machine (server/data). Load one to replay its full Results page; export it to move it to another laptop.
+            Saved runs on this machine (server/data). Load one to replay its full Results page; export it to move it to another laptop. Runs made with a placement rule switched off are marked “custom rules”.
           </span>
         </div>
 
@@ -113,15 +150,15 @@ export default function RunHistoryTab({
             style={{ width: "200px" }}
           />
           <select className="field-input" value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} style={{ fontWeight: 600 }}>
-            <option value="All">All strategies</option>
-            {strategies.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="All">All methods</option>
+            {strategies.map((s) => <option key={s} value={s}>{methodLabel(s)}</option>)}
           </select>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={onPickFile} style={{ display: "none" }} />
           <button type="button" className="btn btn-secondary" onClick={() => fileRef.current && fileRef.current.click()}>
             Import run…
           </button>
-          <button type="button" className="btn btn-secondary" onClick={handleExportHistory}>
-            Export list
+          <button type="button" className="btn btn-primary" onClick={() => downloadCsv(filteredHistory)} disabled={filteredHistory.length === 0}>
+            Download as CSV
           </button>
         </div>
       </div>
@@ -146,15 +183,20 @@ export default function RunHistoryTab({
                 <tr>
                   <th>ID</th>
                   <th>Label</th>
-                  <th>Instance</th>
-                  <th>Strategy</th>
-                  <th style={{ textAlign: "right" }}>Seed</th>
-                  <th style={{ textAlign: "right" }}>SU</th>
-                  <th style={{ textAlign: "right" }} title="CSR over placed boxes: boxes actually placed are the denominator">CSR (placed)</th>
-                  <th style={{ textAlign: "right" }} title="Compliance over all n boxes: unplaced boxes count as non-compliant (= CSR × placed / n)">All-box</th>
-                  <th style={{ textAlign: "right" }}>Placed</th>
-                  <th style={{ textAlign: "right" }}>Runtime</th>
-                  <th style={{ textAlign: "right" }}>Completed</th>
+                  <th>Test case</th>
+                  <th>Method</th>
+                  <th style={{ textAlign: "right" }} title="The seed: the same code gives the same result">Repeat code</th>
+                  <th style={{ textAlign: "right" }}>Container full</th>
+                  <th style={{ textAlign: "right" }} title="Rules followed, counting only the boxes that were loaded">Rules (loaded)</th>
+                  <th style={{ textAlign: "right" }} title="Rules followed over ALL boxes: a box left out counts as not following them (= loaded-box figure × loaded / total)">Rules (all boxes)</th>
+                  <th style={{ textAlign: "right" }} title="C3 weight on top — share of loaded boxes that follow it">C3</th>
+                  <th style={{ textAlign: "right" }} title="C4 fragile — share of loaded boxes that follow it">C4</th>
+                  <th style={{ textAlign: "right" }} title="C5 support — share of loaded boxes that follow it">C5</th>
+                  <th style={{ textAlign: "right" }} title="C6 unload order — share of loaded boxes that follow it">C6</th>
+                  <th style={{ textAlign: "right" }}>Not loaded</th>
+                  <th style={{ textAlign: "right" }}>Time</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Saved</th>
                   <th style={{ textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
@@ -168,16 +210,22 @@ export default function RunHistoryTab({
                       <td><LabelCell run={run} onLabelRun={onLabelRun} /></td>
                       <td style={{ fontWeight: 600 }}>{run.instance}</td>
                       <td>
-                        <span className={`chip chip-${String(run.strategy_code || run.strategy || "").toLowerCase().replace(/[^a-z]/g, "")}`}>
-                          {run.strategy}{run.strategy_code && run.strategy_code !== run.strategy ? ` (${run.strategy_code})` : ""}
+                        <span className={`chip chip-${String(run.strategy_code || run.strategy || "").toLowerCase().replace(/[^a-z]/g, "")}`} title={methodLabel(run.strategy_code || run.strategy)}>
+                          {methodOf(run.strategy_code || run.strategy) ? methodOf(run.strategy_code || run.strategy).name : run.strategy}
                         </span>
+                        {customRules(run) && <span className="badge badge-warn" style={{ marginLeft: 6 }} title={customRulesText(run)}>custom rules</span>}
+                        {methodOf(run.strategy_code || run.strategy) && (
+                          <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 3, maxWidth: 170, lineHeight: 1.3 }}>{methodOf(run.strategy_code || run.strategy).nick}</div>
+                        )}
                       </td>
                       <td style={{ textAlign: "right" }}>{run.seed ?? "—"}</td>
                       <td style={{ textAlign: "right", fontWeight: 600, color: "var(--green)" }}>{fmtPct(run.space_util)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }} title="Denominator: placed boxes">{fmtPct(run.csr)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }} title="Denominator: all boxes (= CSR × placed / n)">{fmtPct(allBoxCompliance(run))}</td>
-                      <td style={{ textAlign: "right" }}>{run.placed ?? "—"}{run.n_items ? ` / ${run.n_items}` : ""}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtPct(run.csr)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtPct(allBoxCompliance(run))}</td>
+                      {["c3_pct", "c4_pct", "c5_pct", "c6_pct"].map((k) => <td key={k} style={{ textAlign: "right" }}>{fmtPct(run[k])}</td>)}
+                      <td style={{ textAlign: "right" }}>{run.unplaced != null && run.n_items ? `${run.unplaced} of ${run.n_items}` : "—"}</td>
                       <td style={{ textAlign: "right" }}>{run.runtime_s != null ? `${Number(run.runtime_s).toFixed(1)}s` : "—"}</td>
+                      <td>{(() => { const s = runStatus(run); return <span className={`badge ${s.cls}`} title={s.title}>{s.text}</span>; })()}</td>
                       <td style={{ textAlign: "right", color: "var(--text-dim)" }}>{formatDate(run.created_at)}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                         <div style={{ display: "inline-flex", gap: "6px" }}>
@@ -204,7 +252,7 @@ export default function RunHistoryTab({
           <div style={{ padding: "48px", textAlign: "center" }}>
             <span style={{ fontSize: "28px" }}>📂</span>
             <h4 style={{ marginTop: "12px", color: "var(--text-muted)" }}>No runs saved</h4>
-            <p style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Completed runs are saved here automatically. You can also import a run exported from another machine.</p>
+            <p style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Finished and failed runs are saved here automatically. You can also import a run exported from another machine.</p>
           </div>
         )}
       </div>

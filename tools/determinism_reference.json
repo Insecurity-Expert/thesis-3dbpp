@@ -1,0 +1,7 @@
+{
+  "what": "sha256 of test_determinism.run(): StandaloneDGWO pop 10 x 20 on wtpack instance 350, seed 42 (placed, su, csr, placements)",
+  "instance_id": 350,
+  "seed": 42,
+  "sha256": "aece641ca949cb2d5c316a39db2c2ed87cd15103a8fa934116400bba6dd6b77b",
+  "since": "eee6b70 (rear-door container); was afe1554817f5d94e under the side-door geometry"
+}

@@ -97,6 +97,7 @@ wss.on("connection", (ws) => {
 
   function killChild() {
     if (childProc) {
+      childProc.stoppedByServer = true;   // run_closed then reports stopped, not failed
       try { childProc.kill("SIGTERM"); } catch {}
       childProc = null;
     }
@@ -174,6 +175,7 @@ wss.on("connection", (ws) => {
         argv: argv.slice(1),
       };
       childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
+      const proc = childProc;
       childInfo = { strategy: spawned.strategy, instance: spawned.instance };
 
       // Keep the tail of stderr so a Python traceback can travel to the UI
@@ -220,7 +222,8 @@ wss.on("connection", (ws) => {
         // Surface the most specific message we have: the JSON error envelope
         // if Python sent one, else the last traceback lines from stderr.
         const tail = stderrTail.trim().split("\n").filter(Boolean).slice(-6).join("\n");
-        send({ type: "run_closed", code, error: code === 0 ? null : (lastError || tail || null) });
+        send({ type: "run_closed", code, error: code === 0 ? null : (lastError || tail || null),
+               stopped: !!proc.stoppedByServer, spawn: spawned });
         childProc = null;
       });
 

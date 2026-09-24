@@ -1,4 +1,6 @@
-"""Step 2 acceptance: same seed -> identical, different seed -> different."""
+"""Step 2 acceptance: same seed -> identical, different seed -> different, and
+seed 42 on instance 350 reproduces the stored reference hash
+(tools/determinism_reference.json)."""
 import sys, json, hashlib
 from pathlib import Path
 
@@ -19,7 +21,10 @@ def run(items, container, seed):
                              for k, vals in best.placements.items()),
     }, sort_keys=True, default=str).encode()).hexdigest()
 
-def main(items, container):
+REFERENCE = _ROOT / 'tools' / 'determinism_reference.json'
+
+
+def main(items, container, reference=None):
     a1, a2 = run(items, container, 42), run(items, container, 42)
     b      = run(items, container, 1337)
     print(f"seed 42  run 1: {a1[:16]}")
@@ -27,6 +32,11 @@ def main(items, container):
     print(f"seed 1337:      {b[:16]}")
     assert a1 == a2, "FAIL: same seed produced different output"
     assert a1 != b,  "FAIL: different seeds produced identical output (seed is inert)"
+    if reference is not None:
+        want = reference['sha256']
+        print(f"reference:      {want[:16]}")
+        assert a1 == want, (f"FAIL: seed 42 hash {a1[:16]} differs from the reference {want[:16]} "
+                            f"- the optimizer output changed")
     print("PASS - runs are reproducible and seed-controlled")
 
 if __name__ == '__main__':
@@ -38,8 +48,13 @@ if __name__ == '__main__':
                         help='wtpack instance id (default 350: first BR1 instance in the seed-42 sample)')
     parser.add_argument('--raw-dir', default=str(_ROOT / 'data' / 'raw'),
                         help='Directory holding wtpack*.txt')
+    parser.add_argument('--reference', default=str(REFERENCE),
+                        help='JSON file with the expected seed-42 sha256 (default: tools/determinism_reference.json)')
     args = parser.parse_args()
+    ref = json.loads(Path(args.reference).read_text(encoding='utf-8'))
+    if ref['instance_id'] != args.instance_id:
+        ref = None   # the stored reference is for instance 350 only
 
     inst = load_augmented_instance({'data': {'raw_dir': args.raw_dir}},
                                    instance_id=args.instance_id)
-    main(inst['boxes'], inst['container'])
+    main(inst['boxes'], inst['container'], ref)

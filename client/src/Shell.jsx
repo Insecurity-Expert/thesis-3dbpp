@@ -7,6 +7,10 @@ import LogisticsTab from "./components/LogisticsTab";
 import ResultsTab from "./components/ResultsTab";
 import VisualizationTab from "./components/VisualizationTab";
 import RunHistoryTab from "./components/RunHistoryTab";
+import DashboardTab from "./components/DashboardTab";
+import GuideTab from "./components/GuideTab";
+import AccountTab from "./components/AccountTab";
+import ThingsToKnow from "./components/ThingsToKnow";
 import { instancesApi, runsApi, studiesApi } from "./services/api";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
 import StudyResults from "./study/StudyResults";
@@ -17,7 +21,8 @@ import CompareTab, { StudySelect } from "./study/CompareTab";
 export default function Shell() {
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [activeTab, setActiveTab] = useState("logistics"); // logistics, results, visualization, history
+  const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
+  const [showThings, setShowThings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("sidebar", sidebarCollapsed ? "collapsed" : "open"); } catch {} }, [sidebarCollapsed]);
 
@@ -38,7 +43,7 @@ export default function Shell() {
 
   // Dynamic Custom Configurations
   const [containerSpecs, setContainerSpecs] = useState({ L: 587, H: 233, D: 220 });
-  const [maxLoad, setMaxLoad] = useState(28000);
+  const [maxLoad, setMaxLoad] = useState(null);   // never sent to the optimizer; not shown
   const [itemsList, setItemsList] = useState([]);
   const [instanceItems, setInstanceItems] = useState([]);
   const [isCustomized, setIsCustomized] = useState(false);
@@ -358,10 +363,27 @@ export default function Shell() {
         break;
 
       case "run_closed":
-        if (msg.code !== 0) {
+        if (msg.code !== 0 && !msg.stopped) {
           setError((prev) => prev || (msg.error
             ? `Optimizer exited with code ${msg.code}: ${msg.error}`
             : `Optimizer process exited with code ${msg.code}`));
+          // Failed runs are kept in Run history (status "failed") so how
+          // often they happen stays visible. A run the user stopped is not.
+          const sp = msg.spawn;
+          if (sp) {
+            runsApi.saveRun({
+              strategy: sp.strategy_label || sp.strategy, strategy_code: sp.strategy,
+              instance: sp.dataset === "wtpack" ? `wtpack #${sp.instance}` : String(sp.instance).split(/[\\/]/).pop(),
+              dataset: sp.dataset, seed: sp.seed, n_items: null, space_util: null, csr: null, placed: null,
+              dissipation: null, runtime_s: null, bins_used: null, placements: null, container: null,
+              result: null, convergence: null, status: "failed",
+              // The traceback / usage tail's last line that names the error.
+              error: (() => {
+                const lines = String(msg.error || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+                return lines.reverse().find((l) => /error/i.test(l)) || lines[0] || `exit code ${msg.code}`;
+              })(),
+            }).then(() => fetchRunHistory()).catch(() => {});
+          }
         }
         setRunning(false);
         break;
@@ -649,7 +671,7 @@ export default function Shell() {
 
   // Calculate actual X, Y, Z axis utilization dynamically
   const axisUtil = useMemo(() => {
-    if (!finalResult || !finalResult.items || !finalResult.container) return { x: 91, y: 84, z: 78 };
+    if (!finalResult || !finalResult.items || !finalResult.container) return null;
     const { L, H, D } = finalResult.container;
     let maxX = 0, maxY = 0, maxZ = 0;
     // Optimizer output carries dx/dy/dz (render axes); l/h/d is the legacy shape.
@@ -672,11 +694,14 @@ export default function Shell() {
   );
 
   const NAV = [
+    { id: "home", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
     { id: "logistics", label: "Start analysis", title: "Logistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
     { id: "results", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "guide", label: "Loading guide", title: "Loading guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
     { id: "compare", label: "Compare", title: "Compare", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
     { id: "visualization", label: "3D viewer", title: "Visualization", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", label: "Run history", title: "Run history", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+    { id: "account", label: "Account", title: "Account", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
 
@@ -750,6 +775,9 @@ export default function Shell() {
                     <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-main)" }}>{user?.name || "User"}</div>
                     <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "capitalize" }}>{user?.role || "Researcher"}</div>
                   </div>
+                  <button type="button" className="btn btn-secondary btn-sm btn-block" style={{ marginBottom: 8 }} onClick={() => { setActiveTab("account"); setProfileOpen(false); }}>
+                    Account
+                  </button>
                   <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { logout(); setProfileOpen(false); }}>
                     Log out
                   </button>
@@ -767,6 +795,21 @@ export default function Shell() {
         )}
 
         <main className="content">
+
+      {/* ── HOME ── */}
+      {activeTab === "home" && (
+        <DashboardTab setActiveTab={setActiveTab} runHistory={runHistory} studies={studies} />
+      )}
+
+      {/* ── LOADING GUIDE ── */}
+      {activeTab === "guide" && (
+        <GuideTab finalResult={finalResult} runHistory={runHistory} />
+      )}
+
+      {/* ── ACCOUNT ── */}
+      {activeTab === "account" && (
+        <AccountTab user={user} logout={logout} studies={studies} result={finalResult} />
+      )}
 
       {/* ── LOGISTICS TAB ── */}
       {activeTab === "logistics" && (
@@ -812,6 +855,7 @@ export default function Shell() {
           setWolfSizeCustom={setWolfSizeCustom}
           setMaxIterCustom={setMaxIterCustom}
           optimizerReady={optimizerReady}
+          runHistory={runHistory}
           testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} />}
           studyLauncher={
             <StudyLauncher
@@ -842,8 +886,14 @@ export default function Shell() {
               <button className={resultsMode === "quick" ? "active" : ""} onClick={() => setResultsMode("quick")}>Quick Test (single run)</button>
               <button className={resultsMode === "study" ? "active" : ""} onClick={() => setResultsMode("study")}>Full Comparison (study)</button>
             </div>
-            {resultsMode === "study" && <StudySelect studies={studies} value={selectedStudyId} onChange={setSelectedStudyId} />}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {resultsMode === "study" && <StudySelect studies={studies} value={selectedStudyId} onChange={setSelectedStudyId} />}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings((s) => !s)}>
+                {showThings ? "Hide things to know" : "Things to know"}
+              </button>
+            </div>
           </div>
+          {showThings && <ThingsToKnow result={resultsMode === "quick" ? finalResult : null} studies={studies} />}
           {resultsMode === "study" && (
             <StudyResults
               row={studyDoc ? studyDoc.row : null}
@@ -887,8 +937,9 @@ export default function Shell() {
       {/* ── VISUALIZATION TAB ── */}
       {activeTab === "visualization" && (
         <VisualizationTab
+          finalResult={finalResult}
+          studies={studies}
           placements={placements}
-          itemsList={itemsList}
           instanceInfo={instanceInfo}
           binsUsed={binsUsed}
           running={running}

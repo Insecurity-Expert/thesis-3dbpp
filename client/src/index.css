@@ -504,3 +504,13 @@ input:checked + .slider:before { transform: translateX(16px); }
   .content { padding: 0 !important; }
   body { background: #fff; }
 }
+
+/* Printing the loading plan: only the plan's pages, no app chrome. */
+@media print {
+  .sidebar, .topbar, .no-print, .alert-danger { display: none !important; }
+  .app, .main, .content { display: block !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; }
+  .guide-page { break-after: page; }
+  .guide-page:last-child { break-after: auto; }
+  .data-table th, .data-table td { color: #000 !important; }
+}

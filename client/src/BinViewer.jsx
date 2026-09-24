@@ -7,11 +7,35 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { isHeavy, RULE_COLOR } from './viewer/boxInfo';
 
-// ── Per-item colour using golden-angle hue ───────────────────────────────────
-function itemHSL(itemIdx) {
+// ── Per-item colour using golden-angle hue ("By box" mode) ──────────────────
+export function itemHSL(itemIdx) {
   const hue = (itemIdx * 137.508) % 360;
   return `hsl(${hue.toFixed(1)}, 70%, 60%)`;
+}
+
+// ── Fill colour per colour mode ─────────────────────────────────────────────
+// Fragile is never a fill: it is always the amber outline, so a box can read
+// as both heavy (fill) and fragile (outline).
+export const TYPE_COLOR = { standard: '#3b82f6', heavy: '#ef4444' };
+export const STOP_COLORS = ['#3b82f6', '#22c55e', '#e879f9', '#14b8a6', '#94a3b8', '#f43f5e'];
+export const COMPLIANT_COLOR = '#64748b';
+export const PROBLEM_OUTLINE = '#ff2d95';
+
+export function stopColor(stop, stops) {
+  const k = stops.indexOf(stop);
+  return STOP_COLORS[(k < 0 ? 0 : k) % STOP_COLORS.length];
+}
+
+function fillColor(it, mode, heavy, stops) {
+  if (mode === 'box') return itemHSL(it.item_idx);
+  if (mode === 'stop') return stopColor(it.stop, stops);
+  if (mode === 'problem') {
+    const v = it.violations || [];
+    return v.length ? RULE_COLOR[v[0]] : COMPLIANT_COLOR;
+  }
+  return isHeavy(it.mass ?? it.weight, heavy) ? TYPE_COLOR.heavy : TYPE_COLOR.standard;
 }
 
 // ── Container wireframe & visual shell ───────────────────────────────────────
@@ -157,9 +181,8 @@ const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
 const FRAGILE_EDGE = '#f59e0b';
 
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave, fragile }) {
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave, onSelect, fragile, color, problem, selected }) {
   const [hovered, setHovered] = useState(false);
-  const color   = useMemo(() => itemHSL(itemIdx), [itemIdx]);
 
   const nx = Number(x || 0);
   const ny = Number(y || 0);
@@ -186,6 +209,12 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
           e.stopPropagation();
           setHovered(false);
           onLeave();
+        }}
+        onClick={(e) => {
+          // A drag to orbit also ends in a click; only a still click selects.
+          if (e.delta > 4) return;
+          e.stopPropagation();
+          onSelect && onSelect();
         }}
       >
         <meshStandardMaterial
@@ -233,6 +262,22 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
       {fragile ? (
         <lineSegments geometry={edgeGeo} scale={1.015}>
           <lineBasicMaterial color={FRAGILE_EDGE} transparent opacity={0.95} linewidth={2} />
+        </lineSegments>
+      ) : null}
+      {/* Problem highlight: breaks at least one of C3-C6 (optimizer's flags). */}
+      {problem ? (
+        <>
+          <lineSegments geometry={edgeGeo} scale={1.035}>
+            <lineBasicMaterial color={PROBLEM_OUTLINE} linewidth={2} />
+          </lineSegments>
+          <lineSegments geometry={edgeGeo} scale={1.05}>
+            <lineBasicMaterial color={PROBLEM_OUTLINE} transparent opacity={0.6} />
+          </lineSegments>
+        </>
+      ) : null}
+      {selected ? (
+        <lineSegments geometry={edgeGeo} scale={1.07}>
+          <lineBasicMaterial color="#ffffff" linewidth={2} />
         </lineSegments>
       ) : null}
     </group>
@@ -316,7 +361,8 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, rese
 }
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, showGuides = true, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract }) {
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, showGuides = true, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract,
+                                    colorMode = 'type', heavy = null, stops = [], highlightProblems = false, onSelectItem, selectedIdx = null, legend = null, pictureName = 'STACKR-3D-view' }) {
   // Parse container specs to numbers
   const container = useMemo(() => {
     const raw = result ? result.container : containerProp;
@@ -419,14 +465,14 @@ export default function BinViewer({ result, placements: placementsProp, containe
     far: Math.max(10000, camDist * 10)
   }), [target, H, camDist]);
 
-  if (!container || !items || items.length === 0) return null;
+  if (!container) return null;
 
   // Export PNG function
   const handleExportPNG = () => {
     if (!canvasRef.current) return;
     const dataURL = canvasRef.current.toDataURL("image/png");
     const link = document.createElement("a");
-    link.download = `STACKR-3D-Packing-Bin.png`;
+    link.download = `${pictureName}.png`;
     link.href = dataURL;
     link.click();
   };
@@ -458,20 +504,13 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     itemIdx={it.item_idx}
                     id={it.id}
                     fragile={it.fragile}
+                    color={fillColor(it, colorMode, heavy, stops)}
+                    problem={highlightProblems && Array.isArray(it.violations) && it.violations.length > 0}
+                    selected={selectedIdx !== null && selectedIdx === it.item_idx}
                     showLabels={showLabels}
-                    onHover={() => onHoverItem && onHoverItem({
-                      id: it.id,
-                      x: it.x,
-                      y: it.y,
-                      z: it.z,
-                      l: it.l,
-                      h: it.h,
-                      d: it.d,
-                      stop: it.stop || 1,
-                      weight: it.weight || 0,
-                      fragile: it.fragile
-                    })}
+                    onHover={() => onHoverItem && onHoverItem(it)}
                     onLeave={() => onHoverItem && onHoverItem(null)}
+                    onSelect={() => onSelectItem && onSelectItem(it)}
                   />
                 ))}
               </group>
@@ -665,21 +704,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
         background: '#1f2937', flexWrap: 'wrap', alignItems: 'center', gap: 14
       }}>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ color: '#94a3b8', fontSize: 13, fontWeight: '600' }}>
-            {binCount} bin{binCount !== 1 ? 's' : ''} · {items.length} items
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#3b82f6' }} />
-            <span style={{ color: '#9ca3af', fontSize: 12 }}>Standard</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#f59e0b' }} />
-            <span style={{ color: '#9ca3af', fontSize: 12 }}>Fragile</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#ef4444' }} />
-            <span style={{ color: '#9ca3af', fontSize: 12 }}>Heavy</span>
-          </div>
+          {legend}
         </div>
 
         <div style={{ display: 'flex', gap: 12 }}>
@@ -687,7 +712,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
             onClick={handleExportPNG}
             style={{ padding: "6px 12px", background: "transparent", border: "1px solid #4b5563", borderRadius: "4px", color: "#cbd5e1", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
           >
-            Export PNG
+            Save as picture
           </button>
           <button
             onClick={onResetView}

@@ -38,7 +38,10 @@ experiments/runs/
 !experiments/results/*.csv
 .claude/
 server/data/
-# SOP studies: study result files are NOT committed (studyA + studyB alone are
-# ~3.9 MB of generated JSON). Regenerate them with experiments/study.py — see
-# docs/STUDIES.md.
+# SOP studies: the two precomputed studies (studyA + studyB, ~3.6 MB) are
+# committed — regenerating them takes ~4 h and is not byte-identical (timings).
+# UI-launched studies, logs and progress files are not.
 experiments/results/studies/*
+!experiments/results/studies/studyA_*.json
+!experiments/results/studies/studyB_*.json
+experiments/results/studies/*.progress.json

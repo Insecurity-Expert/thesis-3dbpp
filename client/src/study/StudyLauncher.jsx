@@ -76,7 +76,14 @@ export default function StudyLauncher({
             }}>
               <div style={{ fontWeight: 800, fontSize: 14 }}>{s.name}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.4 }}>{s.blurb}</div>
-              <div style={{ fontSize: 12, marginTop: 8, color: "var(--primary)", fontWeight: 700 }}>{s.runs} runs · estimated {fmt.duration(s.estimate_s)}</div>
+              <div style={{ fontSize: 12, marginTop: 8, color: "var(--primary)", fontWeight: 700 }}>
+                {s.runs} runs · {s.estimate_s != null ? fmt.duration(s.estimate_s) : "no estimate yet"}
+              </div>
+              {s.estimate_s != null && (
+                <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>
+                  estimated from past runs on this machine ({s.basis_studies} earlier {s.mode} {s.preset} stud{s.basis_studies === 1 ? "y" : "ies"})
+                </div>
+              )}
               <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{s.mode === "serial" ? "one run at a time — time & memory valid (SP3)" : "parallel — time & memory flagged, not tested"}</div>
             </button>
           ))}
