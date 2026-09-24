@@ -35,11 +35,20 @@ const customRules = (run) => run.enforce_support === false || run.enforce_fragil
 const customRulesText = (run) => [run.enforce_support === false && "support (C5) not enforced while placing",
                                    run.enforce_fragility === false && "fragility (C4) not enforced while placing"].filter(Boolean).join("; ");
 
+// Pack size x iterations the three Quick Test presets use (StudyLauncher /
+// experiments/study.py PRESETS). A run made with any other pair was set by
+// hand in Advanced and is labelled "custom settings".
+export const PRESET_SIZES = [[10, 60], [10, 300], [30, 500]];
+const customSettings = (run) => run.pop_size != null && run.max_iter != null
+  && !PRESET_SIZES.some(([p, i]) => p === Number(run.pop_size) && i === Number(run.max_iter));
+const customSettingsText = (run) => `pack size ${run.pop_size} × ${run.max_iter} iterations (not one of the presets)`;
+
 const CSV_COLS = [
   ["id", (r) => r.id], ["label", (r) => r.label ?? ""], ["test_case", (r) => r.instance ?? ""],
   ["dataset_note", (r) => (r.custom_load ? r.custom_load.label || CUSTOM_LOAD_LABEL : r.old_manual_entry ? OLD_MANUAL : "")],
   ["method", (r) => r.strategy_code || r.strategy || ""], ["repeat_code_seed", (r) => r.seed ?? ""],
   ["rules_setting", (r) => (customRules(r) ? "custom rules: " + customRulesText(r) : r.enforce_support === null || r.enforce_support === undefined ? "" : "standard")],
+  ["size_setting", (r) => (customSettings(r) ? "custom settings: " + customSettingsText(r) : r.pop_size == null ? "" : "preset")],
   ["container_full_pct", (r) => r.space_util ?? ""], ["rules_loaded_boxes_pct", (r) => r.csr ?? ""],
   ["rules_all_boxes_pct", (r) => { const v = allBoxCompliance(r); return v === null ? "" : v; }],
   ["C3_pct", (r) => r.c3_pct ?? ""], ["C4_pct", (r) => r.c4_pct ?? ""], ["C5_pct", (r) => r.c5_pct ?? ""], ["C6_pct", (r) => r.c6_pct ?? ""],
@@ -223,6 +232,7 @@ export default function RunHistoryTab({
                           {methodOf(run.strategy_code || run.strategy) ? methodOf(run.strategy_code || run.strategy).name : run.strategy}
                         </span>
                         {customRules(run) && <span className="badge badge-warn" style={{ marginLeft: 6 }} title={customRulesText(run)}>custom rules</span>}
+                        {customSettings(run) && <span className="badge badge-warn" style={{ marginLeft: 6 }} title={customSettingsText(run)}>custom settings</span>}
                         {methodOf(run.strategy_code || run.strategy) && (
                           <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 3, maxWidth: 170, lineHeight: 1.3 }}>{methodOf(run.strategy_code || run.strategy).nick}</div>
                         )}

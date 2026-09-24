@@ -127,6 +127,28 @@ def instance_meta(instance_id, sample=None):
             'fragile_count': row.get('fragile_count')}
 
 
+# ─── worker start-up: compile numba before any timed run ─────────────────────
+# Filled in by warm_worker() in each worker process; copied into every run row
+# so a study shows that the compile / cache-load cost was paid untimed.
+_WORKER = {'pid': None, 'warmup_cpu_ms': None, 'warmup_wall_ms': None}
+
+
+def warm_worker(enforce_support=True, enforce_fragility=True, raw_dir=None):
+    """ProcessPoolExecutor initializer: one throwaway decode + evaluate + repair
+    (a 1-iteration RepairBasedHybrid on instance 350) so every numba kernel is
+    compiled or loaded from its cache before the worker's first timed run.
+    Its CPU and wall time are recorded, never added to a run's M-3 or CPU time."""
+    from preprocessing.pipeline import load_augmented_instance
+    from thesis_algorithms import RepairBasedHybrid
+    c0, w0 = time.process_time(), time.perf_counter()
+    inst = load_augmented_instance({'data': {'raw_dir': raw_dir or str(_ROOT / 'data' / 'raw')}},
+                                   instance_id=350, stop_seed=STOP_SEED, stop_count=STOP_COUNT)
+    RepairBasedHybrid(items=inst['boxes'], container=inst['container'], pop_size=3, max_iter=1,
+                      enforce_support=enforce_support, enforce_fragility=enforce_fragility, seed=0).run()
+    _WORKER.update(pid=os.getpid(), warmup_cpu_ms=round((time.process_time() - c0) * 1000.0, 1),
+                   warmup_wall_ms=round((time.perf_counter() - w0) * 1000.0, 1))
+
+
 # ─── one run (executed in a worker process for --mode parallel) ──────────────
 def run_task(task):
     """task = dict(configuration, instance_id | custom_load, seed, pop_size, max_iter,
@@ -177,9 +199,10 @@ def run_task(task):
                       enforce_fragility=task['enforce_fragility'], seed=0).run()
     baseline_mb = psutil.Process().memory_info().rss / (1024 * 1024)
 
-    t0 = time.perf_counter()
+    t0, c0 = time.perf_counter(), time.process_time()
     best = opt.run()
     exec_time_ms = (time.perf_counter() - t0) * 1000.0          # M-3
+    cpu_time_ms = (time.process_time() - c0) * 1000.0           # this process's CPU time for opt.run() alone
     peak_mb = _peak_mb()                                          # M-4
 
     csr, detail = evaluate_constraints(best.placements, boxes, best.orientations)
@@ -209,6 +232,9 @@ def run_task(task):
         'C5_pct':           round(detail['C5_balance_pct'], 4),
         'C6_pct':           round(detail['C6_stop_order_pct'], 4),
         'exec_time_ms':     round(exec_time_ms, 1),
+        'cpu_time_ms':      round(cpu_time_ms, 1),
+        'worker_pid':       _WORKER['pid'] if _WORKER['pid'] == os.getpid() else None,
+        'worker_warmup_cpu_ms': _WORKER['warmup_cpu_ms'] if _WORKER['pid'] == os.getpid() else None,
         'peak_mem_mb':      round(peak_mb, 3),
         'baseline_mem_mb':  round(baseline_mb, 3),
         'budget_exhausted': bool(getattr(best, 'budget_exhausted', False)),
@@ -305,7 +331,8 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     try:
         # One fresh process per run, in both modes (see module docstring).
         with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
-                                 max_tasks_per_child=1) as ex:
+                                 max_tasks_per_child=1, initializer=warm_worker,
+                                 initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:
             if mode == 'serial':
                 for t in tasks:
                     _done(ex.submit(run_task, t).result())
@@ -334,7 +361,8 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'mode': mode,
         'workers': 1 if mode == 'serial' else workers,
         'timing_valid': mode == 'serial',
-        'timing_method': 'fresh process per run; numba warmed untimed; M-3 = wall-clock of opt.run(); M-4 = process peak working set (psutil)',
+        'timing_method': 'fresh process per run; numba warmed untimed in the worker initializer; M-3 = wall-clock of opt.run(); '
+                         'CPU time = process CPU time of opt.run() (time.process_time); M-4 = process peak working set (psutil)',
         'timing_note': ('serial - one optimizer at a time; M-3 / M-4 valid for SP3'
                         if mode == 'serial' else
                         'concurrent - not valid for SP3 (several optimizers shared the CPU)'),

@@ -58,9 +58,12 @@ export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed, selec
 export default function StudyLauncher({
   sizesInfo, studies, available, onLaunch, onImport, onOpenStudy, onDeleteStudy, onRefresh,
   wtpackId, wtpackInstances, seed, busy, size, setSize, selectedLoad = null,
+  // Which cards to show, and which sizes the picker offers (the guided flow
+  // shows the larger sizes in Advanced and the study list in Technical details).
+  sections = ["sizes", "studies", "import"], sizeKeys = null,
 }) {
   const [customInstance, setCustomInstance] = useState(false);
-  const sizes = (sizesInfo && sizesInfo.sizes) || [];
+  const sizes = ((sizesInfo && sizesInfo.sizes) || []).filter((s) => !sizeKeys || sizeKeys.includes(s.key));
   const chosen = sizes.find((s) => s.key === size);
   const inst = wtpackInstances.find((i) => i.instance_id === wtpackId);
   // A custom load always replaces the size's default test case (it is the
@@ -73,7 +76,7 @@ export default function StudyLauncher({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="card" style={{ border: "2px solid var(--primary)" }}>
+      {sections.includes("sizes") && <div className="card" style={{ border: "2px solid var(--primary)" }}>
         <div className="card-head">
           <div>
             <div className="card-title">Full Comparison</div>
@@ -135,9 +138,9 @@ export default function StudyLauncher({
           {running.length > 0 && <span className="badge badge-warn" style={{ textTransform: "none" }}>{running.length} study{running.length > 1 ? "ies" : ""} running</span>}
           <button className="btn btn-secondary btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
-      </div>
+      </div>}
 
-      <div className="card">
+      {sections.includes("studies") && <div className="card">
         <div className="card-head">
           <div>
             <div className="card-title">Your studies</div>
@@ -175,9 +178,9 @@ export default function StudyLauncher({
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="card">
+      {sections.includes("import") && <div className="card">
         <div className="card-head">
           <div>
             <div className="card-title">Import a precomputed study</div>
@@ -199,7 +202,7 @@ export default function StudyLauncher({
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
