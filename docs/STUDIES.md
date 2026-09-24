@@ -31,10 +31,12 @@ python experiments/study.py --print-defaults            # the locked parameters 
 composite are computed). `--mode parallel` shares the CPU and the file is
 flagged *concurrent*; `stats.py` then refuses SP3 and the composite.
 
-Study result files are **not committed** — Study A and Study B alone are
-~3.9 MB of generated JSON. Regenerate them with the `--size standard` and
-`--size multi` commands above; they land in `experiments/results/studies/`
-under exactly the names the UI's import list expects.
+Study A and Study B result files **are committed** (~3.6 MB together). A
+rerun with the `--size standard` and `--size multi` commands above takes about
+4 hours and is not byte-identical (timings differ), so the stored files are the
+reference. They were briefly untracked in b15b704 and restored byte-identical
+from its parent; the independent validator agrees on all 440 arrangements.
+UI-launched studies, logs and progress files are not committed.
 
 CLI-computed files in `experiments/results/studies/` appear in the UI under
 *Import a precomputed study* (Logistics → Full Comparison). Nothing is
