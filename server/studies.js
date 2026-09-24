@@ -18,6 +18,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { spawn, execFileSync } = require("child_process");
 const db = require("./db");
 const { authRequired } = require("./auth");
@@ -28,7 +29,6 @@ const STUDY_PY = path.join(ROOT, "experiments", "study.py");
 const VIEW_PY = path.join(ROOT, "optimizer", "arrangement_view.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
-const STANDARD_ESTIMATE_S = 3609;      // measured: Study A, 120 runs, 10 workers, idle laptop
 if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 
 // The three sizes of the "Full Comparison" picker. Estimates are MEASURED on
@@ -42,15 +42,40 @@ if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 const DEMO_SEEDS = Number(process.env.STACKR_DEMO_SEEDS || 5);
 const SIZES = {
   demo:     { name: "Demo study",           preset: "quick",    mode: "parallel", seeds: `1-${DEMO_SEEDS}`, instanceId: 350, workers: 6,
-              runs: 4 * DEMO_SEEDS, estimate_s: 160,
+              runs: 4 * DEMO_SEEDS,
               blurb: `one instance, Quick preset, ${DEMO_SEEDS} seeds x 4 configurations, run in parallel` },
   standard: { name: "Standard study (Study A)", preset: "standard", mode: "parallel", seeds: "1-30", instanceId: 350, workers: 10,
-              runs: 120, estimate_s: STANDARD_ESTIMATE_S,
+              runs: 120,
               blurb: "instance 350, Standard preset (10 x 300), seeds 1-30 x 4 configurations, run in parallel" },
   multi:    { name: "Multi-instance study (Study B)", preset: "quick", mode: "serial", seeds: "1-10", sample: SAMPLE8, workers: 1,
-              runs: 320, estimate_s: 90 * 60,
+              runs: 320,
               blurb: "8 instances (BR1-BR7), Quick preset, seeds 1-10 x 4 configurations, run one at a time (timing valid)" },
 };
+
+// Duration estimate for a size, from finished studies stored on this machine
+// that were made the same way: same execution mode (serial / parallel), same
+// preset, and for parallel the same number of workers. Estimate = median
+// wall-clock seconds per run over those studies x the size's run count.
+// "This machine" = the study recorded the same logical CPU count and OS
+// release as the one serving now. None -> null ("no estimate yet").
+function estimateFor(s) {
+  let files = [];
+  try { files = fs.readdirSync(STUDIES_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".progress.json")); } catch { return null; }
+  const perRun = [];
+  for (const f of files) {
+    const doc = readJson(path.join(STUDIES_DIR, f));
+    if (!doc || doc.stackr_study !== 1 || !(doc.wall_clock_s > 0) || !Array.isArray(doc.runs) || !doc.runs.length) continue;
+    if (doc.mode !== s.mode || !doc.preset || doc.preset.name !== s.preset) continue;
+    if (s.mode === "parallel" && doc.workers !== s.workers) continue;
+    const m = doc.machine || {};
+    if (m.cpu_count !== os.cpus().length || !String(m.platform || "").includes(os.release())) continue;
+    perRun.push(doc.wall_clock_s / doc.runs.length);
+  }
+  if (!perRun.length) return null;
+  const a = perRun.slice().sort((x, y) => x - y);
+  const med = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
+  return { estimate_s: Math.round(med * s.runs), basis_studies: a.length };
+}
 
 // The locked parameters the UI shows come from the optimizer itself
 // (experiments/study.py --print-defaults reads the constructor defaults).
@@ -143,7 +168,8 @@ router.get("/", authRequired, (req, res) => {
 router.get("/sizes", authRequired, (req, res) => {
   const d = studyDefaults();
   res.json({
-    sizes: Object.entries(SIZES).map(([key, s]) => ({ key, ...s, sample: s.sample ? path.basename(s.sample) : null,
+    sizes: Object.entries(SIZES).map(([key, s]) => ({ key, ...s, ...(estimateFor(s) || { estimate_s: null, basis_studies: 0 }),
+                                                      sample: s.sample ? path.basename(s.sample) : null,
                                                       pop_size: d.presets ? d.presets[s.preset].pop_size : null,
                                                       max_iter: d.presets ? d.presets[s.preset].max_iter : null })),
     defaults: d,
@@ -288,4 +314,4 @@ router.delete("/:id", authRequired, (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { router, SIZES, STUDIES_DIR };
+module.exports = { router, SIZES, STUDIES_DIR, estimateFor };
