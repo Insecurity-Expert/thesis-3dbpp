@@ -25,6 +25,33 @@ def _box_lbs(box: Dict[str, Any]) -> float:
     return min(box['lbs_l'], box['lbs_w'], box['lbs_h'])
 
 
+def fragile_types_by_share(boxes: List[Dict[str, Any]], target: float) -> set:
+    """Step A3: the set of type_ids flagged fragile at a target box share.
+
+    Every box of a type shares one LBS, so the flag must be a property of
+    the type (never mixed within a type). Flagging every type with LBS <= Q1
+    can only over-shoot: the type holding Q1 is always taken whole, giving a
+    hard floor of 25% and a one-sided error (median 0.30, p95 0.42 over the
+    wtpack set). Instead: rank types by aggregate LBS ascending, walk the
+    cumulative box count, and cut at the type boundary closest to the target.
+    At least one type is always flagged so C4 is never vacuous.
+    """
+    type_lbs, type_count = {}, {}
+    for box in boxes:
+        t = box['type_id']
+        type_lbs.setdefault(t, _box_lbs(box))
+        type_count[t] = type_count.get(t, 0) + 1
+    ranked = sorted(type_lbs, key=lambda t: (type_lbs[t], t))
+    n = len(boxes)
+    best_k, best_err, cum = 1, None, 0
+    for k, t in enumerate(ranked, start=1):
+        cum += type_count[t]
+        err = abs(cum / n - target)
+        if best_err is None or err < best_err:
+            best_k, best_err = k, err
+    return set(ranked[:best_k])
+
+
 def assign_fragility(boxes: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Apply Steps A1-A4 to a list of boxes (mutated in place).
@@ -43,27 +70,7 @@ def assign_fragility(boxes: List[Dict[str, Any]]) -> Dict[str, Any]:
     q1 = float(np.percentile(lbs_values, 25))
 
     # ---- Step A3: greedy type selection ------------------------------------
-    # Every box of a type shares one LBS, so the flag must be a property of
-    # the type (never mixed within a type). Flagging every type with LBS <= Q1
-    # can only over-shoot: the type holding Q1 is always taken whole, giving a
-    # hard floor of 25% and a one-sided error (median 0.30, p95 0.42 over the
-    # wtpack set). Instead: rank types by aggregate LBS ascending, walk the
-    # cumulative box count, and cut at the type boundary closest to 25%.
-    # At least one type is always flagged so C4 is never vacuous.
-    type_lbs, type_count = {}, {}
-    for box in boxes:
-        t = box['type_id']
-        type_lbs.setdefault(t, _box_lbs(box))
-        type_count[t] = type_count.get(t, 0) + 1
-    ranked = sorted(type_lbs, key=lambda t: (type_lbs[t], t))
-    n = len(boxes)
-    best_k, best_err, cum = 1, None, 0
-    for k, t in enumerate(ranked, start=1):
-        cum += type_count[t]
-        err = abs(cum / n - 0.25)
-        if best_err is None or err < best_err:
-            best_k, best_err = k, err
-    fragile_types = set(ranked[:best_k])
+    fragile_types = fragile_types_by_share(boxes, 0.25)
     for box in boxes:
         box['fragile'] = 1 if box['type_id'] in fragile_types else 0
 

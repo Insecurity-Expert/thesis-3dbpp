@@ -45,3 +45,6 @@ experiments/results/studies/*
 !experiments/results/studies/studyA_*.json
 !experiments/results/studies/studyB_*.json
 experiments/results/studies/*.progress.json
+
+# User-uploaded custom loads (Prompt 3); never part of the thesis dataset
+experiments/custom_loads/
