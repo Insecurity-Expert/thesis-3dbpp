@@ -167,6 +167,60 @@ def evaluate_constraints_reference(placements, items, orientations):
 
     return detail["total_compliant_pct"], detail
 
+def per_box_constraints(placements, items, orientations):
+    """Per-box C3-C6 outcome for the 3-D viewer's problem view. ADDITIVE: the
+    scores above never call this, so nothing the search sees changes.
+
+    Same predicates as evaluate_constraints_reference, box by box, and the
+    same attribution as tools/validate_arrangement.py: C3 flags the loaded box
+    underneath, C4 the fragile box with something above it, C5 the box
+    lacking support, C6 the BLOCKED box (not the later-stop box blocking it).
+
+    Returns {item_idx: {C3, C4, C5, C6 (True = satisfied), load_above_kg,
+    capacity_kg, lbs_kg_cm2, support_ratio, c6_blockers}}.
+    """
+    members = list(placements)
+    out = {}
+    for i in members:
+        (x_i, y_i, z_i, dx_i, dy_i, dz_i) = placements[i]
+        top_area = dx_i * dy_i
+        boxes_above = [j for j in members if i != j and _is_above(i, j, placements)]
+
+        borne_mass = sum(items[j]['mass'] for j in boxes_above)
+        lbs = vertical_lbs(items[i], orientations[i])
+        capacity = lbs * top_area
+        is_c3_ok = borne_mass <= capacity
+
+        is_c4_ok = not (items[i]['fragile'] == 1 and len(boxes_above) > 0)
+
+        if z_i == 0:
+            is_c5_ok, ratio = True, None
+        else:
+            supported_area = 0.0
+            for j in members:
+                if i != j:
+                    (x_j, y_j, z_j, dx_j, dy_j, dz_j) = placements[j]
+                    if abs((z_j + dz_j) - z_i) < 1e-5:
+                        ox = _overlap(x_i, x_i + dx_i, x_j, x_j + dx_j)
+                        oy = _overlap(y_i, y_i + dy_i, y_j, y_j + dy_j)
+                        supported_area += ox * oy
+            ratio = supported_area / top_area if top_area > 0 else 0.0
+            is_c5_ok = ratio >= 0.80 if top_area > 0 else False
+
+        s_i = items[i]['stop']
+        above_set = set(boxes_above)
+        blockers = [j for j in members
+                    if i != j and items[j]['stop'] > s_i
+                    and (j in above_set or _blocks_extraction(i, j, placements))]
+
+        out[i] = {
+            "C3": is_c3_ok, "C4": is_c4_ok, "C5": is_c5_ok, "C6": not blockers,
+            "load_above_kg": borne_mass, "capacity_kg": capacity, "lbs_kg_cm2": lbs,
+            "support_ratio": ratio, "c6_blockers": blockers,
+        }
+    return out
+
+
 def robustness(su_values):
     n = len(su_values)
     if n < 2:

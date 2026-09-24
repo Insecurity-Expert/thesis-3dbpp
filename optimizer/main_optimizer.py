@@ -33,6 +33,7 @@ from hd_gwo import HDGWO
 from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid, RepairBasedHybrid
 from thesis_metrics import (evaluate_constraints,
                             space_utilization as thesis_space_utilization)
+from arrangement_view import wtpack_entry, annotate
 from webapp_metrics import (assign_weights, compute_weight_capacity,
                             space_utilization, constraint_satisfaction)
 
@@ -259,17 +260,8 @@ def main():
         else:
             bin_id, x, y, z, d1, d2, d3 = placement
         if args.dataset == "wtpack":
-            # RENDER BOUNDARY — the only place the y-up convention exists.
-            # physics (x=length, y=depth, z=height) -> render (x, y=height, z=depth)
-            entry = {
-                "x": x, "y": z, "z": y,
-                "dx": d1, "dy": d3, "dz": d2,
-                "length": d1, "height": d3, "width": d2,
-                "orig_L": box['l'], "orig_H": box['h'], "orig_D": box['w'],
-                "stop": box['stop'], "mass": box['mass'],
-                "fragile": int(box['fragile']),
-                "type": "Fragile" if box['fragile'] else "Standard",
-            }
+            # RENDER BOUNDARY — see arrangement_view.wtpack_entry
+            entry = wtpack_entry(box, item_idx, placement)
         else:
             # Legacy engine is already y-up; no conversion required.
             entry = {
@@ -287,6 +279,10 @@ def main():
         entry.setdefault("type", box.get('type', 'Standard'))
         packed_items.append(entry)
     packed_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
+
+    # Per-box C3-C6 for the viewer's problem view (additive; after M-3 timing).
+    problem_view = (annotate(packed_items, best.placements, best.orientations, items)
+                    if args.dataset == "wtpack" else None)
 
     if args.dataset == "wtpack":
         cap_vol = container['L'] * container['W'] * container['H']
@@ -340,6 +336,8 @@ def main():
         "metrics":          metrics,
         "items":            packed_items,
     }
+    if problem_view is not None:
+        result["problem_view"] = problem_view
 
     if streaming:
         # Emit as a typed message so Node.js/React can handle it
