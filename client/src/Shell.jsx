@@ -887,8 +887,9 @@ export default function Shell() {
       {/* ── VISUALIZATION TAB ── */}
       {activeTab === "visualization" && (
         <VisualizationTab
+          finalResult={finalResult}
+          studies={studies}
           placements={placements}
-          itemsList={itemsList}
           instanceInfo={instanceInfo}
           binsUsed={binsUsed}
           running={running}

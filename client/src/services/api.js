@@ -164,6 +164,7 @@ export const studiesApi = {
   },
   async get(id) { return request(`/api/studies/${encodeURIComponent(id)}`); },
   async progress(id) { return request(`/api/studies/${encodeURIComponent(id)}/progress`); },
+  async runView(id, idx) { return request(`/api/studies/${encodeURIComponent(id)}/runs/${encodeURIComponent(idx)}/view`); },
   async remove(id) { return request(`/api/studies/${encodeURIComponent(id)}`, { method: "DELETE" }); },
 };
 

@@ -12,6 +12,8 @@
 //   POST   /api/studies/import        { file }   (basename inside the studies dir)
 //   GET    /api/studies/:id           the study file (stats attached; arrangements stripped)
 //   GET    /api/studies/:id/progress  { status, done, total, per_configuration, elapsed_s, ... }
+//   GET    /api/studies/:id/runs/:idx/view  one run's arrangement for the 3-D viewer, rebuilt by
+//          optimizer/arrangement_view.py (per-box C3-C6); refused if SU/CSR do not reproduce
 //   DELETE /api/studies/:id
 const express = require("express");
 const fs = require("fs");
@@ -23,6 +25,7 @@ const { authRequired } = require("./auth");
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
+const VIEW_PY = path.join(ROOT, "optimizer", "arrangement_view.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
 const STANDARD_ESTIMATE_S = 3609;      // measured: Study A, 120 runs, 10 workers, idle laptop
@@ -237,6 +240,27 @@ router.get("/:id/progress", authRequired, (req, res) => {
   const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
   if (!row) return res.status(404).json({ error: "Study not found" });
   res.json({ id: row.id, status: row.status, ...syncStatus(row) });
+});
+
+router.get("/:id/runs/:idx/view", authRequired, (req, res) => {
+  const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
+  if (!row) return res.status(404).json({ error: "Study not found" });
+  const idx = Number(req.params.idx);
+  if (!Number.isInteger(idx) || idx < 0) return res.status(400).json({ error: "run index must be a non-negative integer" });
+  if (!row.file || !fs.existsSync(row.file)) return res.status(404).json({ error: "the study file is missing on disk" });
+  const child = spawn("python", [VIEW_PY, "--study", row.file, "--run", String(idx)], { cwd: ROOT, windowsHide: true });
+  let out = "", err = "";
+  child.stdout.on("data", (c) => { out += c.toString(); });
+  child.stderr.on("data", (c) => { err += c.toString(); });
+  child.on("error", (e) => res.status(500).json({ error: "could not start python: " + e.message }));
+  child.on("close", (code) => {
+    if (res.headersSent) return;
+    let doc = null;
+    try { doc = JSON.parse(out.trim().split(/\r?\n/).pop()); } catch {}
+    if (code === 0 && doc && doc.status === "ok") return res.json(doc);
+    const msg = (doc && doc.error) || err.trim().split(/\r?\n/).slice(-3).join(" | ") || `exit ${code}`;
+    res.status(422).json({ error: msg });
+  });
 });
 
 router.delete("/:id", authRequired, (req, res) => {

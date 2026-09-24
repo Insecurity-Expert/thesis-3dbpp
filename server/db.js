@@ -5,7 +5,9 @@ const path = require("path");
 const DATA_DIR = path.join(__dirname, "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const FILE_PATH = path.join(DATA_DIR, "db_mock.json");
+// STACKR_DB_FILE points the server at another file (a scratch database for
+// tests, or an empty one); the default is the usual server/data/db_mock.json.
+const FILE_PATH = process.env.STACKR_DB_FILE ? path.resolve(process.env.STACKR_DB_FILE) : path.join(DATA_DIR, "db_mock.json");
 
 function loadData() {
   if (!fs.existsSync(FILE_PATH)) {
