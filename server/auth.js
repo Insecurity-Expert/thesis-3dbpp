@@ -42,7 +42,7 @@ router.post("/register", (req, res) => {
 
   res
     .cookie(COOKIE, sign(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 864e5 })
-    .json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden });
 });
 
 router.post("/login", (req, res) => {
@@ -53,7 +53,7 @@ router.post("/login", (req, res) => {
 
   res
     .cookie(COOKIE, sign(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 864e5 })
-    .json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden });
 });
 
 router.post("/logout", (req, res) => {
@@ -96,6 +96,14 @@ function runSummary(row) {
       /[\\/]custom[\\/]custom\.json$/.test(String(row.instance || "")),
   };
 }
+
+// Per-account preference: hide the "How to use" pop-up that opens once after login.
+router.patch("/me/prefs", authRequired, (req, res) => {
+  const hidden = !!(req.body && req.body.howto_hidden);
+  const info = db.prepare("UPDATE users SET howto_hidden = ? WHERE id = ?").run(hidden, req.user.id);
+  if (!info.changes) return res.status(404).json({ error: "User not found" });
+  res.json({ howto_hidden: hidden });
+});
 
 router.get("/runs", authRequired, (req, res) => {
   const rows = db

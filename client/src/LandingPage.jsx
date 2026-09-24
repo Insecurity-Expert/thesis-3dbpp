@@ -11,8 +11,8 @@ const FEATURES = [
     body: 'Rotate, zoom, and inspect the packed result in the browser. Packing is genuinely hard to reason about from a table of coordinates — seeing it is the fastest way to spot wasted space or an awkward layout.',
   },
   {
-    title: 'Convergence Analytics',
-    body: 'Watch how the solver\u2019s objective improves over iterations. This tells you whether it has settled on a good answer or is still climbing \u2014 useful when deciding whether to let it run longer or change parameters.',
+    title: 'Printable Loading Guide',
+    body: 'Turn an arrangement into a plan a worker can follow: the loading order, the unloading order for each delivery stop, and a picture of where every box goes.',
   },
   {
     title: 'Strategy Comparison',
@@ -35,7 +35,7 @@ const REASONS = [
   },
   {
     heading: 'Good for learning, not just shipping',
-    body: 'Because the solver and the visualization sit together, it doubles as a way to build intuition: try a heuristic, watch it converge, see where it wastes space, and adjust. That is hard to get from a black-box optimizer alone.',
+    body: 'Because the solver and the visualization sit together, it doubles as a way to build intuition: try a method, see where it wastes space, and compare it with the others. That is hard to get from a black-box optimizer alone.',
   },
 ];
 

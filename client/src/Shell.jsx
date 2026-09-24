@@ -11,6 +11,8 @@ import DashboardTab from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import ThingsToKnow from "./components/ThingsToKnow";
+import HowToModal from "./components/HowToModal";
+import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
@@ -21,10 +23,21 @@ import CompareTab, { StudySelect } from "./study/CompareTab";
 
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
-  const { user, logout } = useAuth();
+  const { user, logout, setPrefs } = useAuth();
+  const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
   const [showThings, setShowThings] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
+  // "How to use" opens by itself once per login, unless this account ticked
+  // "Don't show this again" (stored on the account, not in the browser).
+  useEffect(() => {
+    if (!user || user.howto_hidden) return;
+    const key = `howto-shown-${user.id}`;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch {}
+    setShowHowTo(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user && user.id]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("sidebar", sidebarCollapsed ? "collapsed" : "open"); } catch {} }, [sidebarCollapsed]);
 
@@ -776,14 +789,14 @@ export default function Shell() {
   }, [source, customShown, customCurrent, csvFile, sampleId, sampleMeta, wtpackId, standardMeta]);
 
   const NAV = [
-    { id: "home", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
-    { id: "logistics", label: "Start analysis", title: "Logistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
-    { id: "results", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
-    { id: "guide", label: "Loading guide", title: "Loading guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
-    { id: "compare", label: "Compare", title: "Compare", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
-    { id: "visualization", label: "3D viewer", title: "Visualization", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
-    { id: "history", label: "Run history", title: "Run history", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
-    { id: "account", label: "Account", title: "Account", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
+    { id: "home", group: "Get started", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
+    { id: "logistics", group: "Get started", label: "Start analysis", title: "Start analysis", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
+    { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
+    { id: "compare", group: "Advanced tools", label: "Technical details", title: "Technical details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
+    { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
+    { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+    { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
 
@@ -796,14 +809,14 @@ export default function Shell() {
           <div className="brand-mark"><img src={logoImg} alt="STACKR" /></div>
           <div>
             <div className="brand-text">STACKR</div>
-            <div className="brand-sub">3D Bin Packing Optimizer</div>
+            <div className="brand-sub">Box Packing Helper</div>
           </div>
         </div>
         <nav className="sidebar-nav">
-          <div className="nav-section-label">Workflow</div>
-          {NAV.map((n) => (
+          {NAV.map((n, i) => (
+            <React.Fragment key={n.id}>
+            {(i === 0 || NAV[i - 1].group !== n.group) && <div className="nav-section-label">{n.group}</div>}
             <button
-              key={n.id}
               type="button"
               className={`nav-item${activeTab === n.id ? " active" : ""}`}
               onClick={() => setActiveTab(n.id)}
@@ -814,12 +827,13 @@ export default function Shell() {
               {n.id === "results" && replay && <span className="badge badge-warn" style={{ marginLeft: "auto" }}>saved</span>}
               {n.id === "visualization" && running && <span className="badge badge-primary" style={{ marginLeft: "auto" }}>live</span>}
             </button>
+            </React.Fragment>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button type="button" className="collapse-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? "Expand" : "Collapse"}>
+          <button type="button" className="collapse-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? "Show menu" : "Hide menu"}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M15 18l-6-6 6-6"/></svg>
-            <span>Collapse</span>
+            <span>Hide menu</span>
           </button>
         </div>
       </aside>
@@ -839,6 +853,10 @@ export default function Shell() {
               <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />{selectedLoad.custom ? "Custom load" : selectedLoad.text}</span>
             )}
             {running && <span className="chip"><span className="chip-dot warn" />Running · {elapsed}s</span>}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowHowTo(true)} title="Show the quick guide">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+              How to use
+            </button>
             <button
               type="button"
               className="icon-btn"
@@ -880,7 +898,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab setActiveTab={setActiveTab} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} runHistory={runHistory} studies={studies} />
       )}
 
       {/* ── LOADING GUIDE ── */}
@@ -1054,6 +1072,11 @@ export default function Shell() {
 
         </main>
       </div>
+      <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} hidden={user && user.howto_hidden}
+        onSetHidden={async (h) => {
+          try { await setPrefs({ howto_hidden: h }); toast(h ? "It won't open by itself again. Use \"How to use\" any time." : "It will open again after you log in.", "ok"); }
+          catch (e) { toast(`Could not save that: ${e.message}`, "err"); }
+        }} />
     </div>
   );
 }

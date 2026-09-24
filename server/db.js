@@ -64,7 +64,8 @@ class MockStatement {
           email: found.email,
           name: found.name,
           role: found.role,
-          created_at: found.created_at
+          created_at: found.created_at,
+          howto_hidden: !!found.howto_hidden
         };
       }
       return undefined;
@@ -138,6 +139,15 @@ class MockStatement {
       data.runs.push(newRun);
       saveData(data);
       return { lastInsertRowid: id };
+    }
+    // UPDATE users SET howto_hidden = ? WHERE id = ?  ("How to use" pop-up: don't show again)
+    if (this.sql.includes("UPDATE users SET howto_hidden = ?")) {
+      const [hidden, id] = params;
+      const row = data.users.find(u => u.id === parseInt(id, 10));
+      if (!row) return { changes: 0 };
+      row.howto_hidden = !!hidden;
+      saveData(data);
+      return { changes: 1 };
     }
     // 3. UPDATE runs SET label = ? WHERE id = ? AND user_id = ?
     if (this.sql.includes("UPDATE runs SET label = ?")) {

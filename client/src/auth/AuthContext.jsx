@@ -27,6 +27,12 @@ export function AuthProvider({ children }) {
     setUser(data);
   }
 
+  async function setPrefs(prefs) {
+    const r = await authApi.setPrefs(prefs);
+    setUser((u) => (u ? { ...u, ...r } : u));
+    return r;
+  }
+
   async function logout() {
     try {
       await authApi.logout();
@@ -36,7 +42,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ user, loading, login, register, logout }}>
+    <AuthCtx.Provider value={{ user, loading, login, register, logout, setPrefs }}>
       {children}
     </AuthCtx.Provider>
   );

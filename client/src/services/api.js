@@ -64,6 +64,10 @@ export const authApi = {
     });
   },
 
+  async setPrefs(prefs) {
+    return request("/api/auth/me/prefs", { method: "PATCH", body: JSON.stringify(prefs) });
+  },
+
   async logout() {
     return request("/api/auth/logout", {
       method: "POST",
