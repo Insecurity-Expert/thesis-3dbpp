@@ -85,6 +85,34 @@ check("1b fragile flags equal the pipeline's",
 check("1b augmented boxes equal the pipeline's", doc['boxes'], piped['boxes'])
 check("1  stops recorded as given (from the file)", doc['augmentation']['stops']['mode'], 'given')
 
+# ── 1c. same optimizer result ───────────────────────────────────────────────
+print("\n[1c] DGWO Quick seed 42: stored round-trip load vs wtpack 350")
+import os
+import subprocess
+import tempfile
+
+
+def run_opt(args, env=None):
+    out = subprocess.run([sys.executable, str(_ROOT / 'optimizer' / 'main_optimizer.py'), *args,
+                          '--strategy', 'DGWO', '--seed', '42', '--pop-size', '10', '--max-iter', '60'],
+                         capture_output=True, text=True, cwd=_ROOT, env=env)
+    if out.returncode != 0:
+        raise SystemExit(out.stderr[-2000:])
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    Path(tmp, 'rt350.json').write_text(json.dumps(doc), encoding='utf-8')
+    env = dict(os.environ, STACKR_CUSTOM_LOADS_DIR=tmp)
+    a = run_opt([str(ID), '--dataset', 'wtpack'])
+    b = run_opt(['rt350', '--dataset', 'custom'], env)
+for k in ('M1_space_utilization_pct', 'M2_constraint_satisfaction_pct'):
+    check(f"1c {k}: {a['metrics'][k]}", b['metrics'][k], a['metrics'][k])
+check(f"1c placed: {a['placed']}", b['placed'], a['placed'])
+check("1c constraint detail identical", b['metrics']['constraint_detail'], a['metrics']['constraint_detail'])
+check("1c every placed box identical", b['items'], a['items'])
+check("1c result carries the custom-load label", b['custom_load']['label'], cl.LABEL)
+
 # ── 2. hand check ────────────────────────────────────────────────────────────
 print("\n[2] hand check: three simple-mode boxes")
 HAND = """Box name,Stop,Length (cm),Width (cm),Height (cm),Weight (kg),Max load on top (kg),Qty,Handle with care

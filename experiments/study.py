@@ -100,14 +100,11 @@ def git_commit():
 
 
 def load_custom_load(custom_id, raw_dir=None):
-    """Custom loads (a later prompt adds the UI) live in experiments/custom_loads/<id>.json
-    as {'container': {L, W, H}, 'boxes': [...]} in the loader's box schema."""
-    path = _ROOT / 'experiments' / 'custom_loads' / f'{custom_id}.json'
-    if not path.exists():
-        raise FileNotFoundError(f'custom load {custom_id!r} not found at {path}')
-    doc = json.loads(path.read_text(encoding='utf-8'))
-    return {'container': doc['container'], 'boxes': doc['boxes'],
-            'augmentation': doc.get('augmentation', {'source': 'custom'})}
+    """A stored custom load (preprocessing/custom_load.py): container after the
+    pipeline's rear-door mapping, boxes with the stop labels and fragile flags
+    stored at conversion. Every configuration and seed reads the same labels."""
+    from preprocessing.custom_load import load_stored
+    return load_stored(custom_id)
 
 
 def instance_meta(instance_id, sample=None):
@@ -198,7 +195,7 @@ def run_task(task):
     validation = {'agree': (not diffs) and geom_ok, 'C1': iv['pct']['C1'], 'C2': iv['pct']['C2'],
                   'orient': iv['pct']['orient'], 'diffs': diffs, 'issues': iv['issues'][:8]}
 
-    return {
+    row = {
         'configuration':    cfg,
         'instance_id':      task.get('instance_id'),
         'custom_load':      task.get('custom_load'),
@@ -220,6 +217,12 @@ def run_task(task):
         'orientations':     orientations,
         'validation':       validation,
     }
+    if task.get('custom_load'):
+        # Fingerprint of the stop labels this run read (all runs of one load
+        # must show the same value: the labels are stored, never re-drawn).
+        import hashlib
+        row['stops_sha1'] = hashlib.sha1(','.join(str(b['stop']) for b in boxes).encode()).hexdigest()
+    return row
 
 
 def _write_progress(path, prog):
@@ -249,9 +252,14 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
     sample = json.loads(Path(sample_path).read_text(encoding='utf-8')) if sample_path else None
 
+    custom_doc = None
     if custom_load:
+        cl = load_custom_load(custom_load)
+        custom_doc = cl['doc']
         inst_rows = [{'instance_id': None, 'custom_load': custom_load, 'br_class': 'custom',
-                      'n_boxes': len(load_custom_load(custom_load)['boxes']), 'n_types': None}]
+                      'label': custom_doc.get('label'), 'name': custom_doc.get('name'),
+                      'n_boxes': len(cl['boxes']), 'n_types': custom_doc['raw']['n_types'],
+                      'fragile_count': sum(int(b['fragile']) for b in cl['boxes'])}]
     else:
         inst_rows = [instance_meta(i, sample) for i in instance_ids]
 
@@ -335,8 +343,11 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'enforce_support': enforce_support,
         'enforce_fragility': enforce_fragility,
         'support_threshold': SUPPORT_THRESHOLD,
-        'stop_seed': STOP_SEED,
-        'stop_count': STOP_COUNT,
+        # A custom load's stops are the labels stored at conversion (given by
+        # the user, or drawn once with the recorded seed).
+        'stop_seed': custom_doc['augmentation']['stops']['seed'] if custom_doc else STOP_SEED,
+        'stop_count': custom_doc['augmentation']['stops']['num_stops'] if custom_doc else STOP_COUNT,
+        'stop_mode': custom_doc['augmentation']['stops']['mode'] if custom_doc else 'assigned',
         'seq_budget_split': {'dgwo_iters': max_iter // 2, 'mogwo_iters': max_iter - max_iter // 2,
                              'note': 'SequentialHybrid: T1 = max_iter // 2 DGWO iterations, then T2 = max_iter - T1 MOGWO iterations'},
         'seeds': list(seeds),
@@ -345,6 +356,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'configuration_labels': CONFIG_LABELS,
         'sample': str(sample_path) if sample_path else None,
         'custom_load': custom_load,
+        'custom_load_label': custom_doc.get('label') if custom_doc else None,
         'instances': inst_rows,
         'wall_clock_s': round(time.time() - started, 1),
         'validation': {'arrangements': len(runs), 'agree': len(runs) - len(bad),
@@ -414,6 +426,8 @@ def main():
         return
 
     d = dict(SIZES.get(a.size, {}))
+    if a.custom_load:       # the size then supplies only preset / seeds / mode
+        d.pop('instance', None); d.pop('sample', None)
     instance = a.instance if a.instance is not None else d.get('instance')
     sample = a.sample or d.get('sample')
     preset = a.preset or d.get('preset')

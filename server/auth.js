@@ -85,6 +85,15 @@ function runSummary(row) {
     pop_size: p && p.pop_size != null ? p.pop_size : null,
     max_iter: p && p.max_iter != null ? p.max_iter : null,
     has_problem_view: !!(r && r.problem_view),
+    // Custom loads (preprocessing/custom_load.py) are never thesis data.
+    custom_load: row.dataset === "custom" ? {
+      id: (r && r.custom_load && r.custom_load.id) || row.instance, label: (r && r.custom_load && r.custom_load.label) || "Custom load — not part of the thesis dataset",
+      name: r && r.custom_load ? r.custom_load.name : null,
+    } : null,
+    // Rows from the retired manual entry (/api/instances/custom, BR JSON path),
+    // which filled in synthetic weights.
+    old_manual_entry: row.dataset !== "wtpack" && row.dataset !== "custom" &&
+      /[\\/]custom[\\/]custom\.json$/.test(String(row.instance || "")),
   };
 }
 
@@ -152,4 +161,12 @@ router.delete("/runs/:id", authRequired, (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { router, authRequired };
+// The signed-in user for a request that did not go through express (the
+// WebSocket upgrade): parse the cookie header and verify the token.
+function userFromCookieHeader(header) {
+  const m = String(header || "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="));
+  if (!m) return null;
+  try { return jwt.verify(decodeURIComponent(m.slice(COOKIE.length + 1)), JWT_SECRET); } catch { return null; }
+}
+
+module.exports = { router, authRequired, userFromCookieHeader };

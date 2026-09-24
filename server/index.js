@@ -6,7 +6,8 @@ const { spawn } = require("child_process");
 const readline  = require("readline");
 const WebSocket = require("ws");
 const cookieParser = require("cookie-parser");
-const { router: authRouter } = require("./auth");
+const { router: authRouter, userFromCookieHeader } = require("./auth");
+const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
 
 const app     = express();
@@ -57,8 +58,10 @@ function warmOptimizer() {
 }
 
 app.use(cors());
-app.use(express.json());
 app.use(cookieParser());
+// Before the global JSON parser: a custom load posts up to 500 CSV rows.
+app.use("/api/instances", customLoadsRouter);
+app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/studies", studiesRouter);
 
@@ -86,8 +89,10 @@ app.use("/api/studies", studiesRouter);
 // ─────────────────────────────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ port: WS_PORT });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   console.log("WS client connected");
+  // Only needed to check custom-load ownership; wtpack runs stay open as before.
+  const wsUser = userFromCookieHeader(req && req.headers && req.headers.cookie);
   let childProc = null;
   let childInfo = null;   // { strategy, instance } of the live child, for log lines
 
@@ -119,17 +124,25 @@ wss.on("connection", (ws) => {
       const maxTime = Math.min(Number(msg.maxTime) || 90, 300);
       let argv;
 
-      if (msg.dataset === "wtpack") {
-        const id = Number(msg.instanceId);
-        if (!Number.isInteger(id) || id < 0 || id > 699) {
-          send({ type: "error", error: "instanceId must be an integer in 0..699" });
-          return;
+      if (msg.dataset === "wtpack" || msg.dataset === "custom") {
+        let id;
+        if (msg.dataset === "custom") {
+          if (!wsUser) { send({ type: "error", error: "Sign in to run a custom load." }); return; }
+          const row = ownedLoad(wsUser, msg.customLoadId);
+          if (!row) { send({ type: "error", error: "Custom load not found for this account." }); return; }
+          id = row.id;
+        } else {
+          id = Number(msg.instanceId);
+          if (!Number.isInteger(id) || id < 0 || id > 699) {
+            send({ type: "error", error: "instanceId must be an integer in 0..699" });
+            return;
+          }
         }
         // Tuning is UI-driven; clamp so a typo cannot launch a multi-hour run.
         const popSize = Math.min(Math.max(Number(msg.popSize) || 10, 3), 60);
         const maxIter = Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000);
         argv = [
-          OPTIMIZER, String(id), "--dataset", "wtpack", "--raw-dir", RAW_DIR,
+          OPTIMIZER, String(id), "--dataset", msg.dataset, "--raw-dir", RAW_DIR,
           "--stream", "--strategy", pyStrategy,
           "--pop-size", String(popSize), "--max-iter", String(maxIter),
         ];
@@ -161,13 +174,14 @@ wss.on("connection", (ws) => {
       }
 
       console.log("PY spawn:", argv.slice(1).join(" "));
+      const physics = msg.dataset === "wtpack" || msg.dataset === "custom";
       const spawned = {
         strategy: pyStrategy,
         strategy_label: STRATEGY_LABEL[pyStrategy] || pyStrategy,
-        dataset: msg.dataset === "wtpack" ? "wtpack" : "br",
-        instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : msg.instancePath,
-        pop_size: msg.dataset === "wtpack" ? Math.min(Math.max(Number(msg.popSize) || 10, 3), 60) : null,
-        max_iter: msg.dataset === "wtpack" ? Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000) : null,
+        dataset: physics ? msg.dataset : "br",
+        instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : msg.dataset === "custom" ? String(msg.customLoadId) : msg.instancePath,
+        pop_size: physics ? Math.min(Math.max(Number(msg.popSize) || 10, 3), 60) : null,
+        max_iter: physics ? Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000) : null,
         lambda: msg.lambda !== undefined ? Number(msg.lambda) : null,
         enforce_support: msg.enforceSupport !== false,
         enforce_fragility: msg.enforceFragility !== false,
@@ -371,7 +385,15 @@ app.get("/api/instance-details", (req, res) => {
 // POST /api/instances/custom
 // Creates or updates the custom run configuration file.
 // ─────────────────────────────────────────────────────────────────────────────
+// Retired (410): it wrote a legacy BR JSON with made-up weights and Stop 1 for
+// blanks. Custom loads go through POST /api/instances/custom-load. The code
+// below is kept for reference and never runs.
+const OLD_MANUAL_ENTRY_RETIRED = true;
 app.post("/api/instances/custom", (req, res) => {
+  if (OLD_MANUAL_ENTRY_RETIRED) {
+    return res.status(410).json({ error: "The old manual entry is retired: it filled in made-up weights. " +
+                                         "Use POST /api/instances/custom-load (Start analysis → Type them in / Import a CSV)." });
+  }
   try {
     const { container, items } = req.body;
     if (!container || !items) {

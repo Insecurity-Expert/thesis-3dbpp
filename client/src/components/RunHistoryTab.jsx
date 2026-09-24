@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { CustomLoadBadge, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { methodLabel, methodOf } from "../methods";
 
 function formatDate(dateStr) {
@@ -27,12 +28,16 @@ export function runStatus(run) {
   return { key: "not-recorded", text: "Not recorded", cls: "badge-neutral", title: "Saved before the attempt-limit flag was recorded, so whether it hit the limit is unknown" };
 }
 
+// Rows from the retired manual entry (the server flags them): its weights were invented.
+const OLD_MANUAL = "made-up weights (old manual entry)";
+
 const customRules = (run) => run.enforce_support === false || run.enforce_fragility === false;
 const customRulesText = (run) => [run.enforce_support === false && "support (C5) not enforced while placing",
                                    run.enforce_fragility === false && "fragility (C4) not enforced while placing"].filter(Boolean).join("; ");
 
 const CSV_COLS = [
   ["id", (r) => r.id], ["label", (r) => r.label ?? ""], ["test_case", (r) => r.instance ?? ""],
+  ["dataset_note", (r) => (r.custom_load ? r.custom_load.label || CUSTOM_LOAD_LABEL : r.old_manual_entry ? OLD_MANUAL : "")],
   ["method", (r) => r.strategy_code || r.strategy || ""], ["repeat_code_seed", (r) => r.seed ?? ""],
   ["rules_setting", (r) => (customRules(r) ? "custom rules: " + customRulesText(r) : r.enforce_support === null || r.enforce_support === undefined ? "" : "standard")],
   ["container_full_pct", (r) => r.space_util ?? ""], ["rules_loaded_boxes_pct", (r) => r.csr ?? ""],
@@ -208,7 +213,11 @@ export default function RunHistoryTab({
                     <tr key={run.id}>
                       <td style={{ fontWeight: 700, color: "var(--primary)" }}>#{String(run.id).padStart(3, "0")}</td>
                       <td><LabelCell run={run} onLabelRun={onLabelRun} /></td>
-                      <td style={{ fontWeight: 600 }}>{run.instance}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {run.instance}
+                        {run.custom_load && <div><CustomLoadBadge info={run.custom_load} /></div>}
+                        {run.old_manual_entry && <div><span className="badge badge-danger" style={{ textTransform: "none" }} title="Saved by the retired manual entry, which filled in synthetic weights">{OLD_MANUAL}</span></div>}
+                      </td>
                       <td>
                         <span className={`chip chip-${String(run.strategy_code || run.strategy || "").toLowerCase().replace(/[^a-z]/g, "")}`} title={methodLabel(run.strategy_code || run.strategy)}>
                           {methodOf(run.strategy_code || run.strategy) ? methodOf(run.strategy_code || run.strategy).name : run.strategy}

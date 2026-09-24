@@ -22,6 +22,7 @@ const os = require("os");
 const { spawn, execFileSync } = require("child_process");
 const db = require("./db");
 const { authRequired } = require("./auth");
+const { ownedLoad } = require("./customLoads");
 
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
@@ -61,7 +62,7 @@ const SIZES = {
 function estimateFor(s) {
   let files = [];
   try { files = fs.readdirSync(STUDIES_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".progress.json")); } catch { return null; }
-  const perRun = [];
+  const perRun = [], boxes = [];
   for (const f of files) {
     const doc = readJson(path.join(STUDIES_DIR, f));
     if (!doc || doc.stackr_study !== 1 || !(doc.wall_clock_s > 0) || !Array.isArray(doc.runs) || !doc.runs.length) continue;
@@ -70,11 +71,15 @@ function estimateFor(s) {
     const m = doc.machine || {};
     if (m.cpu_count !== os.cpus().length || !String(m.platform || "").includes(os.release())) continue;
     perRun.push(doc.wall_clock_s / doc.runs.length);
+    for (const i of doc.instances || []) if (i && i.n_boxes) boxes.push(i.n_boxes);
   }
   if (!perRun.length) return null;
-  const a = perRun.slice().sort((x, y) => x - y);
-  const med = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
-  return { estimate_s: Math.round(med * s.runs), basis_studies: a.length };
+  const median = (v) => { const a = v.slice().sort((x, y) => x - y);
+    return a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2; };
+  // basis_boxes: the loads those studies measured (a custom load of another
+  // size will take a different time; the launcher says so).
+  return { estimate_s: Math.round(median(perRun) * s.runs), basis_studies: perRun.length,
+           basis_boxes: boxes.length ? median(boxes) : null };
 }
 
 // The locked parameters the UI shows come from the optimizer itself
@@ -144,6 +149,9 @@ function light(row, study) {
     timing_note: study ? study.timing_note || null : null,
     n_configurations: study && Array.isArray(study.configurations) ? study.configurations.length : null,
     n_seeds: study && Array.isArray(study.seeds) ? study.seeds.length : null,
+    custom_load: study ? study.custom_load || null : (row.params && row.params.customLoad) || null,
+    custom_load_label: study ? study.custom_load_label || null : (row.params && row.params.customLoad ? "Custom load — not part of the thesis dataset" : null),
+    stop_mode: study ? study.stop_mode || null : null,
     stop_count: study ? study.stop_count ?? null : null,
     stop_seed: study ? study.stop_seed ?? null : null,
     study_created_at: study ? study.created_at || null : null,
@@ -183,7 +191,8 @@ router.get("/available", authRequired, (req, res) => {
     .map((f) => {
       const full = path.join(STUDIES_DIR, f);
       const doc = readJson(full);
-      if (!doc || doc.stackr_study !== 1) return null;
+      // A custom-load study belongs to the account that ran it (its db row), never to the shared list.
+      if (!doc || doc.stackr_study !== 1 || doc.custom_load) return null;
       return {
         file: f, imported: mine.has(path.resolve(full)), name: doc.name, size: doc.size, mode: doc.mode,
         n_runs: (doc.runs || []).length, n_instances: (doc.instances || []).length,
@@ -200,7 +209,7 @@ router.post("/import", authRequired, (req, res) => {
   if (!file) return res.status(400).json({ error: "file (basename in experiments/results/studies) required" });
   const full = path.join(STUDIES_DIR, file);
   const doc = readJson(full);
-  if (!doc || doc.stackr_study !== 1) return res.status(404).json({ error: "not a STACKR study file" });
+  if (!doc || doc.stackr_study !== 1 || doc.custom_load) return res.status(404).json({ error: "not a STACKR study file" });
   if (!doc.stats) return res.status(422).json({ error: "the study has no stats attached — run python experiments/stats.py on it first" });
   const dup = db.prepare("SELECT * FROM studies WHERE user_id = ? ORDER BY id DESC").all(req.user.id)
     .find((r) => path.resolve(r.file) === path.resolve(full));
@@ -222,6 +231,8 @@ router.post("/", authRequired, (req, res) => {
   const seeds = typeof b.seeds === "string" && /^[0-9,\- ]+$/.test(b.seeds) ? b.seeds : def.seeds;
   const instanceId = Number.isInteger(Number(b.instanceId)) && b.instanceId !== undefined && b.instanceId !== null ? Number(b.instanceId) : def.instanceId;
   const customLoad = typeof b.customLoad === "string" && /^[A-Za-z0-9_\-]+$/.test(b.customLoad) ? b.customLoad : null;
+  if (b.customLoad && !(customLoad && ownedLoad(req.user, customLoad)))
+    return res.status(404).json({ error: "Custom load not found for this account" });
   const sample = def.sample || null;
   if (!preset || !mode || !seeds) return res.status(400).json({ error: "preset, mode and seeds are required" });
 
@@ -229,7 +240,7 @@ router.post("/", authRequired, (req, res) => {
   const base = `${size || "custom"}_${stamp}`;
   const out = path.join(STUDIES_DIR, base + ".json");
   const log = path.join(STUDIES_DIR, base + ".log");
-  const name = b.name || def.name || "Study";
+  const name = b.name || (customLoad ? `${def.name || "Study"} — custom load` : def.name) || "Study";
 
   const argv = [STUDY_PY, "--preset", preset, "--mode", mode, "--seeds", seeds, "--out", out, "--name", name];
   if (size) argv.push("--size", size);

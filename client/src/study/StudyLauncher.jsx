@@ -4,8 +4,9 @@
 // in it is read from the optimizer via /api/studies/sizes, none is typed here.
 import React, { useState } from "react";
 import { fmt } from "./verdicts";
+import { CUSTOM_LOAD_LABEL } from "../components/CustomLoadBanner";
 
-export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed }) {
+export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed, selectedLoad = null, customLoad = null }) {
   const d = sizesInfo && sizesInfo.defaults;
   const s = sizesInfo && sizesInfo.sizes ? sizesInfo.sizes.find((x) => x.key === size) : null;
   if (!d || d.error) {
@@ -26,7 +27,13 @@ export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed }) {
     ["Decode-time enforcement", `C5 ${d.enforce_support ? "on" : "off"} · C4 ${d.enforce_fragility ? "on" : "off"}`],
     ["Seeds (one run each)", seedsSpec ? `${seedsSpec}` : seed ?? "—"],
     ["Runs per configuration", s ? s.runs / 4 : "—"],
-    ["Delivery stops", `${d.stop_count} (assignment seed ${d.stop_seed})`],
+    ["Delivery stops", selectedLoad && selectedLoad.custom
+      ? (customLoad && customLoad.summary
+          ? (customLoad.summary.stops.mode === "given"
+              ? `${customLoad.summary.stops.num_stops} (as given in your load)`
+              : `${customLoad.summary.stops.num_stops} (assigned once, seed ${customLoad.summary.stops.seed}, stored with the load)`)
+          : `${d.stop_count} (from your load; blank stops are assigned once, seed ${d.stop_seed})`)
+      : `${d.stop_count} (assignment seed ${d.stop_seed})`],
     ["Sequential budget split", d.seq_budget_split],
   ];
   return (
@@ -50,12 +57,18 @@ export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed }) {
 
 export default function StudyLauncher({
   sizesInfo, studies, available, onLaunch, onImport, onOpenStudy, onDeleteStudy, onRefresh,
-  wtpackId, wtpackInstances, seed, busy, size, setSize,
+  wtpackId, wtpackInstances, seed, busy, size, setSize, selectedLoad = null,
 }) {
   const [customInstance, setCustomInstance] = useState(false);
   const sizes = (sizesInfo && sizesInfo.sizes) || [];
   const chosen = sizes.find((s) => s.key === size);
   const inst = wtpackInstances.find((i) => i.instance_id === wtpackId);
+  // A custom load always replaces the size's default test case (it is the
+  // only load the user gave); the multi-instance size is thesis data only.
+  const custom = !!(selectedLoad && selectedLoad.custom);
+  const pickId = selectedLoad && !custom ? selectedLoad.instanceId : wtpackId;
+  const pickLabel = selectedLoad && !custom ? selectedLoad.label : inst && inst.label;
+  const blocked = custom && chosen && chosen.instanceId === undefined;
   const running = studies.filter((s) => s.status === "running");
 
   return (
@@ -69,7 +82,7 @@ export default function StudyLauncher({
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           {sizes.map((s) => (
-            <button key={s.key} onClick={() => setSize(s.key)} style={{
+            <button key={s.key} onClick={() => setSize(s.key)} disabled={custom && s.instanceId === undefined} title={custom && s.instanceId === undefined ? "Runs the thesis's eight test cases; not available for a custom load" : undefined} style={{
               textAlign: "left", padding: "14px 16px", borderRadius: 10, cursor: "pointer",
               border: size === s.key ? "2px solid var(--primary)" : "1px solid var(--border)",
               background: size === s.key ? "var(--primary-light)" : "var(--bg-card)", color: "var(--text-main)",
@@ -84,15 +97,27 @@ export default function StudyLauncher({
                   estimated from past runs on this machine ({s.basis_studies} earlier {s.mode} {s.preset} stud{s.basis_studies === 1 ? "y" : "ies"})
                 </div>
               )}
+              {s.estimate_s != null && custom && s.basis_boxes && (
+                <div style={{ fontSize: 11, color: "var(--amber)", marginTop: 2 }}>
+                  measured on {Math.round(s.basis_boxes)}-box test cases; your load has {selectedLoad.n_boxes ?? "?"} boxes, so its time will differ
+                </div>
+              )}
               <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{s.mode === "serial" ? "one run at a time — time & memory valid (SP3)" : "parallel — time & memory flagged, not tested"}</div>
             </button>
           ))}
         </div>
-        {chosen && chosen.instanceId !== undefined && (
+        {custom && (
+          <div style={{ marginTop: 12, fontSize: 12.5, padding: "8px 12px", borderRadius: 8, background: "var(--amber-light)", border: "1px solid var(--amber)" }}>
+            Runs on <b>your load</b> ({selectedLoad.text}{selectedLoad.n_boxes ? `, ${selectedLoad.n_boxes} boxes` : ""}) instead of the size's default test case.
+            {" "}<b style={{ color: "var(--amber)" }}>{CUSTOM_LOAD_LABEL}</b>.
+            {blocked && <div style={{ color: "var(--red)", marginTop: 4 }}>The multi-instance study runs the thesis's eight test cases — pick Demo or Standard for a custom load.</div>}
+          </div>
+        )}
+        {!custom && chosen && chosen.instanceId !== undefined && (
           <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--text-muted)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
               <input type="checkbox" checked={customInstance} onChange={(e) => setCustomInstance(e.target.checked)} />
-              use the instance selected above{inst ? ` (${inst.label})` : ""} instead of the size's default (instance {chosen.instanceId})
+              use the test case selected above{pickLabel ? ` (${pickLabel})` : ""} instead of the size's default (instance {chosen.instanceId})
             </label>
           </div>
         )}
@@ -102,7 +127,9 @@ export default function StudyLauncher({
           </div>
         )}
         <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <button className="btn btn-primary" disabled={busy || !chosen} onClick={() => onLaunch({ size, instanceId: customInstance && wtpackId !== null ? wtpackId : undefined })}>
+          <button className="btn btn-primary" disabled={busy || !chosen || blocked}
+            onClick={() => onLaunch(custom ? { size, useCustom: true }
+                                           : { size, instanceId: customInstance && pickId !== null && pickId !== undefined ? pickId : undefined })}>
             Run {chosen ? chosen.name : "study"}
           </button>
           {running.length > 0 && <span className="badge badge-warn" style={{ textTransform: "none" }}>{running.length} study{running.length > 1 ? "ies" : ""} running</span>}
@@ -127,7 +154,8 @@ export default function StudyLauncher({
                 {studies.map((s) => (
                   <tr key={s.id}>
                     <td>{s.id}</td>
-                    <td style={{ textAlign: "left", fontWeight: 700 }}>{s.name}{s.imported && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>imported</span>}</td>
+                    <td style={{ textAlign: "left", fontWeight: 700 }}>{s.name}{s.imported && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>imported</span>}
+                      {s.custom_load && <span className="badge badge-warn" style={{ marginLeft: 6, textTransform: "none" }}>{s.custom_load_label || CUSTOM_LOAD_LABEL}</span>}</td>
                     <td>
                       {s.status === "running" ? <span className="badge badge-warn">running {s.progress ? `${s.progress.done}/${s.progress.total}` : ""}</span>
                         : s.status === "error" ? <span className="badge badge-fragile">failed</span>

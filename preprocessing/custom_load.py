@@ -531,6 +531,69 @@ def export_wtpack_csv(instance_id: int, raw_dir: Optional[str] = None) -> str:
     return out.getvalue()
 
 
+# ─── ready-made samples (real wtpack instances, NOT custom loads) ─────────────
+SAMPLE_TARGETS = (('~70 boxes', 70), ('~130 boxes', 130), ('~250 boxes', 250))
+STUDY_A_INSTANCE = 350
+
+
+def ready_made_samples(raw_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Pick OR-Library instances by COMPUTED box count: the nearest to ~70,
+    ~130 and ~250 boxes, plus the largest, among instances the thesis pipeline
+    accepts (assign_fragility's gates). For ~130 the Study A instance (350) is
+    used when it passes. Instances skipped for failing a gate are reported."""
+    from preprocessing.loader import parse_wtpack
+    from preprocessing.fragility import assign_fragility
+    from preprocessing.sampling import resolve_instance_id
+    raw = Path(raw_dir or _ROOT / 'data' / 'raw')
+    cap = None
+    prov = _ROOT / 'experiments' / 'samples' / 'sample30_seed42.json'
+    if prov.exists():
+        cap = json.loads(prov.read_text(encoding='utf-8')).get('max_boxes')
+    rows = []
+    for f in range(1, 8):
+        for i, inst in enumerate(parse_wtpack(str(raw / f'wtpack{f}.txt'))):
+            iid = i * 7 + f - 1
+            boxes = [dict(b) for b in inst['boxes']]
+            try:
+                rep = assign_fragility(boxes)
+                reason = None
+            except ValueError as e:
+                rep, reason = None, str(e)
+            meta = resolve_instance_id(iid)
+            rows.append({'instance_id': iid, 'br_class': meta['br_class'], 'n_boxes': len(boxes),
+                         'n_types': inst['n_types'], 'container': inst['container'],
+                         'fragile_count': rep['fragile_count'] if rep else None,
+                         'fragile_rate': rep['fragile_rate'] if rep else None, 'reason': reason})
+    ok = [r for r in rows if r['reason'] is None]
+    samples, excluded = [], []
+
+    def pick(title, chosen, why, skipped):
+        samples.append(dict(chosen, target=title, why=why,
+                            over_cap=bool(cap and chosen['n_boxes'] > cap)))
+        for r in skipped:
+            excluded.append({'target': title, 'instance_id': r['instance_id'], 'br_class': r['br_class'],
+                             'n_boxes': r['n_boxes'], 'reason': r['reason']})
+
+    for title, t in SAMPLE_TARGETS:
+        best = min(ok, key=lambda r: (abs(r['n_boxes'] - t), r['instance_id']))
+        why = f'nearest to {t} boxes that the thesis pipeline accepts'
+        if t == 130:
+            a = next((r for r in ok if r['instance_id'] == STUDY_A_INSTANCE), None)
+            if a is not None:
+                best, why = a, "the Study A instance (the thesis's main test case)"
+        d = abs(best['n_boxes'] - t)
+        skipped = sorted((r for r in rows if r['reason'] and abs(r['n_boxes'] - t) < d),
+                         key=lambda r: (abs(r['n_boxes'] - t), r['instance_id']))
+        pick(title, best, why, skipped)
+    largest = max(ok, key=lambda r: (r['n_boxes'], -r['instance_id']))
+    pick('largest', largest, 'the largest instance the thesis pipeline accepts',
+         sorted((r for r in rows if r['reason'] and r['n_boxes'] > largest['n_boxes']),
+                key=lambda r: -r['n_boxes']))
+    return {'source': 'OR-Library benchmark (wtpack1-7)', 'cap': cap,
+            'largest_overall': max(rows, key=lambda r: r['n_boxes']),
+            'samples': samples, 'excluded': excluded}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -540,8 +603,11 @@ def main(argv=None):
     e.add_argument('instance_id', type=int)
     t = sub.add_parser('template')
     t.add_argument('mode', choices=['simple', 'advanced'])
+    sub.add_parser('samples', help='the ready-made OR-Library samples (JSON)')
     a = ap.parse_args(argv)
 
+    if a.cmd == 'samples':
+        print(json.dumps(ready_made_samples())); return 0
     if a.cmd == 'template':
         sys.stdout.write(template(a.mode)); return 0
     if a.cmd == 'export-wtpack':
