@@ -9,6 +9,7 @@ const cookieParser = require("cookie-parser");
 const { router: authRouter, userFromCookieHeader } = require("./auth");
 const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
+const { CAL, calibratedArgs } = require("./runSettings");
 
 const app     = express();
 const PORT    = 3001;
@@ -146,13 +147,8 @@ wss.on("connection", (ws, req) => {
           "--stream", "--strategy", pyStrategy,
           "--pop-size", String(popSize), "--max-iter", String(maxIter),
         ];
-        if (msg.lambda !== undefined) argv.push("--lambda", String(Number(msg.lambda)));
-        for (const k of ["w", "f", "b", "a"]) {
-          const v = msg["lambda_" + k];
-          if (v !== undefined) argv.push("--lambda-" + k, String(Number(v)));
-        }
-        if (msg.enforceSupport === false)   argv.push("--no-enforce-support");
-        if (msg.enforceFragility === false) argv.push("--no-enforce-fragility");
+        // λ and enforcement are not user settings: always the calibrated values.
+        argv.push(...calibratedArgs());
         if (msg.seed !== undefined && msg.seed !== null) argv.push("--seed", String(Number(msg.seed)));
       } else {
         // Legacy BR JSON path: unchanged.
@@ -182,9 +178,9 @@ wss.on("connection", (ws, req) => {
         instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : msg.dataset === "custom" ? String(msg.customLoadId) : msg.instancePath,
         pop_size: physics ? Math.min(Math.max(Number(msg.popSize) || 10, 3), 60) : null,
         max_iter: physics ? Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000) : null,
-        lambda: msg.lambda !== undefined ? Number(msg.lambda) : null,
-        enforce_support: msg.enforceSupport !== false,
-        enforce_fragility: msg.enforceFragility !== false,
+        lambda: physics ? CAL.lambdas.w : null,
+        enforce_support: physics ? CAL.enforce_support : null,
+        enforce_fragility: physics ? CAL.enforce_fragility : null,
         seed: msg.seed !== undefined && msg.seed !== null ? Number(msg.seed) : null,
         argv: argv.slice(1),
       };

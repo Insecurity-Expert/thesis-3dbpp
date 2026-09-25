@@ -1,0 +1,6 @@
+{
+  "note": "The calibrated penalty weights and decode-time enforcement every run uses (Quick Test and every comparison). They are the values Study A and Study B were run with; tools/test_run_settings.py fails if they, or any run's recorded values, differ from those studies. The server sends them explicitly on every run; no optimizer or CLI default is relied on.",
+  "lambdas": {"w": 0.2, "f": 0.2, "b": 0.2, "a": 0.2},
+  "enforce_support": true,
+  "enforce_fragility": true
+}

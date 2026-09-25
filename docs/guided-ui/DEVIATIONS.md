@@ -38,8 +38,8 @@ Status: **Parts A–C** (Home, How to use, Dataset, Configuration). Processing, 
 | Element | Prototype | App | Reason |
 |---|---|---|---|
 | Six steps' text | 40-foot truck; Quick/Safe/Balanced/Strict Pack; "gives you a winner"; "big winner banner" | Add your boxes · Check the settings · Meet the four methods (mechanism nicknames) · "Run STACKR runs all four methods" · Look at the results (a recommendation with a reason; may say two did about equally well) · "Loading Guide gives you a plan you can print" | (a) |
-| "Don't show this again when I log in" tickbox | — | Added; stored on the account (`users.howto_hidden`) | (a) |
-| Opens automatically | — | Once after each login unless ticked; also from the top bar and the Home banner | (a) |
+| "Don't show this again" tickbox | — | Added; stored on the account (`users.howto_hidden`) | (a) |
+| Opens automatically | — | Only on a new account's first login (stored as `users.howto_auto_shown`), unless ticked; otherwise from the top-bar help button and the Home banner | (a) |
 | Closes with | ✕ / button / Esc / outside click | Same | — |
 
 ## Dataset — wizard Step 1 "Your boxes"

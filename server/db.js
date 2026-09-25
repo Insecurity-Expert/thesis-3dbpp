@@ -65,7 +65,8 @@ class MockStatement {
           name: found.name,
           role: found.role,
           created_at: found.created_at,
-          howto_hidden: !!found.howto_hidden
+          howto_hidden: !!found.howto_hidden,
+          howto_auto_shown: found.howto_auto_shown !== false
         };
       }
       return undefined;
@@ -100,7 +101,10 @@ class MockStatement {
         name,
         role: role || "researcher",
         pass_hash,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        // A new account has not seen "How to use" yet: it opens once, on the
+        // first login. Accounts created before this field existed count as seen.
+        howto_auto_shown: false
       };
       data.users.push(newUser);
       saveData(data);
@@ -140,12 +144,14 @@ class MockStatement {
       saveData(data);
       return { lastInsertRowid: id };
     }
-    // UPDATE users SET howto_hidden = ? WHERE id = ?  ("How to use" pop-up: don't show again)
-    if (this.sql.includes("UPDATE users SET howto_hidden = ?")) {
-      const [hidden, id] = params;
+    // UPDATE users SET howto_hidden = ?, howto_auto_shown = ? WHERE id = ?
+    // ("How to use" pop-up: don't show again / opened once after the first login); null = unchanged
+    if (this.sql.includes("UPDATE users SET howto_hidden = ?, howto_auto_shown = ?")) {
+      const [hidden, autoShown, id] = params;
       const row = data.users.find(u => u.id === parseInt(id, 10));
       if (!row) return { changes: 0 };
-      row.howto_hidden = !!hidden;
+      if (hidden !== null) row.howto_hidden = !!hidden;
+      if (autoShown !== null) row.howto_auto_shown = !!autoShown;
       saveData(data);
       return { changes: 1 };
     }

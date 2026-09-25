@@ -29,13 +29,13 @@ export default function Shell() {
   const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
   const [showThings, setShowThings] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
-  // "How to use" opens by itself once per login, unless this account ticked
-  // "Don't show this again" (stored on the account, not in the browser).
+  // "How to use" opens by itself once: on a new account's first login (the
+  // account records that it has), unless "Don't show this again" is ticked.
+  // After that it opens only from the top bar and the Home banner.
   useEffect(() => {
-    if (!user || user.howto_hidden) return;
-    const key = `howto-shown-${user.id}`;
-    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch {}
+    if (!user || user.howto_hidden || user.howto_auto_shown) return;
     setShowHowTo(true);
+    setPrefs({ howto_auto_shown: true }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user && user.id]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
@@ -1106,7 +1106,7 @@ export default function Shell() {
       <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} hidden={user && user.howto_hidden}
         onSetHidden={async (h) => {
           try { await setPrefs({ howto_hidden: h }); }
-          catch (e) { toast(`Could not save that: ${e.message}`, "err"); }
+          catch (e) { toast(`Could not save that: ${e.message}`, "err"); throw e; }
         }} />
     </div>
   );

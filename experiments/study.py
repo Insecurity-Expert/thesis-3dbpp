@@ -237,6 +237,11 @@ def run_task(task):
         'worker_warmup_cpu_ms': _WORKER['warmup_cpu_ms'] if _WORKER['pid'] == os.getpid() else None,
         'peak_mem_mb':      round(peak_mb, 3),
         'baseline_mem_mb':  round(baseline_mb, 3),
+        # What this run's optimizer object actually used (not what was asked for).
+        'params_used':      {'lambda_w': opt.lambda_w, 'lambda_f': opt.lambda_f,
+                             'lambda_b': opt.lambda_b, 'lambda_a': opt.lambda_a,
+                             'enforce_support': bool(opt.enforce_support),
+                             'enforce_fragility': bool(opt.enforce_fragility)},
         'budget_exhausted': bool(getattr(best, 'budget_exhausted', False)),
         'repair_stats':     getattr(opt, 'repair_stats', None),
         'placements':       placements,

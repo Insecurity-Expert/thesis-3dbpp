@@ -42,7 +42,8 @@ router.post("/register", (req, res) => {
 
   res
     .cookie(COOKIE, sign(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 864e5 })
-    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden });
+    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden,
+            howto_auto_shown: user.howto_auto_shown !== false });
 });
 
 router.post("/login", (req, res) => {
@@ -53,7 +54,8 @@ router.post("/login", (req, res) => {
 
   res
     .cookie(COOKIE, sign(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 864e5 })
-    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden });
+    .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden,
+            howto_auto_shown: user.howto_auto_shown !== false });
 });
 
 router.post("/logout", (req, res) => {
@@ -97,12 +99,16 @@ function runSummary(row) {
   };
 }
 
-// Per-account preference: hide the "How to use" pop-up that opens once after login.
+// Per-account "How to use" state: howto_hidden ("Don't show this again") and
+// howto_auto_shown (it has opened by itself once, after the first login).
 router.patch("/me/prefs", authRequired, (req, res) => {
-  const hidden = !!(req.body && req.body.howto_hidden);
-  const info = db.prepare("UPDATE users SET howto_hidden = ? WHERE id = ?").run(hidden, req.user.id);
+  const b = req.body || {};
+  const hidden = typeof b.howto_hidden === "boolean" ? b.howto_hidden : null;
+  const autoShown = typeof b.howto_auto_shown === "boolean" ? b.howto_auto_shown : null;
+  const info = db.prepare("UPDATE users SET howto_hidden = ?, howto_auto_shown = ? WHERE id = ?").run(hidden, autoShown, req.user.id);
   if (!info.changes) return res.status(404).json({ error: "User not found" });
-  res.json({ howto_hidden: hidden });
+  const u = db.prepare("SELECT id,email,name,role,created_at FROM users WHERE id = ?").get(req.user.id);
+  res.json({ howto_hidden: u.howto_hidden, howto_auto_shown: u.howto_auto_shown });
 });
 
 router.get("/runs", authRequired, (req, res) => {

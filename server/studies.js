@@ -28,6 +28,7 @@ const { ownedLoad } = require("./customLoads");
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
+const { calibratedArgs } = require("./runSettings");
 const VIEW_PY = path.join(ROOT, "optimizer", "arrangement_view.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
@@ -243,7 +244,7 @@ router.post("/", authRequired, (req, res) => {
   const log = path.join(STUDIES_DIR, base + ".log");
   const name = b.name || (customLoad ? `${def.name || "Study"} — custom load` : def.name) || "Study";
 
-  const argv = [STUDY_PY, "--preset", preset, "--mode", mode, "--seeds", seeds, "--out", out, "--name", name];
+  const argv = [STUDY_PY, "--preset", preset, "--mode", mode, "--seeds", seeds, "--out", out, "--name", name, ...calibratedArgs()];
   if (size) argv.push("--size", size);
   if (customLoad) argv.push("--custom-load", customLoad);
   else if (sample && !Number.isInteger(instanceId)) argv.push("--sample", sample);
