@@ -47,7 +47,10 @@ export function buildGuide(view) {
       c3: !hasChecks ? null : over === null ? "OK" : `over by ${fmtNum(over, 1)} kg`,
       c5: !hasChecks ? null : support === null ? "floor · OK"
         : `${fmtNum(100 * support, 0)}% · ${it.violations.includes("C5") ? "below 80%" : "OK"}`,
-      c6: !hasChecks ? null : blockers.length === 0 ? "OK" : `blocked by ${andList(blockers.map((b) => boxLabel(b.id ?? b.item_idx)))}`,
+      // The table names two blockers at most; the unloading order lists all of them.
+      c6: !hasChecks ? null : blockers.length === 0 ? "OK"
+        : blockers.length <= 2 ? `blocked by ${andList(blockers.map((b) => boxLabel(b.id ?? b.item_idx)))}`
+        : `blocked by ${blockers.slice(0, 2).map((b) => boxLabel(b.id ?? b.item_idx)).join(", ")} and ${blockers.length - 2} more`,
       blockers: blockers.map((b) => ({ id: b.id ?? b.item_idx, label: boxLabel(b.id ?? b.item_idx), stop: Number(b.stop) })),
     };
   });

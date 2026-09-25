@@ -10,7 +10,7 @@ here with its reason:
 
 Side-by-side screenshots (prototype left, app right, light and dark) are in `screenshots/`.
 
-Status: **Parts A–C** (Home, How to use, Dataset, Configuration). Processing, Results and Guide come in Parts D–F.
+Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough, light and dark, is in `screenshots/walkthrough/`; a sample exported guide is `sample-loading-guide-instance350.pdf`.
 
 ## Everywhere (sidebar and top bar)
 
@@ -87,3 +87,57 @@ Status: **Parts A–C** (Home, How to use, Dataset, Configuration). Processing, 
 | Quick Test settings | Method radio in Step 2 | Advanced: method, preset, pack size (3–60), iterations (1–2000); a run with non-preset settings is labelled "custom settings" in History; λ not editable | (a) + (c) |
 | Optimizer-ready indicator | — | "Optimizer ready / Warming up…" beside Run STACKR | (b) real readiness, so the first run doesn't look like a hang |
 | Nav-bar hint | "The four safety rules are always on. Only rotation can be changed." | "All four safety rules are checked in every run." | (b) rotation can't be changed |
+
+## Processing (the prototype's processing screen)
+
+| Element | Prototype | App | Reason |
+|---|---|---|---|
+| Title, spinner | "Packing your boxes…", spinner | Same; "Packing did not finish" / "Packing stopped" after a failure or Stop | (a) |
+| Run label | "Run 1 of 30 — DGWO (Quick Pack)" | "Run N of 20 finished — last: MOGWO, repeat code 3", from the progress file | (b) runs happen several at once, so "the" current run doesn't exist; the label says what finished |
+| Status text | "Working out where each box should go." | "Packing with method k of 4…", where k − 1 methods have finished all their runs; then "All runs finished — checking and scoring the results…" | (a) plain language from the real progress |
+| Progress bar | Timer-driven | Finished runs ÷ total runs, from the progress file | (a) + (b) |
+| Sub-label | "Method 1 of 4" | "N of 4 methods finished · T s so far" | (b) |
+| Per-method progress | — | In a collapsed "Progress per method" | (a) |
+| Stop button | — | "■ Stop" in the prototype's button style. It ends the whole comparison (parent and every worker) and shows the "Cancelled." toast; nothing is saved | (a) |
+| Failure | — | Stays on the screen with the error and "← Back to review"; saved to Run History as a failed run | (a) |
+
+## Results (the prototype's Results panel)
+
+| Element | Prototype | App | Reason |
+|---|---|---|---|
+| Comparison picker | — | A select above the card (which saved comparison, and which load when a comparison has several) | (b) Results must say which runs it shows |
+| Winner card | "🏆 Winner — best method for your load", invented score, "Rules followed 0.994", "Time taken 96.8s", invented advice | **"Recommended for this load"**: the top method of Chapter 3's composite on this load's runs (stats.py), its nickname, Overall score /5, container full, rules followed (all boxes), CPU time — averages over the load's runs; 2–3 sentences generated from the criteria | (a) + (b) |
+| Tie wording | — | "Two methods did about equally well" ("Several…" when more than one other method comes out on top) when leaving one repeat code out changes the top method | (a) + (b) |
+| Not-the-thesis line | — | "This compares the four methods on this load; it is not the thesis's statistical conclusion." + link to Technical details | (a) |
+| No recommendation | — | A parallel comparison without CPU time (e.g. Study A) says why it can't name one; the four cards still show | (b) |
+| Things to know | Button + pop-up with "shared cloud machine", "Only 2–3 delivery stops" | Same button and pop-up, using the shared `ThingsToKnow` component: stop count from the data, the recorded machine and mode, CPU-time note | (b) |
+| Overall-score breakdown card, safety-rules table, "How each method performed" | On the main page, invented numbers | Under "Show all numbers" (how it was decided, the Chapter 3 tables) | (c) |
+| Four methods side by side | Table rows with "See guide →" | **Four solution cards** in the prototype's card style: container fill, rule-following (all boxes) and rule score (loaded boxes) with tooltips, boxes not loaded, time; View Solution → View Arrangement → Export Guide | (a) |
+| Card values | Averages | The method's representative run (highest all-box rule-following, then fill, then lowest repeat code), labelled "Its best run (repeat code N) of 5" | (a) the arrangement and guide come from that run |
+| "Show extra technical numbers" toggle | Reference numbers | "Show all numbers": how it was decided (formula, per-method criteria, CPU-time note, tie check, representative-run rule, λ and enforcement read-only), every run (with the worker's untimed warm-up CPU), the Trade-offs chart, the thesis statistics with the outcome badge ("needs ≥ 2 test cases" for one load), SP1–SP3 (Compare, moved), the Quick Test result | (c) |
+| Trade-offs chart | Pop-up from invented `paretoPoints` | In Technical details: one dot per real run (x = fill, y = all-box rule-following), best-of-both runs circled, "Best-of-both runs: N out of M", hover tooltip, table view | (a) + (b) + (c) |
+| "How each method improves over time" | Pop-up with chart | Removed, everywhere (Results, 3D viewer's live view, Quick Test); convergence data is still saved | (a) |
+
+## 3D Viewer (reached by View Arrangement)
+
+| Element | Prototype | App | Reason |
+|---|---|---|---|
+| What it shows on arrival | A sample | The chosen method's representative run, rebuilt and re-verified by the server, "Highlight boxes with problems" on | (a) |
+| Which-run picker, show/hide filters, stop filter, box names, orientation guides | Visible | In a collapsed "Advanced" | (c) |
+| "Play loading" | ▶ Play | Kept (existing BinViewer) | — |
+
+## Loading & Unloading Guide (the prototype's Loading Guide panel)
+
+| Element | Prototype | App | Reason |
+|---|---|---|---|
+| Help banner + Print button | "This is your packing plan…", "Print this plan" | Same banner; "Export Guide (print / PDF)" (the "Save as PDF" toast, then the print view) and "Download page 1 (CSV)" | (a) |
+| Method selector | Four entries with invented fill %, "★ Winner" | The four methods with their representative run's real fill, "· recommended" on the recommended one | (a) + (b) |
+| "This is the winner's plan" banner | Invented praise | Removed. Page 1 names the recommended solution with its method and repeat code; if another method is chosen it says so | (a) |
+| Single saved run | — | Collapsed "Advanced: a single saved run instead" | (c) |
+| Page 1 table | 6 example rows; Size W×D×H; "Where to put it" invented ("rear left corner", "no more than 1 layer"); Unload Last/2nd/First | Every box, in the support-checked loading order: step, box, stop, size as placed with orientation, weight, fragile yes/no, position (x, y from door, z), placement from real support contacts ("Place on the floor" / "Place on top of Box 017 and Box 022"), "Keep reachable — unloaded at stop 1", load on top (OK / over by N kg), base support (support % · OK / below 80%), unload order (OK / blocked by …) | (a) + (b) |
+| Unloading order | — | Stop 1 first; within a stop, the reverse of the loading order; C6-blocked boxes say "First move Box 031 (stop 2), then unload Box 012." | (a) |
+| Boxes not loaded | — | ID, size, weight, stop, "These did not fit — arrange separate transport." | (a) |
+| Page 2 | One side view | Top view per height layer (or 4 height bands when there are many heights) and the view from the rear door, coloured by stop with a legend, door and cab marked, step numbers with a key table | (a) |
+| Page 3 | "Weight limit: within limit · always", "Load steadiness passed · 0.988" (invented) | Space utilization, rule-following (all boxes) and loaded-box rule score, per-rule counts and status (C3–C6), the truck-weight check only when a limit was entered, boxes not loaded, and "Balance / weight distribution across the truck is not checked by STACKR." | (a) + (b) |
+| "Show extra details (optional)" | Invented values | "Technical details (optional)": method, repeat code, preset, CPU and wall-clock time, overall scores for the load | (a) + (c) |
+| Custom-load label | — | On every page (screen and print) | (a) |

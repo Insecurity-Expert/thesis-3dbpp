@@ -212,7 +212,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         </p>
         <div style={{ overflowX: "auto" }}>
           <table className="data-table compact" style={{ width: "100%", fontSize: 11.5 }}>
-            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Weight</th><th>Fragile</th><th>Position (x, y, z)</th><th style={{ minWidth: 190 }}>Placement</th><th>Load on top</th><th>Base support</th><th>Unload order</th></tr></thead>
+            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Weight</th><th>Fragile</th><th>Position (x, y, z)</th><th style={{ minWidth: 190 }}>Placement</th><th>Load on top</th><th>Base support</th><th>Unload order (full list below)</th></tr></thead>
             <tbody>
               {guide.steps.map((s) => (
                 <tr key={s.step}>
@@ -221,7 +221,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
                   <td style={{ whiteSpace: "nowrap" }}>{fmtNum(s.mass, 1)} kg</td><td>{s.fragile ? <b style={{ color: "var(--amber)" }}>yes</b> : "no"}</td>
                   <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.position}</td>
                   <td>{s.instruction}{s.reachable && <span className="sub" style={{ color: "var(--primary-hover)", fontWeight: 700 }}>{s.reachable}</span>}</td>
-                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td><Status text={s.c6} /></td>
+                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td style={{ minWidth: 150 }}><Status text={s.c6} /></td>
                 </tr>
               ))}
             </tbody>
