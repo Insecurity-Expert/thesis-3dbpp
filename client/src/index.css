@@ -579,3 +579,26 @@ input:checked + .slider:before { transform: translateX(16px); }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .wiz-line, .wiz-sub { display: none; }
 }
+
+/* Results: "Recommended for this load" (the prototype's winner card) */
+.winner-card { position: relative; margin-bottom: 22px; padding: 32px 28px 28px; border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, #6B4E8E 0%, #54397A 55%, #3F2A5C 100%); color: #fff; text-align: center; box-shadow: 0 12px 40px rgba(63,42,92,0.25); overflow: hidden; }
+.winner-card::before { content: ""; position: absolute; inset: -40% -20% auto -20%; height: 220px; background: radial-gradient(closest-side, rgba(255,255,255,0.18), transparent 70%); pointer-events: none; }
+.winner-inner { position: relative; z-index: 1; }
+.winner-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 100px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.28); font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 14px; }
+.winner-label { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; opacity: 0.82; margin-bottom: 8px; font-weight: 600; }
+.winner-name { font-family: 'Playfair Display', serif; font-weight: 700; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin-bottom: 8px; }
+.winner-algo { font-size: 13.5px; opacity: 0.9; margin-bottom: 20px; }
+.winner-stats { display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; padding: 18px 8px 4px; border-top: 1px solid rgba(255,255,255,0.18); margin-top: 6px; }
+.winner-stat-label { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75; margin-bottom: 3px; }
+.winner-stat-value { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; }
+.winner-note { max-width: 640px; margin: 18px auto 0; font-size: 13px; opacity: 0.92; line-height: 1.6; }
+.winner-small { max-width: 640px; margin: 12px auto 0; font-size: 11.5px; opacity: 0.8; line-height: 1.5; }
+.winner-small button { color: #fff; text-decoration: underline; background: none; border: none; font: inherit; cursor: pointer; padding: 0; }
+.solution-card.recommended { border: 2px solid var(--primary); }
+.solution-card .metric { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 5px 0; border-bottom: 1px dashed var(--border); }
+.solution-card .metric span:first-child { color: var(--text-dim); }
+.solution-card .metric b { color: var(--text-main); }
+.data-table.compact th, .data-table.compact td { padding: 5px 8px; vertical-align: top; }
+.data-table.compact .sub { display: block; font-size: 10.5px; color: var(--text-dim); font-family: inherit; }
+@media print { .data-table.compact { font-size: 9.5px !important; } .data-table.compact .sub { color: #555 !important; } }

@@ -31,19 +31,22 @@ function Item({ n, title, children }) {
   );
 }
 
-export default function ThingsToKnow({ result = null, studies = [] }) {
+export default function ThingsToKnow({ result = null, studies = [], bare = false }) {
   const done = (studies || []).filter((s) => s.status === "done" || s.status === "imported");
   const stops = stopCounts(result, done);
   const distinct = Array.from(new Set(stops.map((s) => s.n)));
 
+  // bare: inside the Results pop-up, which carries its own title.
   return (
-    <div className="card">
-      <div className="card-head">
-        <div>
-          <div className="card-title">Things to know</div>
-          <div className="card-desc">How STACKR works, and what it does not model</div>
+    <div className={bare ? "" : "card"}>
+      {!bare && (
+        <div className="card-head">
+          <div>
+            <div className="card-title">Things to know</div>
+            <div className="card-desc">How STACKR works, and what it does not model</div>
+          </div>
         </div>
-      </div>
+      )}
 
       <Item n={1} title={distinct.length === 0 ? "Delivery stops" : `${distinct.join(" or ")} delivery stop${distinct.length === 1 && distinct[0] === 1 ? "" : "s"} per load`}>
         {stops.length === 0
@@ -72,7 +75,7 @@ export default function ThingsToKnow({ result = null, studies = [] }) {
             ))}
           </ul>
         )}
-        Times from the demo study and from Quick Test runs use other settings and conditions, so they are not comparable with study times, and no time here carries over to a different computer.
+        Run STACKR comparisons also record each run's CPU time, which is much less affected by runs sharing the machine; the recommendation uses it. Times from the demo study and from Quick Test runs use other settings and conditions, so they are not comparable with study times, and no time here carries over to a different computer.
       </Item>
 
       <Item n={5} title="These results are preliminary">

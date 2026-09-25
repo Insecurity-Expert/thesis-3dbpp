@@ -10,16 +10,15 @@ import RunHistoryTab from "./components/RunHistoryTab";
 import DashboardTab from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
-import ThingsToKnow from "./components/ThingsToKnow";
 import HowToModal from "./components/HowToModal";
+import ResultsPanel from "./components/ResultsPanel";
 import ProcessingPanel from "./components/ProcessingPanel";
 import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
-import StudyResults from "./study/StudyResults";
-import CompareTab, { StudySelect } from "./study/CompareTab";
+import CompareTab from "./study/CompareTab";
 
 
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
@@ -28,7 +27,6 @@ export default function Shell() {
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
-  const [showThings, setShowThings] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   // "How to use" opens by itself once: on a new account's first login (the
   // account records that it has), unless "Don't show this again" is ticked.
@@ -111,7 +109,7 @@ export default function Shell() {
   const [instanceInfo, setInstanceInfo] = useState(null);
   const [placements, setPlacements] = useState(null);
   const [binsUsed, setBinsUsed] = useState(0);
-  const [chartData, setChartData] = useState([]);
+  const [, setChartData] = useState([]);   // streamed series, saved with the run (not shown)
   const [stats, setStats] = useState(null);
   const [finalResult, setFinalResult] = useState(null);
   const [error, setError] = useState(null);
@@ -128,12 +126,14 @@ export default function Shell() {
   const [selectedStudyId, setSelectedStudyId] = useState(null);
   const [studyDoc, setStudyDoc] = useState(null);        // { row, study, stats } of the selected study
   const [studyProgress, setStudyProgress] = useState(null);
-  const [resultsMode, setResultsMode] = useState("quick"); // "quick" (single run) | "study"
   const [studyBusy, setStudyBusy] = useState(false);
   const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
   // The comparison on the Processing screen: { studyId, state: running|error|stopped, error, label }
   const [processing, setProcessing] = useState(null);
   const [stopping, setStopping] = useState(false);
+  // Requests from Results: open a study run in the 3D viewer / a method's guide.
+  const [vizRequest, setVizRequest] = useState(null);
+  const [guideRequest, setGuideRequest] = useState(null);
   const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
@@ -372,7 +372,6 @@ export default function Shell() {
       const r = await studiesApi.create(payload);
       fetchStudies();
       setSelectedStudyId(r.id);
-      setResultsMode("study");
       // The Processing screen (wizard) follows it; Results opens when it is done.
       setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current });
       setWizStep(4);
@@ -386,7 +385,6 @@ export default function Shell() {
       const r = await studiesApi.importFile(file);
       fetchStudies();
       setSelectedStudyId(r.id);
-      setResultsMode("study");
       setActiveTab("results");
     } catch (e) { setError(`Import failed: ${e.message}`); }
   }, [fetchStudies]);
@@ -401,7 +399,6 @@ export default function Shell() {
 
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
-    setResultsMode("study");
     setActiveTab("results");
   }, []);
 
@@ -961,7 +958,7 @@ export default function Shell() {
 
       {/* ── LOADING GUIDE ── */}
       {activeTab === "guide" && (
-        <GuideTab finalResult={finalResult} runHistory={runHistory} />
+        <GuideTab finalResult={finalResult} runHistory={runHistory} request={guideRequest} studies={studies} selectedStudyId={selectedStudyId} studyDoc={studyDoc} />
       )}
 
       {/* ── ACCOUNT ── */}
@@ -1043,44 +1040,31 @@ export default function Shell() {
 
       {/* ── RESULTS TAB ── */}
       {activeTab === "results" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-            <div className="tabs-inline">
-              <button className={resultsMode === "quick" ? "active" : ""} onClick={() => setResultsMode("quick")}>Quick Test (single run)</button>
-              <button className={resultsMode === "study" ? "active" : ""} onClick={() => setResultsMode("study")}>Full Comparison (study)</button>
+        <ResultsPanel
+          studies={studies}
+          selectedStudyId={selectedStudyId}
+          onSelectStudy={setSelectedStudyId}
+          studyDoc={studyDoc}
+          progress={studyProgress}
+          onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          compare={
+            <div>
+              <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
+              <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
+                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} />
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              {resultsMode === "study" && <StudySelect studies={studies} value={selectedStudyId} onChange={setSelectedStudyId} />}
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings((s) => !s)}>
-                {showThings ? "Hide things to know" : "Things to know"}
-              </button>
+          }
+          quickTest={finalResult ? (
+            <div>
+              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result (one method, one run)</div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. No recommendation is made from a single run.</div>
+              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} strategy={strategy} stats={stats} axisUtil={axisUtil}
+                maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
-          </div>
-          {showThings && <ThingsToKnow result={resultsMode === "quick" ? finalResult : null} studies={studies} />}
-          {resultsMode === "study" && (
-            <StudyResults
-              row={studyDoc ? studyDoc.row : null}
-              study={studyDoc ? studyDoc.study : null}
-              stats={studyDoc ? studyDoc.stats : null}
-              progress={studyProgress}
-              onOpenCompare={() => setActiveTab("compare")}
-            />
-          )}
-        </div>
-      )}
-      {activeTab === "results" && resultsMode === "quick" && (
-        <ResultsTab
-          finalResult={finalResult}
-          runHistory={runHistory}
-          replay={replay}
-          strategy={strategy}
-          stats={stats}
-          axisUtil={axisUtil}
-          chartData={chartData}
-          maxIter={maxIter}
-          wolfSize={wolfSize}
-          handleExportResultsCSV={handleExportResultsCSV}
-          handleExportReport={handleExportReport}
+          ) : null}
+          openNumbers={!!replay}
         />
       )}
 
@@ -1129,7 +1113,7 @@ export default function Shell() {
           binsUsed={binsUsed}
           running={running}
           stats={stats}
-          chartData={chartData}
+          request={vizRequest}
         />
       )}
 
