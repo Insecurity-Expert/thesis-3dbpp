@@ -18,7 +18,7 @@ export default function ProcessingPanel({ progress, study, state, error, onStop,
     : stopped ? "Stopped. Nothing was saved."
     : !total ? "Starting the four methods…"
     : finished >= (codes.length || 4) ? "All runs finished — checking and scoring the results…"
-    : `Packing with method ${finished + 1} of ${codes.length || 4}…`;
+    : `${finished} of ${codes.length || 4} methods finished — packing…`;
 
   return (
     <div className="card" style={{ padding: "48px 32px", textAlign: "center" }}>
@@ -38,7 +38,7 @@ export default function ProcessingPanel({ progress, study, state, error, onStop,
         <div style={{ width: `${pct}%`, height: "100%", background: "var(--primary)", borderRadius: 100, transition: "width 0.3s ease" }} />
       </div>
       <div className="field-hint" style={{ marginTop: 10 }}>
-        {finished} of {codes.length || 4} methods finished{p.elapsed_s ? ` · ${Math.round(p.elapsed_s)} s so far` : ""}
+        {p.elapsed_s ? `${Math.round(p.elapsed_s)} s so far` : "Starting…"}
       </div>
 
       {codes.length > 0 && (

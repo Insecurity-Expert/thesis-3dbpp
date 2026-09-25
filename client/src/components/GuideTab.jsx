@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { runsApi, studiesApi } from "../services/api";
 import { METHODS, methodOf, methodLabel } from "../methods";
-import { buildGuide, guideCsv } from "../viewer/guidePlan";
+import { buildGuide, guideCsv, boxList } from "../viewer/guidePlan";
 import { fmtNum, RULES } from "../viewer/boxInfo";
 import GuideViews from "./GuideViews";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
@@ -26,7 +26,7 @@ function Page({ n, title, desc, custom, children }) {
     <div className="card guide-page" style={{ marginBottom: 20 }}>
       <div className="card-head">
         <div>
-          <div className="section-tag">Page {n} of 3</div>
+          <div className="section-tag">{typeof n === "number" ? `Page ${n} of 3` : n}</div>
           <div className="card-title">{title}</div>
           {desc && <div className="card-desc">{desc}</div>}
         </div>
@@ -207,48 +207,52 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
             </div>
           </div>
         )}
-        <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-muted)", marginTop: 0 }}>
-          <b>Loading:</b> go down the list. Start at the cab end and work toward the rear door, putting floor boxes in first and building up. Positions are in cm: x across the truck, y from the rear door, z above the floor. Sizes are as placed: across × deep × high; the line under each size says which way the box stands.
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)", marginTop: 0 }}>
+          <b>Loading:</b> go down the list — the left column, then the right. Start at the cab end and work toward the rear door; floor boxes first, then build up. Sizes, positions and rule checks for every box are in the appendix.
         </p>
-        <div style={{ overflowX: "auto" }}>
-          <table className="data-table compact" style={{ width: "100%", fontSize: 11.5 }}>
-            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Weight</th><th>Fragile</th><th>Position (x, y, z)</th><th style={{ minWidth: 190 }}>Placement</th><th>Load on top</th><th>Base support</th><th>Unload order (full list below)</th></tr></thead>
-            <tbody>
-              {guide.steps.map((s) => (
-                <tr key={s.step}>
-                  <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>{s.stop}</td>
-                  <td style={{ whiteSpace: "nowrap" }}><span className="mono">{s.size}</span><span className="sub">{s.orientationShort ?? "orientation not recorded"}</span></td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtNum(s.mass, 1)} kg</td><td>{s.fragile ? <b style={{ color: "var(--amber)" }}>yes</b> : "no"}</td>
-                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.position}</td>
-                  <td>{s.instruction}{s.reachable && <span className="sub" style={{ color: "var(--primary-hover)", fontWeight: 700 }}>{s.reachable}</span>}</td>
-                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td style={{ minWidth: 150 }}><Status text={s.c6} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="guide-load-cols">
+          {[guide.steps.slice(0, Math.ceil(guide.steps.length / 2)), guide.steps.slice(Math.ceil(guide.steps.length / 2))].map((part, k) => (
+            <table key={k} className="data-table compact guide-load" style={{ fontSize: 11.5 }}>
+              <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Placement</th><th>Fragile</th></tr></thead>
+              <tbody>
+                {part.map((s) => (
+                  <tr key={s.step}>
+                    <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>{s.stop}</td>
+                    <td>{s.instruction}{s.reachable && <span className="sub" style={{ color: "var(--primary-hover)", fontWeight: 700 }}>{s.reachable}</span>}</td>
+                    <td>{s.fragile ? <b style={{ color: "var(--amber)" }}>yes</b> : "no"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
         </div>
         <p className="field-hint">Checked: every box comes after all the boxes it rests on ({guide.steps.length} boxes).</p>
 
-        <div className="card-title" style={{ marginTop: 18, marginBottom: 6 }}>Unloading order</div>
-        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 0 }}>Stop {guide.stops[0]} first. Within a stop, the reverse of the loading order: nearest the door and topmost first.</p>
-        <table className="data-table compact" style={{ fontSize: 11.5 }}>
-          <thead><tr><th>#</th><th>Stop</th><th>What to do</th></tr></thead>
-          <tbody>{guide.unloading.map((u) => (
-            <tr key={u.n}><td className="mono">{u.n}</td><td>{u.stop}</td><td style={{ fontWeight: u.blockers.length ? 700 : 400, color: u.blockers.length ? "var(--red)" : undefined }}>{u.text}</td></tr>
-          ))}</tbody>
-        </table>
+        <div className="card-title" style={{ marginTop: 14, marginBottom: 4 }}>Unloading order</div>
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 0, marginBottom: 6 }}>Stop {guide.stops[0]} first. Within a stop, nearest the door and topmost first (the reverse of the loading order).</p>
+        {guide.unloadStops.map((g) => {
+          const byStop = {};
+          for (const b of g.blockers) (byStop[b.stop] = byStop[b.stop] || []).push(b.id);
+          return (
+            <div key={g.stop} className="guide-unload-stop">
+              <div style={{ fontWeight: 700, fontSize: 12.5 }}>Stop {g.stop} — {g.boxes.length} box{g.boxes.length === 1 ? "" : "es"}</div>
+              {g.blockers.length > 0 && (
+                <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 700 }}>
+                  Before unloading stop {g.stop}, first move: {Object.entries(byStop).map(([st, ids]) => `${boxList(ids)} (stop ${st})`).join("; ")}.
+                </div>
+              )}
+              <div style={{ fontSize: 12, lineHeight: 1.5 }}>{g.blockers.length > 0 ? "Then unload" : "Unload"}, in this order: {boxList(g.boxes.map((b) => b.id))}.</div>
+            </div>
+          );
+        })}
 
         {nItems != null && nItems - guide.steps.length > 0 && (
-          <>
-            <div className="card-title" style={{ marginTop: 18, marginBottom: 6 }}>Boxes not loaded ({nItems - guide.steps.length})</div>
-            <p style={{ fontSize: 12.5, color: "var(--amber)", marginTop: 0, fontWeight: 700 }}>These did not fit — arrange separate transport.</p>
-            {guide.notLoaded.length > 0 ? (
-              <table className="data-table" style={{ fontSize: 11.5 }}>
-                <thead><tr><th>Box</th><th>Size (L × W × H, cm)</th><th>Weight</th><th>Stop</th></tr></thead>
-                <tbody>{guide.notLoaded.map((b) => <tr key={b.id}><td className="mono">{b.label}</td><td className="mono">{b.size ?? "not recorded"}</td><td>{fmtNum(b.mass, 1)} kg</td><td>{b.stop}</td></tr>)}</tbody>
-              </table>
-            ) : <p className="field-hint">This run did not record which boxes they were.</p>}
-          </>
+          <div style={{ marginTop: 12, fontSize: 12 }}>
+            <b style={{ color: "var(--amber)" }}>Boxes not loaded ({nItems - guide.steps.length}) — these did not fit; arrange separate transport:</b>{" "}
+            {guide.notLoaded.length > 0
+              ? guide.notLoaded.map((b) => `${b.label} (${b.size ?? "size not recorded"} cm, ${fmtNum(b.mass, 1)} kg, stop ${b.stop})`).join("; ") + "."
+              : "this run did not record which boxes they were."}
+          </div>
         )}
       </Page>
 
@@ -258,6 +262,12 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       </Page>
 
       <Page n={3} title="Solution summary" custom={customText}>
+        <div className="info-callout" style={{ marginBottom: 14, display: "block", fontSize: 13.5, fontWeight: 700 }}>
+          {guide.rehandling === 0
+            ? "No box needs other boxes moved before it can be unloaded."
+            : `${guide.rehandling} box${guide.rehandling === 1 ? " needs" : "es need"} other boxes moved before ${guide.rehandling === 1 ? "it" : "they"} can be unloaded.`}
+          <div style={{ fontSize: 12, fontWeight: 400, marginTop: 2 }}>From the unload-order rule (C6): a box for a later stop sits above it or between it and the door. Page 1 lists what to move first.</div>
+        </div>
         <div className="grid grid-2" style={{ gap: 14, fontSize: 13 }}>
           <div><span className="field-hint">Space utilization (container fill)</span><div style={{ fontWeight: 700 }}>{fmtNum(m.M1_space_utilization_pct, 2)}%</div></div>
           <div><span className="field-hint">Boxes loaded</span><div style={{ fontWeight: 700 }}>{guide.steps.length}{nItems != null ? ` of ${nItems}` : ""}</div></div>
@@ -289,6 +299,26 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
             {!single && load && load.available && <li>Overall scores for this load (0–5): {load.ranking.map((c) => `${nameOf(c)} ${fmtNum(load.composite[c].CS * 5, 2)}`).join(" · ")}.</li>}
           </ul>
         </details>
+      </Page>
+
+      <Page n="Appendix" title="Box details (for checking)" custom={customText}
+        desc="Every loaded box in loading order. Positions in cm: x across the truck, y from the rear door, z above the floor. Sizes as placed: across × deep × high.">
+        <div style={{ overflowX: "auto" }}>
+          <table className="data-table compact" style={{ width: "100%", fontSize: 11 }}>
+            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Orientation</th><th>Weight</th><th>Position (x, y, z)</th><th>Load on top (C3)</th><th>Base support (C5)</th><th>Unload order (C6)</th></tr></thead>
+            <tbody>
+              {guide.steps.map((s) => (
+                <tr key={s.step}>
+                  <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>{s.stop}</td>
+                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.size}</td><td>{s.orientationShort ?? "not recorded"}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{fmtNum(s.mass, 1)} kg</td>
+                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.position}</td>
+                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td><Status text={s.c6} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Page>
     </>
   );

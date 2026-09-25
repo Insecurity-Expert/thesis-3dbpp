@@ -94,9 +94,9 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 |---|---|---|---|
 | Title, spinner | "Packing your boxes…", spinner | Same; "Packing did not finish" / "Packing stopped" after a failure or Stop | (a) |
 | Run label | "Run 1 of 30 — DGWO (Quick Pack)" | "Run N of 20 finished — last: MOGWO, repeat code 3", from the progress file | (b) runs happen several at once, so "the" current run doesn't exist; the label says what finished |
-| Status text | "Working out where each box should go." | "Packing with method k of 4…", where k − 1 methods have finished all their runs; then "All runs finished — checking and scoring the results…" | (a) plain language from the real progress |
+| Status text | "Working out where each box should go." | "k of 4 methods finished — packing…" (methods run in parallel, so it counts finished methods); then "All runs finished — checking and scoring the results…" | (a) plain language from the real progress |
 | Progress bar | Timer-driven | Finished runs ÷ total runs, from the progress file | (a) + (b) |
-| Sub-label | "Method 1 of 4" | "N of 4 methods finished · T s so far" | (b) |
+| Sub-label | "Method 1 of 4" | "T s so far" | (b) |
 | Per-method progress | — | In a collapsed "Progress per method" | (a) |
 | Stop button | — | "■ Stop" in the prototype's button style. It ends the whole comparison (parent and every worker) and shows the "Cancelled." toast; nothing is saved | (a) |
 | Failure | — | Stays on the screen with the error and "← Back to review"; saved to Run History as a failed run | (a) |
@@ -134,10 +134,11 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 | Method selector | Four entries with invented fill %, "★ Winner" | The four methods with their representative run's real fill, "· recommended" on the recommended one | (a) + (b) |
 | "This is the winner's plan" banner | Invented praise | Removed. Page 1 names the recommended solution with its method and repeat code; if another method is chosen it says so | (a) |
 | Single saved run | — | Collapsed "Advanced: a single saved run instead" | (c) |
-| Page 1 table | 6 example rows; Size W×D×H; "Where to put it" invented ("rear left corner", "no more than 1 layer"); Unload Last/2nd/First | Every box, in the support-checked loading order: step, box, stop, size as placed with orientation, weight, fragile yes/no, position (x, y from door, z), placement from real support contacts ("Place on the floor" / "Place on top of Box 017 and Box 022"), "Keep reachable — unloaded at stop 1", load on top (OK / over by N kg), base support (support % · OK / below 80%), unload order (OK / blocked by …) | (a) + (b) |
-| Unloading order | — | Stop 1 first; within a stop, the reverse of the loading order; C6-blocked boxes say "First move Box 031 (stop 2), then unload Box 012." | (a) |
+| Page 1 table | 6 example rows; Size W×D×H; "Where to put it" invented ("rear left corner", "no more than 1 layer"); Unload Last/2nd/First | Every box, in the support-checked loading order, in two side-by-side columns, with only: step, box ID, stop, placement from real support contacts ("Place on the floor" / "Place on top of Box 017 and Box 022", plus "Keep reachable — unloaded at stop 1"), fragile yes/no | (a) + (b) |
+| Unloading order | — | Grouped by stop, stop 1 first: "Before unloading stop 1, first move: Box 031, 044, 052 (stop 2); … (stop 3)." — the C6 blockers listed once per stop — then the stop's boxes in unloading order (nearest the door and topmost first). Boxes not loaded follow as one short paragraph (ID, size, weight, stop, "arrange separate transport") | (a) |
 | Boxes not loaded | — | ID, size, weight, stop, "These did not fit — arrange separate transport." | (a) |
 | Page 2 | One side view | Top view per height layer (or 4 height bands when there are many heights) and the view from the rear door, coloured by stop with a legend, door and cab marked, step numbers with a key table | (a) |
-| Page 3 | "Weight limit: within limit · always", "Load steadiness passed · 0.988" (invented) | Space utilization, rule-following (all boxes) and loaded-box rule score, per-rule counts and status (C3–C6), the truck-weight check only when a limit was entered, boxes not loaded, and "Balance / weight distribution across the truck is not checked by STACKR." | (a) + (b) |
+| Page 3 | "Weight limit: within limit · always", "Load steadiness passed · 0.988" (invented) | The rehandling count first ("19 boxes need other boxes moved before they can be unloaded", from the C6 blockers), then space utilization, rule-following (all boxes) and loaded-box rule score, per-rule counts and status (C3–C6), the truck-weight check only when a limit was entered, boxes not loaded, and "Balance / weight distribution across the truck is not checked by STACKR." | (a) + (b) |
 | "Show extra details (optional)" | Invented values | "Technical details (optional)": method, repeat code, preset, CPU and wall-clock time, overall scores for the load | (a) + (c) |
-| Custom-load label | — | On every page (screen and print) | (a) |
+| Appendix "Box details (for checking)" | — | After Page 3: every box's size as placed, orientation, weight, position (x, y from door, z), and load on top (OK / over by N kg), base support (support % · OK / below 80%), unload order (OK / blocked by …) | (a) keeps Page 1 short |
+| Custom-load label | — | On every page and the appendix (screen and print) | (a) |

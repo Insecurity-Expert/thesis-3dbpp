@@ -56,20 +56,32 @@ test("the loading order passes the support-order check", () => {
   expect(checkPlan(buildPlan(view.items)).ok).toBe(true);
 });
 
-test("the unloading steps list exactly the validator's C6 blockers", () => {
+test("the unloading order lists exactly the validator's C6 blockers, grouped by stop", () => {
   const m = idxOf();
-  const got = {};
-  for (const u of guide.unloading) {
-    if (u.blockers.length) {
-      got[String(m.get(String(u.id)))] = u.blockers.map((b) => m.get(String(b.id))).sort((a, b) => a - b);
-      expect(u.text.startsWith("First move ")).toBe(true);
-    }
+  // per box (the appendix's unload-order column): the validator's blockers
+  const perBox = {};
+  for (const st of guide.steps) {
+    if (st.blockers.length) perBox[String(st.it.item_idx)] = st.blockers.map((b) => m.get(String(b.id))).sort((a, b) => a - b);
   }
-  expect(got).toEqual(ref.c6_blockers);
-  expect(Object.keys(got).length).toBeGreaterThan(0);
-  // stop 1 first
-  const order = guide.unloading.map((u) => u.stop);
+  expect(perBox).toEqual(ref.c6_blockers);
+  expect(Object.keys(perBox).length).toBeGreaterThan(0);
+  // per stop (Page 1): the union of the blockers of that stop's boxes, listed once
+  for (const g of guide.unloadStops) {
+    const want = new Set();
+    for (const bx of g.boxes) for (const j of ref.c6_blockers[String(m.get(String(bx.id)))] || []) want.add(j);
+    const got = g.blockers.map((b) => m.get(String(b.id)));
+    expect(new Set(got).size).toBe(got.length);          // each blocker once
+    expect(got.slice().sort((a, b) => a - b)).toEqual(Array.from(want).sort((a, b) => a - b));
+    expect(g.blockedCount).toBe(g.boxes.filter((bx) => ref.c6_blockers[String(m.get(String(bx.id)))]).length);
+  }
+  // every loaded box is unloaded exactly once, stop 1 first
+  expect(guide.unloadStops.flatMap((g) => g.boxes).length).toBe(guide.steps.length);
+  const order = guide.unloadStops.map((g) => g.stop);
   expect(order).toEqual(order.slice().sort((a, b) => a - b));
+});
+
+test("page 3's rehandling count equals the validator's C6-blocked boxes", () => {
+  expect(guide.rehandling).toBe(Object.keys(ref.c6_blockers).length);
 });
 
 test("the not-loaded list equals the run's unplaced boxes", () => {

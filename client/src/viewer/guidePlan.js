@@ -55,28 +55,37 @@ export function buildGuide(view) {
     };
   });
 
-  // Unloading: stop 1 first; within a stop, the reverse of the loading order
-  // (nearest the door and topmost first). A box blocked under C6 names the
-  // later-stop boxes to move out of the way first.
-  const unloading = [];
-  for (const st of stops) {
+  // Unloading, grouped by stop (stop 1 first). Within a stop, the reverse of
+  // the loading order (nearest the door and topmost first). The later-stop
+  // boxes that block any of the stop's boxes under C6 are listed once for the
+  // stop: move them first, then unload the stop's boxes.
+  const unloadStops = stops.map((st) => {
     const mine = steps.filter((s) => s.stop === st).slice().reverse();
-    for (const s of mine) {
-      unloading.push({
-        n: unloading.length + 1, stop: st, id: s.id, label: s.label, loadStep: s.step, blockers: s.blockers,
-        text: s.blockers.length
-          ? `First move ${andList(s.blockers.map((b) => `${b.label} (stop ${b.stop})`))}, then unload ${s.label}.`
-          : `Unload ${s.label}.`,
-      });
-    }
-  }
+    const seen = new Map();
+    for (const s of mine) for (const b of s.blockers) if (!seen.has(String(b.id))) seen.set(String(b.id), b);
+    const blockers = Array.from(seen.values()).sort((a, b) => a.stop - b.stop || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+    return {
+      stop: st,
+      boxes: mine.map((s) => ({ id: s.id, label: s.label, loadStep: s.step, blocked: s.blockers.length > 0 })),
+      blockers,
+      blockedCount: mine.filter((s) => s.blockers.length > 0).length,
+    };
+  });
+  // Boxes that need other boxes moved before they can be unloaded (C6).
+  const rehandling = steps.filter((s) => s.blockers.length > 0).length;
 
   const notLoaded = pv ? pv.unplaced.map((u) => ({
     id: u.id, label: boxLabel(u.id), stop: Number(u.stop), mass: Number(u.mass), fragile: !!u.fragile,
     size: u.l != null ? `${fmtNum(u.l)} × ${fmtNum(u.w)} × ${fmtNum(u.h)}` : null,
   })) : [];
 
-  return { steps, unloading, notLoaded, stops, check, nBands: plan.nBands, pv };
+  return { steps, unloadStops, rehandling, notLoaded, stops, check, nBands: plan.nBands, pv };
+}
+
+// "Box 031, 044, 052" — the first with "Box", the rest by number.
+export function boxList(ids) {
+  const nums = ids.map((id) => (/^\d+$/.test(String(id)) ? String(id).padStart(3, "0") : String(id)));
+  return nums.length ? `Box ${nums.join(", ")}` : "";
 }
 
 // Height layers for the top views: boxes grouped by the height of their base.

@@ -602,3 +602,12 @@ input:checked + .slider:before { transform: translateX(16px); }
 .data-table.compact th, .data-table.compact td { padding: 5px 8px; vertical-align: top; }
 .data-table.compact .sub { display: block; font-size: 10.5px; color: var(--text-dim); font-family: inherit; }
 @media print { .data-table.compact { font-size: 9.5px !important; } .data-table.compact .sub { color: #555 !important; } }
+.guide-load-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.guide-unload-stop { padding: 6px 0; border-top: 1px dashed var(--border); }
+@media (max-width: 900px) { .guide-load-cols { grid-template-columns: 1fr; } }
+@media print {
+  .guide-load-cols { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+  .data-table.guide-load td, .data-table.guide-load th { padding: 1.5px 5px !important; }
+  .data-table.guide-load .sub { display: inline !important; margin-left: 4px; }
+  .guide-unload-stop { font-size: 9.5px !important; break-inside: avoid; }
+}
