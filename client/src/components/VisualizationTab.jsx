@@ -7,28 +7,9 @@ import {
   physics, orientationText, fmtNum,
 } from "../viewer/boxInfo";
 
-// Tiny inline SVG sparkline of best-so-far SU (and CSR) while a run streams.
-function Sparkline({ data, maxIter }) {
-  const W = 520, H = 120, P = 6;
-  const pts = (data || []).filter((d) => d.su !== undefined && d.su !== null);
-  if (pts.length < 2) return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--text-dim)" }}>Waiting for the first iterations…</div>;
-  const n = Math.max(maxIter || 0, pts[pts.length - 1].iter || pts.length);
-  const x = (it) => P + ((it - 1) / Math.max(n - 1, 1)) * (W - 2 * P);
-  const y = (v) => H - P - Math.max(0, Math.min(1, v)) * (H - 2 * P);
-  const su = pts.map((d) => `${x(d.iter).toFixed(1)},${y(d.su).toFixed(1)}`).join(" ");
-  const csr = pts.filter((d) => d.csr !== undefined && d.csr !== null).map((d) => `${x(d.iter).toFixed(1)},${y(d.csr / 100).toFixed(1)}`).join(" ");
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} aria-label="live convergence">
-      {[0.25, 0.5, 0.75].map((g) => <line key={g} x1={P} x2={W - P} y1={y(g)} y2={y(g)} stroke="var(--border)" strokeDasharray="3 4" />)}
-      {csr && <polyline points={csr} fill="none" stroke="var(--green)" strokeWidth="1.5" opacity="0.8" />}
-      <polyline points={su} fill="none" stroke="var(--primary)" strokeWidth="2" />
-    </svg>
-  );
-}
-
 // Shown in the viewport while a thesis strategy runs: they stream metrics,
 // not partial packings, so there is nothing to draw until instance_complete.
-function LiveProgress({ stats, chartData }) {
+function LiveProgress({ stats }) {
   const it = stats?.iteration ?? 0, n = stats?.maxIter ?? 0;
   const pct = n ? Math.min(100, (it / n) * 100) : 0;
   const fmt = (v, d = 1) => (v === undefined || v === null ? "—" : Number(v).toFixed(d));
@@ -52,13 +33,6 @@ function LiveProgress({ stats, chartData }) {
             <div className="stat-chip-value" style={{ fontSize: "24px", color: "var(--primary)" }}>{v}</div>
           </div>
         ))}
-      </div>
-      <div className="card" style={{ padding: "14px 16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)", marginBottom: "6px" }}>
-          <span>Live convergence</span>
-          <span><span style={{ color: "var(--primary)" }}>■</span> SU &nbsp;<span style={{ color: "var(--green)" }}>■</span> CSR</span>
-        </div>
-        <Sparkline data={chartData} maxIter={n} />
       </div>
       <p style={{ fontSize: "12px", color: "var(--text-dim)", margin: 0 }}>The 3-D packing appears here when the run completes; thesis strategies stream metrics, not partial layouts.</p>
     </div>
@@ -166,8 +140,8 @@ export default function VisualizationTab({
   binsUsed,
   running,
   stats,
-  chartData,
   studies,
+  request = null,   // { studyId, runIndex, method } from a Results solution card
 }) {
   const [viewportOrientation, setViewportOrientation] = useState("3D");
   const [viewportTrigger, setViewportTrigger] = useState(0);
@@ -186,6 +160,20 @@ export default function VisualizationTab({
   const [studyView, setStudyView] = useState(null);
   const [studyError, setStudyError] = useState(null);
   const [showUnplaced, setShowUnplaced] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
+
+  // "View Arrangement" on a Results card: that method's representative run,
+  // with the boxes that break a rule highlighted.
+  useEffect(() => {
+    if (!request) return undefined;
+    let alive = true;
+    setSource("study"); setStudyError(null); setStudyView(null); setRequestBusy(true);
+    studiesApi.runView(request.studyId, request.runIndex)
+      .then((v) => { if (!alive) return; setStudyView({ ...v, study_label: v.study_name || "Comparison" }); setHighlight(true); })
+      .catch((e) => alive && setStudyError(`This run could not be shown: ${e.message}`))
+      .finally(() => alive && setRequestBusy(false));
+    return () => { alive = false; };
+  }, [request]);
 
   const triggerViewReset = useCallback((dir) => {
     setViewportOrientation(dir);
@@ -307,22 +295,7 @@ export default function VisualizationTab({
       {/* Sidebar */}
       <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: "20px", minWidth: 0 }}>
 
-        {/* Which run */}
-        <div className="card">
-          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● WHICH RUN</h4>
-          <div className="tabs-inline grow" style={{ marginBottom: 12 }}>
-            <button type="button" className={source === "run" ? "active" : ""} onClick={() => setSource("run")}>This run</button>
-            <button type="button" className={source === "study" ? "active" : ""} onClick={() => setSource("study")}>A study run</button>
-          </div>
-          {source === "run" ? (
-            <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-              {finalResult ? "The run you just made, or the saved run you opened from Run history." : "No run yet — start one from Start analysis, or open one from Run history."}
-            </div>
-          ) : (
-            <StudyRunPicker studies={studies} onLoaded={(v) => { setStudyError(null); setStudyView(v); }} onError={(m) => { setStudyView(null); setStudyError(m); }} />
-          )}
-          {customLoadOf(result) && <div style={{ marginTop: 12 }}><CustomLoadBanner info={customLoadOf(result)} /></div>}
-        </div>
+        {customLoadOf(result) && <CustomLoadBanner info={customLoadOf(result)} />}
 
         {/* View controls */}
         <div className="card">
@@ -348,36 +321,6 @@ export default function VisualizationTab({
               <div className="field-hint" style={{ marginTop: 6 }}>
                 Heavy = mass at or above the {HEAVY_PERCENTILE}th percentile of the {heavy.scope}
                 {heavy.threshold !== null ? ` (${fmtNum(heavy.threshold, 2)} kg)` : ""}. Fragile boxes always carry an amber outline, so a box can be both.
-              </div>
-            </div>
-
-            <div>
-              <label style={CAPTION}>Show or hide</label>
-              {[["Standard boxes", filterStandard, setFilterStandard], ["Fragile boxes", filterFragile, setFilterFragile], ["Heavy boxes", filterHeavy, setFilterHeavy]].map(([k, v, set]) => (
-                <div className="switch-container" key={k}>
-                  <span className="switch-label">{k}</span>
-                  <label className="switch"><input type="checkbox" checked={v} onChange={(e) => set(e.target.checked)} /><span className="slider" /></label>
-                </div>
-              ))}
-              <div className="field-hint">Standard = neither fragile nor heavy.</div>
-            </div>
-
-            <div>
-              <label style={CAPTION}>Stop</label>
-              <select className="form-input" style={{ width: "100%" }} value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)}>
-                <option value="All">All stops</option>
-                {uniqueStops.map((stop) => <option key={stop} value={stop}>Stop {stop}</option>)}
-              </select>
-            </div>
-
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
-              <div className="switch-container">
-                <span className="switch-label" style={{ fontWeight: "700" }}>Box names</span>
-                <label className="switch"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /><span className="slider" /></label>
-              </div>
-              <div className="switch-container">
-                <span className="switch-label" style={{ fontWeight: "700" }} title="Rear-door frame, cab-end wall and the door-to-cab arrow">Show orientation guides</span>
-                <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
               </div>
             </div>
 
@@ -472,6 +415,57 @@ export default function VisualizationTab({
             </div>
           )}
         </div>
+        {/* Advanced (collapsed): which run, filters, names, guides */}
+        <details className="card collapsible">
+          <summary>Advanced</summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: "18px", marginTop: 12 }}>
+            <div>
+              <label style={CAPTION}>Show or hide</label>
+              {[["Standard boxes", filterStandard, setFilterStandard], ["Fragile boxes", filterFragile, setFilterFragile], ["Heavy boxes", filterHeavy, setFilterHeavy]].map(([k, v, set]) => (
+                <div className="switch-container" key={k}>
+                  <span className="switch-label">{k}</span>
+                  <label className="switch"><input type="checkbox" checked={v} onChange={(e) => set(e.target.checked)} /><span className="slider" /></label>
+                </div>
+              ))}
+              <div className="field-hint">Standard = neither fragile nor heavy.</div>
+            </div>
+
+            <div>
+              <label style={CAPTION}>Stop</label>
+              <select className="form-input" style={{ width: "100%" }} value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)}>
+                <option value="All">All stops</option>
+                {uniqueStops.map((stop) => <option key={stop} value={stop}>Stop {stop}</option>)}
+              </select>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
+              <div className="switch-container">
+                <span className="switch-label" style={{ fontWeight: "700" }}>Box names</span>
+                <label className="switch"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /><span className="slider" /></label>
+              </div>
+              <div className="switch-container">
+                <span className="switch-label" style={{ fontWeight: "700" }} title="Rear-door frame, cab-end wall and the door-to-cab arrow">Show orientation guides</span>
+                <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
+              </div>
+            </div>
+
+            <div>
+
+          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● WHICH RUN</h4>
+          <div className="tabs-inline grow" style={{ marginBottom: 12 }}>
+            <button type="button" className={source === "run" ? "active" : ""} onClick={() => setSource("run")}>This run</button>
+            <button type="button" className={source === "study" ? "active" : ""} onClick={() => setSource("study")}>A study run</button>
+          </div>
+          {source === "run" ? (
+            <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+              {finalResult ? "The run you just made, or the saved run you opened from Run history." : "No run yet — start one from Start analysis, or open one from Run history."}
+            </div>
+          ) : (
+            <StudyRunPicker studies={studies} onLoaded={(v) => { setStudyError(null); setStudyView(v); }} onError={(m) => { setStudyView(null); setStudyError(m); }} />
+          )}
+                    </div>
+          </div>
+        </details>
       </div>
 
       {/* Viewport */}
@@ -481,14 +475,16 @@ export default function VisualizationTab({
             <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Your packed container</h3>
             <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
               {result && result.source === "study"
-                ? `${result.study_label || "Study"} · ${result.strategy} · instance ${result.instance} · seed ${result.seed} — container fill ${fmtNum(result.verified.su_pct, 2)}%, rules ${fmtNum(result.verified.csr_pct, 2)}% (both match the stored study)`
+                ? `${result.study_label || "Study"} · ${result.strategy} · ${result.dataset === "custom" ? "your custom load" : `instance ${result.instance}`} · repeat code ${result.seed} — container fill ${fmtNum(result.verified.su_pct, 2)}%, rules ${fmtNum(result.verified.csr_pct, 2)}% (both match the stored study)`
                 : "Drag to rotate, scroll to zoom. Click a box for its details."}
             </span>
           </div>
           {result && <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Showing {filteredPlacements.length} of {nPlaced} loaded boxes</span>}
         </div>
 
-        {source === "study" && studyError ? (
+        {requestBusy ? (
+          <div style={{ height: "450px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 13 }}>Checking and loading the arrangement…</div>
+        ) : source === "study" && studyError ? (
           <div className="alert-danger">{studyError}</div>
         ) : result && multiBin && pv ? (
           <div className="alert-danger">The viewer shows one container; this run uses more than one.</div>
@@ -515,7 +511,7 @@ export default function VisualizationTab({
             onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
           />
         ) : running && source === "run" ? (
-          <LiveProgress stats={stats} chartData={chartData} />
+          <LiveProgress stats={stats} />
         ) : (
           <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>

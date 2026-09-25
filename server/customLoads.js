@@ -12,6 +12,8 @@
 //   GET  /api/instances/custom-load/:id       one load (summary + the boxes as converted)
 //   DELETE /api/instances/custom-load/:id
 //   GET  /api/instances/custom-load-template/:mode   simple | advanced CSV template
+//   GET  /api/instances/custom-load-schema     accepted columns and rules (for the upload help)
+//   GET  /api/instances/wtpack-totals/:id      boxes / volume / mass / stops / fragile of a test case
 //   GET  /api/instances/samples               ready-made OR-Library samples (computed box counts)
 const express = require("express");
 const fs = require("fs");
@@ -24,6 +26,7 @@ const { authRequired } = require("./auth");
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
 const CONVERTER = path.join(ROOT, "preprocessing", "custom_load.py");
+const LOAD_INFO = path.join(ROOT, "preprocessing", "load_info.py");
 const LOADS_DIR = process.env.STACKR_CUSTOM_LOADS_DIR
   ? path.resolve(process.env.STACKR_CUSTOM_LOADS_DIR)
   : path.join(ROOT, "experiments", "custom_loads");
@@ -63,7 +66,7 @@ router.post("/custom-load", authRequired, express.json({ limit: "5mb" }), (req, 
     let doc = null;
     try { doc = JSON.parse(out.trim().split(/\r?\n/).pop()); } catch {}
     if (!doc) return res.status(500).json({ errors: [{ row: null, column: null, message: "converter failed: " + (err.trim().split(/\r?\n/).slice(-2).join(" | ") || `exit ${code}`) }] });
-    if (!doc.ok) return res.status(422).json({ errors: doc.errors });
+    if (!doc.ok) return res.status(422).json({ errors: doc.errors, notes: doc.notes || [] });
     const s = doc.summary;
     db.prepare("INSERT INTO custom_loads (id, user_id, name, source, n_boxes, file, summary)")
       .run(id, req.user.id, s.name, s.source, s.totals.boxes, file, JSON.stringify(s));
@@ -111,6 +114,28 @@ router.get("/custom-load-template/:mode", (req, res) => {
 
 // Computed once per server process (700 instances, a few seconds).
 let samplesCache = null;
+// The columns and rules the converter accepts (load_info.py reads them from
+// custom_load.py), so the upload screen's format explanation cannot drift.
+router.get("/custom-load-schema", (req, res) => {
+  execFile("python", [LOAD_INFO, "schema"], { cwd: ROOT, windowsHide: true, env: { ...process.env, PYTHONIOENCODING: "utf-8" } }, (e, stdout) => {
+    if (e) return res.status(500).json({ error: "could not read the converter's schema: " + e.message });
+    try { res.json(JSON.parse(stdout)); } catch { res.status(500).json({ error: "the converter's schema is not JSON" }); }
+  });
+});
+
+// Boxes, volume, mass, stops and fragile count of a wtpack test case, loaded
+// the way a run loads it (for the Review step). Cached: the data never changes.
+const totalsCache = new Map();
+router.get("/wtpack-totals/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 0) return res.status(400).json({ error: "bad instance id" });
+  if (totalsCache.has(id)) return res.json(totalsCache.get(id));
+  execFile("python", [LOAD_INFO, "totals", String(id)], { cwd: ROOT, windowsHide: true }, (e, stdout) => {
+    if (e) return res.status(500).json({ error: "could not read that test case: " + e.message });
+    try { const t = JSON.parse(stdout); totalsCache.set(id, t); res.json(t); } catch { res.status(500).json({ error: "bad totals output" }); }
+  });
+});
+
 router.get("/samples", (req, res) => {
   if (samplesCache) return res.json(samplesCache);
   execFile("python", [CONVERTER, "samples"], { cwd: ROOT, windowsHide: true, maxBuffer: 8 << 20 }, (e, stdout) => {

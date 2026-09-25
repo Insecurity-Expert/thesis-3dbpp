@@ -1,6 +1,5 @@
 import React from "react";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
-import ConvergenceChart from "./ConvergenceChart";
 
 function StatChip({ label, value, color, subtitle, title }) {
   return (
@@ -26,7 +25,6 @@ export default function ResultsTab({
   wolfSize,
   stats,
   axisUtil,
-  chartData,
   maxIter,
   handleExportResultsCSV,
   handleExportReport
@@ -215,25 +213,12 @@ export default function ResultsTab({
                         ? finalResult.composite_score.toFixed(3)
                         : "n/a (Pareto archive)"}
                     </span>
-                    {finalResult.composite_score != null && Number.isFinite(finalResult.composite_score) && (
-                      <span className="badge badge-success">Good</span>
-                    )}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>NAB (space fill)</span>
                   <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{(Number(finalResult.metrics?.M1_space_utilization_pct ?? finalResult.volume_util_pct ?? 0) / 100).toFixed(3)}</span>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Optimality gap</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{Number(finalResult.gap_pct ?? 0).toFixed(1)}%</span>
-                    <span className={`badge badge-${finalResult.gap_pct === 0 ? 'success' : 'fragile'}`}>
-                      {finalResult.gap_pct === 0 ? 'Optimal' : 'Moderate'}
-                    </span>
-                  </div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -261,7 +246,7 @@ export default function ResultsTab({
               </div>
             </div>
 
-            {/* Right Column (Axis utilization & Convergence Curve) */}
+            {/* Right Column (Axis utilization & exports) */}
             <div style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "20px" }}>
 
               {/* Axis utilization Card */}
@@ -300,22 +285,13 @@ export default function ResultsTab({
                 </div>
               </div>
 
-              {/* Convergence Card */}
-              <div className="card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h4 className="section-tag" style={{ marginBottom: 0 }}>
-                    CONVERGENCE CURVE
-                  </h4>
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <button onClick={handleExportResultsCSV} className="btn btn-secondary btn-sm">
-                      Export CSV
-                    </button>
-                    <button onClick={handleExportReport} className="btn btn-primary btn-sm">
-                      Export report
-                    </button>
-                  </div>
+              {/* Exports */}
+              <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <h4 className="section-tag" style={{ marginBottom: 0 }}>Export this run</h4>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button onClick={handleExportResultsCSV} className="btn btn-secondary btn-sm">Export CSV</button>
+                  <button onClick={handleExportReport} className="btn btn-primary btn-sm">Export report</button>
                 </div>
-                <ConvergenceChart data={chartData} lowerBound={finalResult.lower_bound} />
               </div>
 
             </div>

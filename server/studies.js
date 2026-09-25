@@ -12,8 +12,10 @@
 //   POST   /api/studies/import        { file }   (basename inside the studies dir)
 //   GET    /api/studies/:id           the study file (stats attached; arrangements stripped)
 //   GET    /api/studies/:id/progress  { status, done, total, per_configuration, elapsed_s, ... }
+//   GET    /api/studies/:id/recommendation   per-load composite, tie check, representative runs
 //   GET    /api/studies/:id/runs/:idx/view  one run's arrangement for the 3-D viewer, rebuilt by
 //          optimizer/arrangement_view.py (per-box C3-C6); refused if SU/CSR do not reproduce
+//   POST   /api/studies/:id/stop          stop a running study (parent + workers); not kept
 //   DELETE /api/studies/:id
 const express = require("express");
 const fs = require("fs");
@@ -27,7 +29,11 @@ const { ownedLoad } = require("./customLoads");
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
-const VIEW_PY = path.join(ROOT, "optimizer", "arrangement_view.py");
+const { calibratedArgs } = require("./runSettings");
+// One run's arrangement for the viewer and the Loading Guide: arrangement_view.py's
+// verified payload plus the sizes of the boxes not loaded (experiments/run_view.py).
+const VIEW_PY = path.join(ROOT, "experiments", "run_view.py");
+const RECOMMEND_PY = path.join(ROOT, "experiments", "recommend.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
 if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
@@ -242,7 +248,7 @@ router.post("/", authRequired, (req, res) => {
   const log = path.join(STUDIES_DIR, base + ".log");
   const name = b.name || (customLoad ? `${def.name || "Study"} — custom load` : def.name) || "Study";
 
-  const argv = [STUDY_PY, "--preset", preset, "--mode", mode, "--seeds", seeds, "--out", out, "--name", name];
+  const argv = [STUDY_PY, "--preset", preset, "--mode", mode, "--seeds", seeds, "--out", out, "--name", name, ...calibratedArgs()];
   if (size) argv.push("--size", size);
   if (customLoad) argv.push("--custom-load", customLoad);
   else if (sample && !Number.isInteger(instanceId)) argv.push("--sample", sample);
@@ -288,6 +294,23 @@ router.get("/:id/progress", authRequired, (req, res) => {
   res.json({ id: row.id, status: row.status, ...syncStatus(row) });
 });
 
+// GET /api/studies/:id/recommendation — per load: Chapter 3's composite over
+// that load's runs (experiments/recommend.py -> stats.composite_scores), the
+// tie check and each method's representative run. Cached per file version.
+const recCache = new Map();
+router.get("/:id/recommendation", authRequired, (req, res) => {
+  const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
+  if (!row) return res.status(404).json({ error: "Study not found" });
+  if (!row.file || !fs.existsSync(row.file)) return res.status(404).json({ error: "the study file is missing on disk" });
+  const key = row.file + "|" + fs.statSync(row.file).mtimeMs;
+  if (recCache.has(key)) return res.json(recCache.get(key));
+  require("child_process").execFile("python", [RECOMMEND_PY, row.file], { cwd: ROOT, windowsHide: true, maxBuffer: 16 << 20 }, (e, stdout, stderr) => {
+    if (e) return res.status(500).json({ error: "could not compute the recommendation: " + (String(stderr).trim().split(/\r?\n/).pop() || e.message) });
+    try { const doc = JSON.parse(stdout); recCache.set(key, doc); res.json(doc); }
+    catch { res.status(500).json({ error: "the recommendation output is not JSON" }); }
+  });
+});
+
 router.get("/:id/runs/:idx/view", authRequired, (req, res) => {
   const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
   if (!row) return res.status(404).json({ error: "Study not found" });
@@ -309,19 +332,64 @@ router.get("/:id/runs/:idx/view", authRequired, (req, res) => {
   });
 });
 
-router.delete("/:id", authRequired, (req, res) => {
-  const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
-  if (!row) return res.status(404).json({ error: "Study not found" });
-  if (row.status === "running" && pidAlive(row.pid)) {
-    try { process.kill(row.pid); } catch {}
+// Every live process of a study: the detached study.py parent leads its own
+// process group, so its pool workers share the parent's pid as their group id.
+function studyProcesses(pid) {
+  if (!pid) return [];
+  if (process.platform === "win32") return pidAlive(pid) ? [pid] : [];
+  try {
+    const out = require("child_process").execFileSync("ps", ["-o", "pid=,pgid=", "-A"], { encoding: "utf8" });
+    return out.split("\n").map((l) => l.trim().split(/\s+/).map(Number))
+      .filter(([p, g]) => g === pid && p).map(([p]) => p);
+  } catch { return pidAlive(pid) ? [pid] : []; }
+}
+
+// End the whole tree: the parent and every worker.
+function killStudyTree(pid, signal = "SIGTERM") {
+  if (!pid) return;
+  if (process.platform === "win32") {
+    try { require("child_process").execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" }); } catch {}
+    return;
   }
-  db.prepare("DELETE FROM studies WHERE id = ? AND user_id = ?").run(row.id, req.user.id);
+  try { process.kill(-pid, signal); } catch {}
+  try { process.kill(pid, signal); } catch {}
+}
+
+function forgetStudy(row, userId) {
+  db.prepare("DELETE FROM studies WHERE id = ? AND user_id = ?").run(row.id, userId);
   // A study launched from the UI owns its files; an imported file stays.
   if (!row.imported) {
-    for (const f of [row.file, row.progress_file, row.file && row.file.replace(/\.json$/, ".log")]) {
+    for (const f of [row.file, row.progress_file, row.file && row.file.replace(/\.json$/, ".log"), row.file && row.file.replace(/\.json$/, ".tmp")]) {
       try { if (f && fs.existsSync(f)) fs.unlinkSync(f); } catch {}
     }
   }
+}
+
+// POST /api/studies/:id/stop — stop a running comparison. Ends the parent and
+// every worker process, waits until none is left, and does not keep the
+// study (a stopped comparison is not saved). -> { stopped, remaining: [] }
+router.post("/:id/stop", authRequired, async (req, res) => {
+  const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
+  if (!row) return res.status(404).json({ error: "Study not found" });
+  if (row.imported) return res.status(409).json({ error: "An imported study is not running" });
+  killStudyTree(row.pid, "SIGTERM");
+  let left = studyProcesses(row.pid);
+  for (let i = 0; i < 40 && left.length; i++) {
+    if (i === 10) { killStudyTree(row.pid, "SIGKILL"); for (const p of left) { try { process.kill(p, "SIGKILL"); } catch {} } }
+    await new Promise((r) => setTimeout(r, 150));
+    left = studyProcesses(row.pid);
+  }
+  if (left.length) return res.status(500).json({ error: `Could not stop every process (${left.join(", ")} still running)`, remaining: left });
+  forgetStudy(row, req.user.id);
+  console.log("STUDY stopped (pid " + row.pid + "); no process left");
+  res.json({ stopped: true, remaining: [] });
+});
+
+router.delete("/:id", authRequired, (req, res) => {
+  const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
+  if (!row) return res.status(404).json({ error: "Study not found" });
+  if (row.status === "running" && pidAlive(row.pid)) killStudyTree(row.pid, "SIGKILL");
+  forgetStudy(row, req.user.id);
   res.json({ ok: true });
 });
 

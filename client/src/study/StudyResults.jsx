@@ -244,9 +244,11 @@ export default function StudyResults({ study, stats, progress, row, onOpenCompar
         </Section>
       )}
       <ExtraNumbers stats={stats} study={study} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn btn-primary" onClick={onOpenCompare}>Are the differences real? Open Compare →</button>
-      </div>
+      {onOpenCompare && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn btn-primary" onClick={onOpenCompare}>Are the differences real? Open Compare →</button>
+        </div>
+      )}
     </div>
   );
 }

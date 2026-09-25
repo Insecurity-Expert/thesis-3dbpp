@@ -83,6 +83,7 @@ STRENGTH = ['l_flag', 'w_flag', 'h_flag', 'lbs_l', 'lbs_w', 'lbs_h']
 _ALIASES = {
     'box_name': 'name', 'name': 'name', 'box': 'name',
     'stop': 'stop', 'delivery_stop': 'stop',
+    'stop_number': 'stop', 'stop_sequence': 'stop', 'delivery_sequence': 'stop',
     'length': 'length', 'l': 'length',
     'width': 'width', 'w': 'width',
     'height': 'height', 'h': 'height',
@@ -99,9 +100,17 @@ _FALSE = {'', 'no', 'n', 'false', '0'}
 
 
 class CustomLoadError(ValueError):
-    def __init__(self, errors):
+    def __init__(self, errors, notes=None):
         super().__init__('; '.join(e['message'] for e in errors))
         self.errors = errors
+        self.notes = notes or []
+
+
+def ignored_note(header: str) -> str:
+    """The note shown for a column STACKR does not read."""
+    if re.sub(r'[^a-z]', '', header.lower()) == 'destination':
+        return 'Destination ignored — STACKR uses stop numbers.'
+    return f'"{header}" ignored — STACKR does not use this column.'
 
 
 def normalize_header(text: str) -> Optional[str]:
@@ -112,7 +121,8 @@ def normalize_header(text: str) -> Optional[str]:
 
 
 def parse_csv(text: str):
-    """CSV text -> (rows as {key: str}, header errors, canonical keys present)."""
+    """CSV text -> (rows as {key: str}, header errors, canonical keys present).
+    A column STACKR does not read is skipped (see ignored_columns), not an error."""
     reader = csv.reader(io.StringIO(text))
     lines = [r for r in reader]
     while lines and not any(c.strip() for c in lines[0]):
@@ -123,8 +133,6 @@ def parse_csv(text: str):
     keys, errors = [], []
     for i, h in enumerate(header):
         k = normalize_header(h)
-        if k is None and h.strip():
-            errors.append(_err(None, h.strip(), f'Unknown column "{h.strip()}".'))
         if k is not None and k in keys:
             errors.append(_err(None, COLUMN_TITLES[k], f'Column "{COLUMN_TITLES[k]}" appears twice.'))
         keys.append(k)
@@ -135,6 +143,14 @@ def parse_csv(text: str):
         rows.append({k: (raw[i].strip() if i < len(raw) else '') for i, k in enumerate(keys) if k})
         line_nos.append(n)
     return rows, errors, [k for k in keys if k]
+
+
+def ignored_columns(text: str) -> List[str]:
+    """Header cells of a CSV that map to no STACKR column (read, then skipped)."""
+    for raw in csv.reader(io.StringIO(text)):
+        if any(c.strip() for c in raw):
+            return [h.strip().lstrip('\ufeff') for h in raw if h.strip() and normalize_header(h) is None]
+    return []
 
 
 def _err(row, column, message, line=None):
@@ -174,11 +190,13 @@ def convert(request: Dict[str, Any]) -> Dict[str, Any]:
     if source == 'csv':
         rows, errors, present = parse_csv(request.get('csv') or '')
         line_nos = _csv_line_numbers(request.get('csv') or '')
+        notes = [ignored_note(h) for h in ignored_columns(request.get('csv') or '')]
     elif source == 'typed':
         rows = [{k: ('' if v is None else str(v).strip()) for k, v in r.items()}
                 for r in (request.get('rows') or [])]
         present = sorted({k for r in rows for k in r})
         line_nos = [None] * len(rows)
+        notes = []
     else:
         raise CustomLoadError([_err(None, None, 'source must be "typed" or "csv".')])
 
@@ -273,7 +291,9 @@ def convert(request: Dict[str, Any]) -> Dict[str, Any]:
                 v = _num(raw)
                 if v is None or v != int(v) or not (1 <= v <= STOP_COUNT):
                     errors.append(_err(i, 'Stop', f'{_where(i, "Stop", line)}: "{raw}" is not a stop '
-                                                  f'number from 1 to {STOP_COUNT}.', line)); bad = True
+                                                  f'number from 1 to {STOP_COUNT}.'
+                                                  + (f' STACKR supports up to {STOP_COUNT} delivery stops.'
+                                                     if v is not None and v > STOP_COUNT else ''), line)); bad = True
                 else:
                     p['stop'] = int(v)
 
@@ -345,7 +365,7 @@ def convert(request: Dict[str, Any]) -> Dict[str, Any]:
                                          f'automatically, which needs at least {STOP_COUNT} boxes '
                                          f'(this load has {total}). Give each row a stop instead.'))
     if errors:
-        raise CustomLoadError(errors)
+        raise CustomLoadError(errors, notes)
 
     # ── loader-format dict ───────────────────────────────────────────────────
     raw = to_loader_format(parsed, cont)
@@ -367,7 +387,7 @@ def convert(request: Dict[str, Any]) -> Dict[str, Any]:
         except ValueError as e:     # the pipeline's balance check (+/-10 pp of 1/S)
             raise CustomLoadError([_err(None, 'Stop', f'With blank stops the {STOP_COUNT} stops are drawn '
                                                       f'balanced, and {len(boxes)} boxes cannot be split '
-                                                      f'evenly enough ({e}). Give each row a stop instead.')])
+                                                      f'evenly enough ({e}). Give each row a stop instead.')], notes)
         stop_report = {'mode': 'assigned', 'num_stops': STOP_COUNT, 'seed': STOP_SEED,
                        'counts': {int(s): c for s, c in rep['counts'].items()}}
 
@@ -417,6 +437,7 @@ def convert(request: Dict[str, Any]) -> Dict[str, Any]:
                    'container_volume_m3': cont['length'] * cont['width'] * cont['height'] / 1e6},
         'augmentation': {'source': 'custom', 'stops': stop_report, 'fragility': frag_report},
         'warnings': warnings,
+        'notes': notes,
     }
 
 
@@ -617,7 +638,7 @@ def main(argv=None):
     try:
         doc = convert(request)
     except CustomLoadError as err:
-        print(json.dumps({'ok': False, 'errors': err.errors})); return 2
+        print(json.dumps({'ok': False, 'errors': err.errors, 'notes': err.notes})); return 2
     except Exception as err:        # never a traceback in place of a message
         print(json.dumps({'ok': False, 'errors': [_err(None, None, f'Could not convert this load: {err}')]}))
         return 2
@@ -632,7 +653,7 @@ def summary(doc):
     return {'label': doc['label'], 'name': doc['name'], 'source': doc['source'], 'mode': doc['mode'],
             'totals': doc['totals'], 'container': doc['container'], 'max_weight_kg': doc['max_weight_kg'],
             'stops': doc['augmentation']['stops'], 'fragility': doc['augmentation']['fragility'],
-            'warnings': doc['warnings']}
+            'warnings': doc['warnings'], 'notes': doc.get('notes', [])}
 
 
 if __name__ == '__main__':

@@ -10,21 +10,33 @@ import RunHistoryTab from "./components/RunHistoryTab";
 import DashboardTab from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
-import ThingsToKnow from "./components/ThingsToKnow";
+import HowToModal from "./components/HowToModal";
+import ResultsPanel from "./components/ResultsPanel";
+import ProcessingPanel from "./components/ProcessingPanel";
+import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
-import StudyResults from "./study/StudyResults";
-import CompareTab, { StudySelect } from "./study/CompareTab";
+import CompareTab from "./study/CompareTab";
 
 
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
-  const { user, logout } = useAuth();
+  const { user, logout, setPrefs } = useAuth();
+  const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
-  const [showThings, setShowThings] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
+  // "How to use" opens by itself once: on a new account's first login (the
+  // account records that it has), unless "Don't show this again" is ticked.
+  // After that it opens only from the top bar and the Home banner.
+  useEffect(() => {
+    if (!user || user.howto_hidden || user.howto_auto_shown) return;
+    setShowHowTo(true);
+    setPrefs({ howto_auto_shown: true }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user && user.id]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("sidebar", sidebarCollapsed ? "collapsed" : "open"); } catch {} }, [sidebarCollapsed]);
 
@@ -34,18 +46,19 @@ export default function Shell() {
 
   // Dataset selection & Loader states
   const [instances, setInstances] = useState([]);
-  const [selected, setSelected] = useState("");
-  const [loadingList, setLoadingList] = useState(true);
+  const [selected] = useState("");   // legacy BR path (not offered in the UI)
+  const [, setLoadingList] = useState(true);
 
   // wtpack (thesis) dataset: sampled instances addressed by integer id 0..699
-  const [dataset, setDataset] = useState("wtpack");          // "wtpack" | "br"
+  const [dataset] = useState("wtpack");          // "wtpack" | "br"
   const [wtpackInstances, setWtpackInstances] = useState([]);
   const [wtpackId, setWtpackId] = useState(null);
   const [optimizerReady, setOptimizerReady] = useState({ state: "cold", seconds: null });
 
   // Where the boxes come from: "standard" (thesis wtpack sample), "sample"
   // (ready-made OR-Library instance), "typed" or "csv" (custom loads).
-  const [source, setSource] = useState("standard");
+  const [source, setSource] = useState(null);   // null until the user picks one of the three ways
+  const [wizStep, setWizStep] = useState(1);
   const [samples, setSamples] = useState(null);
   const [sampleId, setSampleId] = useState(null);
   // Custom-load container: length runs door -> cab (loader.py 'L'), then width, height.
@@ -56,10 +69,9 @@ export default function Shell() {
   // The converted load for the current inputs: { id, summary, key }; key = the request it was made from.
   const [customLoad, setCustomLoad] = useState(null);
   const [customErrors, setCustomErrors] = useState([]);
+  const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
-  const [maxLoad, setMaxLoad] = useState(null);   // never sent to the optimizer; not shown
-  const [itemsList, setItemsList] = useState([]);
-  const [instanceItems, setInstanceItems] = useState([]);
+  const [, setInstanceItems] = useState([]);
   const [, setIsCustomized] = useState(false);   // legacy BR preview flag
 
   // Algorithm Settings & Constraints
@@ -85,9 +97,8 @@ export default function Shell() {
 
   // Optimizer parameters that reach main_optimizer.py verbatim (see params echo)
   const [seed, setSeed] = useState(42);
-  const [lam, setLam] = useState(0.20);
-  const [enforceSupport, setEnforceSupport] = useState(true);
-  const [enforceFragility, setEnforceFragility] = useState(true);
+  // λ and the C4/C5 placement switches are not user settings: runs use the
+  // optimizer's own defaults (shown read-only in Test settings).
 
   // WebSocket & Live optimization run states
   const [wsConnected, setWsConnected] = useState(false);
@@ -98,7 +109,7 @@ export default function Shell() {
   const [instanceInfo, setInstanceInfo] = useState(null);
   const [placements, setPlacements] = useState(null);
   const [binsUsed, setBinsUsed] = useState(0);
-  const [chartData, setChartData] = useState([]);
+  const [, setChartData] = useState([]);   // streamed series, saved with the run (not shown)
   const [stats, setStats] = useState(null);
   const [finalResult, setFinalResult] = useState(null);
   const [error, setError] = useState(null);
@@ -115,9 +126,15 @@ export default function Shell() {
   const [selectedStudyId, setSelectedStudyId] = useState(null);
   const [studyDoc, setStudyDoc] = useState(null);        // { row, study, stats } of the selected study
   const [studyProgress, setStudyProgress] = useState(null);
-  const [resultsMode, setResultsMode] = useState("quick"); // "quick" (single run) | "study"
   const [studyBusy, setStudyBusy] = useState(false);
   const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
+  // The comparison on the Processing screen: { studyId, state: running|error|stopped, error, label }
+  const [processing, setProcessing] = useState(null);
+  const [stopping, setStopping] = useState(false);
+  // Requests from Results: open a study run in the 3D viewer / a method's guide.
+  const [vizRequest, setVizRequest] = useState(null);
+  const [guideRequest, setGuideRequest] = useState(null);
+  const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -227,13 +244,20 @@ export default function Shell() {
     setChecking(true);
     const r = await customLoadsApi.convert(customRequest);
     setChecking(false);
-    if (!r.ok) { setCustomErrors(r.errors); setCustomLoad(null); return null; }
+    if (!r.ok) { setCustomErrors(r.errors); setCustomNotes(r.notes || []); setCustomLoad(null); return null; }
     setCustomErrors([]);
+    setCustomNotes(r.summary.notes || []);
     setCustomLoad({ id: r.id, summary: r.summary, key: customKey, source });
     return r.id;
   }, [customRequest, customCurrent, customKey, source]);
   // Errors belong to the inputs they were found in.
-  useEffect(() => { setCustomErrors([]); }, [source, csvFile]);
+  useEffect(() => { setCustomErrors([]); setCustomNotes([]); }, [source, csvFile]);
+  // A chosen CSV file is checked straight away, so an invalid one shows the
+  // Invalid Dataset panel without another click.
+  useEffect(() => {
+    if (source === "csv" && csvFile) ensureCustomLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csvFile]);
 
   // Load selected instance details
   useEffect(() => {
@@ -304,6 +328,37 @@ export default function Shell() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [studyDoc, loadStudy, fetchStudies]);
 
+  // Processing: finished -> Results; failed -> stay, save a failed run to History.
+  useEffect(() => {
+    if (!processing || processing.state !== "running" || !studyProgress || selectedStudyId !== processing.studyId) return;
+    if (studyProgress.status === "done" && studyDoc && studyDoc.row && studyDoc.row.id === processing.studyId && studyDoc.stats) {
+      setProcessing(null); setWizStep(3); setActiveTab("results");
+    } else if (studyProgress.status === "error") {
+      const msg = studyProgress.error || "the comparison process stopped before writing its results";
+      setProcessing((p) => ({ ...p, state: "error", error: msg }));
+      const L = processing.label || {};
+      runsApi.saveRun({
+        strategy: "Run STACKR (all four methods)", strategy_code: null,
+        instance: L.custom ? `Custom load (${L.text})` : L.text || "—", dataset: L.custom ? "custom" : "wtpack",
+        seed: null, n_items: L.n_boxes ?? null, space_util: null, csr: null, placed: null, dissipation: null, runtime_s: null,
+        bins_used: null, placements: null, container: null, result: null, convergence: null, status: "failed", error: msg,
+      }).then(() => fetchRunHistory()).catch(() => {});
+    }
+  }, [processing, studyProgress, studyDoc, selectedStudyId, fetchRunHistory]);
+
+  const handleStopStudy = useCallback(async () => {
+    if (!processing) return;
+    setStopping(true);
+    try {
+      await studiesApi.stop(processing.studyId);
+      setProcessing((p) => ({ ...p, state: "stopped" }));
+      setSelectedStudyId(null);
+      fetchStudies();
+      toast("Cancelled.");
+    } catch (e) { setError(`Could not stop the comparison: ${e.message}`); }
+    setStopping(false);
+  }, [processing, fetchStudies, toast]);
+
   const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom }) => {
     setStudyBusy(true);
     setError(null);
@@ -317,8 +372,10 @@ export default function Shell() {
       const r = await studiesApi.create(payload);
       fetchStudies();
       setSelectedStudyId(r.id);
-      setResultsMode("study");
-      setActiveTab("results");
+      // The Processing screen (wizard) follows it; Results opens when it is done.
+      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current });
+      setWizStep(4);
+      setActiveTab("logistics");
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
@@ -328,7 +385,6 @@ export default function Shell() {
       const r = await studiesApi.importFile(file);
       fetchStudies();
       setSelectedStudyId(r.id);
-      setResultsMode("study");
       setActiveTab("results");
     } catch (e) { setError(`Import failed: ${e.message}`); }
   }, [fetchStudies]);
@@ -343,7 +399,6 @@ export default function Shell() {
 
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
-    setResultsMode("study");
     setActiveTab("results");
   }, []);
 
@@ -529,9 +584,6 @@ export default function Shell() {
       strategy,
       popSize: wolfSize,
       maxIter,
-      lambda: lam,
-      enforceSupport,
-      enforceFragility,
       seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
     };
 
@@ -566,7 +618,7 @@ export default function Shell() {
     wsRef.current.send(JSON.stringify({ action: "run", instancePath: selected, maxTime, strategy }));
     setActiveTab("visualization");
   }, [selected, running, wsConnected, maxTime, strategy, source, sampleId, ensureCustomLoad,
-      dataset, wtpackId, wolfSize, maxIter, lam, enforceSupport, enforceFragility, seed]);
+      dataset, wtpackId, wolfSize, maxIter, seed]);
 
   const handleStopRun = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ action: "stop" }));
@@ -712,16 +764,6 @@ export default function Shell() {
     } catch (e) { setError(`Import failed: ${e.message}`); }
   }, [fetchRunHistory]);
 
-  // Group dataset instances
-  const groupedInstances = useMemo(() => {
-    const g = {};
-    for (const inst of instances) {
-      if (!g[inst.set]) g[inst.set] = [];
-      g[inst.set].push(inst);
-    }
-    return g;
-  }, [instances]);
-
   const selectedInstanceObj = useMemo(() => {
     return instances.find((i) => i.path === selected);
   }, [instances, selected]);
@@ -751,7 +793,7 @@ export default function Shell() {
     source === "typed" ? typedRows.length > 0
     : source === "csv" ? !!csvFile
     : source === "sample" ? sampleId !== null
-    : dataset === "wtpack" && wtpackId !== null
+    : source === "standard" && dataset === "wtpack" && wtpackId !== null
   );
 
   // What the footer, the top chip and the study launcher say about the chosen load.
@@ -764,6 +806,7 @@ export default function Shell() {
                text: source === "csv" ? `CSV${csvFile ? ` (${csvFile.name})` : ""}` : "typed-in boxes",
                n_boxes: sm ? sm.totals.boxes : null, checked: !!customCurrent };
     }
+    if (!source) return { kind: "none", custom: false, instanceId: null, text: "—", label: null, n_boxes: null };
     if (source === "sample") {
       return { kind: "sample", custom: false, instanceId: sampleId,
                text: sampleMeta ? `sample — ${sampleMeta.br_class}, instance ${sampleMeta.instance_id}` : "ready-made sample",
@@ -771,19 +814,41 @@ export default function Shell() {
                n_boxes: sampleMeta ? sampleMeta.n_boxes : null };
     }
     return { kind: "standard", custom: false, instanceId: wtpackId,
-             text: `wtpack #${wtpackId ?? "—"}`, label: standardMeta ? standardMeta.label : null,
+             text: standardMeta ? `standard test case ${standardMeta.label}` : `wtpack #${wtpackId ?? "—"}`, label: standardMeta ? standardMeta.label : null,
              n_boxes: standardMeta ? standardMeta.n_boxes : null };
   }, [source, customShown, customCurrent, csvFile, sampleId, sampleMeta, wtpackId, standardMeta]);
+  selectedLoadRef.current = selectedLoad;
+
+  // Facts about the chosen load for the Review step: a custom load's
+  // converter summary, or the test case loaded the way a run loads it.
+  const [benchTotals, setBenchTotals] = useState(null);
+  useEffect(() => {
+    const id = selectedLoad.custom ? null : selectedLoad.instanceId;
+    if (id === null || id === undefined || wizStep !== 3) return;
+    if (benchTotals && benchTotals.instance_id === id) return;
+    customLoadsApi.wtpackTotals(id).then(setBenchTotals).catch((e) => setError(`Could not read that test case: ${e.message}`));
+  }, [selectedLoad, wizStep, benchTotals]);
+  const loadFacts = useMemo(() => {
+    if (selectedLoad.custom) {
+      const sm = customCurrent && customCurrent.summary;
+      return sm ? { boxes: sm.totals.boxes, volume_m3: sm.totals.volume_m3, mass_kg: sm.totals.mass_kg,
+                    container_volume_m3: sm.totals.container_volume_m3, n_stops: Object.keys(sm.stops.counts).length,
+                    fragile_count: sm.fragility.fragile_count, max_weight_kg: sm.max_weight_kg } : null;
+    }
+    const t = benchTotals && benchTotals.instance_id === selectedLoad.instanceId ? benchTotals : null;
+    return t ? { boxes: t.boxes, volume_m3: t.volume_m3, mass_kg: t.mass_kg, container_volume_m3: t.container_volume_m3,
+                 n_stops: Object.keys(t.stops).length, fragile_count: t.fragile_count, max_weight_kg: null } : null;
+  }, [selectedLoad, customCurrent, benchTotals]);
 
   const NAV = [
-    { id: "home", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
-    { id: "logistics", label: "Start analysis", title: "Logistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
-    { id: "results", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
-    { id: "guide", label: "Loading guide", title: "Loading guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
-    { id: "compare", label: "Compare", title: "Compare", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
-    { id: "visualization", label: "3D viewer", title: "Visualization", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
-    { id: "history", label: "Run history", title: "Run history", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
-    { id: "account", label: "Account", title: "Account", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
+    { id: "home", group: "Get started", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
+    { id: "logistics", group: "Get started", label: "Start analysis", title: "Start analysis", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
+    { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
+    { id: "compare", group: "Advanced tools", label: "Technical details", title: "Technical details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
+    { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
+    { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+    { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
 
@@ -796,14 +861,14 @@ export default function Shell() {
           <div className="brand-mark"><img src={logoImg} alt="STACKR" /></div>
           <div>
             <div className="brand-text">STACKR</div>
-            <div className="brand-sub">3D Bin Packing Optimizer</div>
+            <div className="brand-sub">Box Packing Helper</div>
           </div>
         </div>
         <nav className="sidebar-nav">
-          <div className="nav-section-label">Workflow</div>
-          {NAV.map((n) => (
+          {NAV.map((n, i) => (
+            <React.Fragment key={n.id}>
+            {(i === 0 || NAV[i - 1].group !== n.group) && <div className="nav-section-label">{n.group}</div>}
             <button
-              key={n.id}
               type="button"
               className={`nav-item${activeTab === n.id ? " active" : ""}`}
               onClick={() => setActiveTab(n.id)}
@@ -814,12 +879,13 @@ export default function Shell() {
               {n.id === "results" && replay && <span className="badge badge-warn" style={{ marginLeft: "auto" }}>saved</span>}
               {n.id === "visualization" && running && <span className="badge badge-primary" style={{ marginLeft: "auto" }}>live</span>}
             </button>
+            </React.Fragment>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button type="button" className="collapse-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? "Expand" : "Collapse"}>
+          <button type="button" className="collapse-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? "Show menu" : "Hide menu"}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M15 18l-6-6 6-6"/></svg>
-            <span>Collapse</span>
+            <span>Hide menu</span>
           </button>
         </div>
       </aside>
@@ -839,6 +905,13 @@ export default function Shell() {
               <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />{selectedLoad.custom ? "Custom load" : selectedLoad.text}</span>
             )}
             {running && <span className="chip"><span className="chip-dot warn" />Running · {elapsed}s</span>}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowHowTo(true)} title="Show the quick guide">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+              How to use
+            </button>
+            <button type="button" className="icon-btn" disabled title="Download the app — not available in this version" aria-label="Download the app (not available in this version)" style={{ opacity: 0.45, cursor: "not-allowed" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+            </button>
             <button
               type="button"
               className="icon-btn"
@@ -880,12 +953,12 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab setActiveTab={setActiveTab} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} runHistory={runHistory} studies={studies} />
       )}
 
       {/* ── LOADING GUIDE ── */}
       {activeTab === "guide" && (
-        <GuideTab finalResult={finalResult} runHistory={runHistory} />
+        <GuideTab finalResult={finalResult} runHistory={runHistory} request={guideRequest} studies={studies} selectedStudyId={selectedStudyId} studyDoc={studyDoc} />
       )}
 
       {/* ── ACCOUNT ── */}
@@ -896,59 +969,55 @@ export default function Shell() {
       {/* ── LOGISTICS TAB ── */}
       {activeTab === "logistics" && (
         <LogisticsTab
+          step={wizStep}
+          setStep={setWizStep}
+          processingPanel={wizStep === 4 && processing ? (
+            <ProcessingPanel progress={processing.state === "running" ? studyProgress : null} study={studyDoc ? studyDoc.study : null}
+              state={processing.state} error={processing.error} stopping={stopping} onStop={handleStopStudy}
+              onBack={() => { setProcessing(null); setWizStep(3); }} />
+          ) : null}
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
-          maxLoad={maxLoad}
-          setMaxLoad={setMaxLoad}
-          strategy={strategy}
-          setStrategy={setStrategy}
-          wolfSize={wolfSize}
-          setWolfSize={setWolfSize}
-          maxIter={maxIter}
-          setMaxIter={setMaxIter}
-          seed={seed}
-          setSeed={setSeed}
-          lam={lam}
-          setLam={setLam}
-          enforceSupport={enforceSupport}
-          setEnforceSupport={setEnforceSupport}
-          enforceFragility={enforceFragility}
-          setEnforceFragility={setEnforceFragility}
-          itemsList={itemsList}
-          setItemsList={setItemsList}
-          setIsCustomized={setIsCustomized}
-          instanceItems={instanceItems}
-          loadingList={loadingList}
-          selected={selected}
-          setSelected={setSelected}
-          groupedInstances={groupedInstances}
           running={running}
           elapsed={elapsed}
+          strategy={strategy}
+          setStrategy={setStrategy}
+          preset={preset}
+          setPreset={setPreset}
+          wolfSize={wolfSize}
+          maxIter={maxIter}
+          setWolfSizeCustom={setWolfSizeCustom}
+          setMaxIterCustom={setMaxIterCustom}
+          seed={seed}
+          setSeed={setSeed}
           handleStartRun={handleStartRun}
           handleStopRun={handleStopRun}
           canRun={canRun}
-          dataset={dataset}
-          setDataset={setDataset}
+          runHistory={runHistory}
+          optimizerReady={optimizerReady}
           wtpackInstances={wtpackInstances}
           wtpackId={wtpackId}
           setWtpackId={setWtpackId}
-          preset={preset}
-          setPreset={setPreset}
-          setWolfSizeCustom={setWolfSizeCustom}
-          setMaxIterCustom={setMaxIterCustom}
-          optimizerReady={optimizerReady}
-          runHistory={runHistory}
+          selectedLoad={selectedLoad}
+          loadFacts={loadFacts}
+          onToReview={async () => (selectedLoad.custom ? !!(await ensureCustomLoad()) : true)}
+          sizesInfo={sizesInfo}
+          studyBusy={studyBusy}
+          onRunStackr={() => handleLaunchStudy(selectedLoad.custom ? { size: "demo", useCustom: true } : { size: "demo", instanceId: selectedLoad.instanceId })}
           loadSources={{
             source, setSource, stopCount: sizesInfo && sizesInfo.defaults ? sizesInfo.defaults.stop_count : 3,
             samples, sampleId, setSampleId,
             typedRows, setTypedRows, fragileShare, setFragileShare, csvFile, setCsvFile,
-            customLoad: customShown, customStale: !!customShown && !customCurrent, customErrors, checking,
+            customLoad: customShown, customStale: !!customShown && !customCurrent, customErrors, customNotes, checking,
             onCheck: () => { ensureCustomLoad(); },
+            onDiscard: () => { setCsvFile(null); setCustomLoad(null); toast("File removed. You can pick another.", "ok"); },
+            onCancel: () => { setCsvFile(null); setCustomLoad(null); setSource(null); toast("Cancelled."); },
           }}
-          loadSummary={{ boxes: selectedLoad.n_boxes, text: selectedLoad.text }}
-          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size={studySize} seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
-          studyLauncher={
+          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
+          largerSizes={
             <StudyLauncher
+              sections={["sizes"]}
+              sizeKeys={["standard", "multi"]}
               sizesInfo={sizesInfo}
               studies={studies}
               available={availableStudies}
@@ -962,7 +1031,7 @@ export default function Shell() {
               selectedLoad={selectedLoad}
               seed={seed}
               busy={studyBusy}
-              size={studySize}
+              size={studySize === "demo" ? "standard" : studySize}
               setSize={setStudySize}
             />
           }
@@ -971,48 +1040,57 @@ export default function Shell() {
 
       {/* ── RESULTS TAB ── */}
       {activeTab === "results" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-            <div className="tabs-inline">
-              <button className={resultsMode === "quick" ? "active" : ""} onClick={() => setResultsMode("quick")}>Quick Test (single run)</button>
-              <button className={resultsMode === "study" ? "active" : ""} onClick={() => setResultsMode("study")}>Full Comparison (study)</button>
+        <ResultsPanel
+          studies={studies}
+          selectedStudyId={selectedStudyId}
+          onSelectStudy={setSelectedStudyId}
+          studyDoc={studyDoc}
+          progress={studyProgress}
+          onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          compare={
+            <div>
+              <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
+              <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
+                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} />
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              {resultsMode === "study" && <StudySelect studies={studies} value={selectedStudyId} onChange={setSelectedStudyId} />}
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings((s) => !s)}>
-                {showThings ? "Hide things to know" : "Things to know"}
-              </button>
+          }
+          quickTest={finalResult ? (
+            <div>
+              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result (one method, one run)</div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. No recommendation is made from a single run.</div>
+              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} strategy={strategy} stats={stats} axisUtil={axisUtil}
+                maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
-          </div>
-          {showThings && <ThingsToKnow result={resultsMode === "quick" ? finalResult : null} studies={studies} />}
-          {resultsMode === "study" && (
-            <StudyResults
-              row={studyDoc ? studyDoc.row : null}
-              study={studyDoc ? studyDoc.study : null}
-              stats={studyDoc ? studyDoc.stats : null}
-              progress={studyProgress}
-              onOpenCompare={() => setActiveTab("compare")}
-            />
-          )}
-        </div>
-      )}
-      {activeTab === "results" && resultsMode === "quick" && (
-        <ResultsTab
-          finalResult={finalResult}
-          runHistory={runHistory}
-          replay={replay}
-          strategy={strategy}
-          stats={stats}
-          axisUtil={axisUtil}
-          chartData={chartData}
-          maxIter={maxIter}
-          wolfSize={wolfSize}
-          handleExportResultsCSV={handleExportResultsCSV}
-          handleExportReport={handleExportReport}
+          ) : null}
+          openNumbers={!!replay}
         />
       )}
 
       {/* ── COMPARE TAB ── */}
+      {activeTab === "compare" && (
+        <div style={{ marginBottom: 20 }}>
+          <StudyLauncher
+            sections={["studies", "import"]}
+            sizesInfo={sizesInfo}
+            studies={studies}
+            available={availableStudies}
+            onLaunch={handleLaunchStudy}
+            onImport={handleImportStudy}
+            onOpenStudy={handleOpenStudy}
+            onDeleteStudy={handleDeleteStudy}
+            onRefresh={fetchStudies}
+            wtpackId={wtpackId}
+            wtpackInstances={wtpackInstances}
+            selectedLoad={selectedLoad}
+            seed={seed}
+            busy={studyBusy}
+            size={studySize}
+            setSize={setStudySize}
+          />
+        </div>
+      )}
       {activeTab === "compare" && (
         <CompareTab
           row={studyDoc ? studyDoc.row : null}
@@ -1035,7 +1113,7 @@ export default function Shell() {
           binsUsed={binsUsed}
           running={running}
           stats={stats}
-          chartData={chartData}
+          request={vizRequest}
         />
       )}
 
@@ -1054,6 +1132,11 @@ export default function Shell() {
 
         </main>
       </div>
+      <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} hidden={user && user.howto_hidden}
+        onSetHidden={async (h) => {
+          try { await setPrefs({ howto_hidden: h }); }
+          catch (e) { toast(`Could not save that: ${e.message}`, "err"); throw e; }
+        }} />
     </div>
   );
 }

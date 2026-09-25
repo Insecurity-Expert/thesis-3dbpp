@@ -9,16 +9,20 @@
 import { physics } from "./boxInfo";
 
 const EPS = 1e-6;
-const ov = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
+// C5's tolerances, as tools/validate_arrangement.py uses them: a base within
+// TOL of the floor stands on the floor; a top face within TOL of the base is
+// coplanar; any positive footprint overlap is a contact (touching edges are not).
+const TOL = 1e-5;
+const ov = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
 
 // Boxes b rests on: their top face is at b's base height and their
-// footprint overlaps b's (the same "directly under" test as C5).
+// footprint overlaps b's (the validator's C5 contact test).
 export function supportersOf(b, boxes) {
-  if (Math.abs(b.p.z) < EPS) return [];
+  if (Math.abs(b.p.z) < TOL) return [];
   return boxes.filter((o) => o !== b
-    && Math.abs(o.p.z + o.p.dz - b.p.z) < 1e-5
-    && ov(b.p.x, b.p.x + b.p.dx, o.p.x, o.p.x + o.p.dx) > EPS
-    && ov(b.p.y, b.p.y + b.p.dy, o.p.y, o.p.y + o.p.dy) > EPS);
+    && Math.abs(o.p.z + o.p.dz - b.p.z) < TOL
+    && ov(b.p.x, b.p.x + b.p.dx, o.p.x, o.p.x + o.p.dx) > 0
+    && ov(b.p.y, b.p.y + b.p.dy, o.p.y, o.p.y + o.p.dy) > 0);
 }
 
 export function buildPlan(items) {

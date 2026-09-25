@@ -64,6 +64,10 @@ export const authApi = {
     });
   },
 
+  async setPrefs(prefs) {
+    return request("/api/auth/me/prefs", { method: "PATCH", body: JSON.stringify(prefs) });
+  },
+
   async logout() {
     return request("/api/auth/logout", {
       method: "POST",
@@ -166,6 +170,8 @@ export const studiesApi = {
   async progress(id) { return request(`/api/studies/${encodeURIComponent(id)}/progress`); },
   async runView(id, idx) { return request(`/api/studies/${encodeURIComponent(id)}/runs/${encodeURIComponent(idx)}/view`); },
   async remove(id) { return request(`/api/studies/${encodeURIComponent(id)}`, { method: "DELETE" }); },
+  async recommendation(id) { return request(`/api/studies/${encodeURIComponent(id)}/recommendation`); },
+  async stop(id) { return request(`/api/studies/${encodeURIComponent(id)}/stop`, { method: "POST" }); },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,12 +190,14 @@ export const customLoadsApi = {
     if (res.ok && body && body.id) return { ok: true, ...body };
     const errors = body && Array.isArray(body.errors) ? body.errors
       : [{ row: null, column: null, message: (body && body.error) || `Request failed with status ${res.status}` }];
-    return { ok: false, errors };
+    return { ok: false, errors, notes: body && Array.isArray(body.notes) ? body.notes : [] };
   },
   async list() { return request("/api/instances/custom-loads"); },
   async get(id) { return request(`/api/instances/custom-load/${encodeURIComponent(id)}`); },
   async template(mode) { return request(`/api/instances/custom-load-template/${mode === "advanced" ? "advanced" : "simple"}`); },
   async samples() { return request("/api/instances/samples"); },
+  async schema() { return request("/api/instances/custom-load-schema"); },
+  async wtpackTotals(id) { return request(`/api/instances/wtpack-totals/${Number(id)}`); },
 };
 
 const api = {
