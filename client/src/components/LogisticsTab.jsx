@@ -60,7 +60,7 @@ function Review({ label, value, sub, warn }) {
 }
 
 export default function LogisticsTab({
-  step, setStep,
+  step, setStep, processingPanel = null,
   containerSpecs, setContainerSpecs,
   running, elapsed,
   // Quick Test (Advanced)
@@ -119,7 +119,7 @@ export default function LogisticsTab({
             <React.Fragment key={s.n}>
               {i > 0 && <div className="wiz-line" />}
               <button type="button" className={`wiz-step${step === s.n ? " active" : step > s.n ? " done" : ""}`} style={{ flex: 1 }}
-                disabled={running}
+                disabled={running || step === 4}
                 onClick={() => {
                   if (s.n < step) setStep(s.n);
                   else if (s.n === step + 1 && canNext) goNext();
@@ -132,6 +132,9 @@ export default function LogisticsTab({
           ))}
         </div>
       </div>
+
+      {/* ── PROCESSING (after Run STACKR) ── */}
+      {step === 4 && <div className="wiz-panel">{processingPanel}</div>}
 
       {/* ── STEP 1: YOUR BOXES ── */}
       {step === 1 && (
@@ -346,7 +349,7 @@ export default function LogisticsTab({
       )}
 
       {/* Persistent nav */}
-      <div className="card wiz-nav">
+      {step !== 4 && <div className="card wiz-nav">
         <div className="field-hint" style={{ margin: 0 }}>All four safety rules are checked in every run.</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {step === 3 && (
@@ -367,7 +370,7 @@ export default function LogisticsTab({
             </button>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

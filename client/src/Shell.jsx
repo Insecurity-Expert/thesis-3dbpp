@@ -12,6 +12,7 @@ import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import ThingsToKnow from "./components/ThingsToKnow";
 import HowToModal from "./components/HowToModal";
+import ProcessingPanel from "./components/ProcessingPanel";
 import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
@@ -130,6 +131,10 @@ export default function Shell() {
   const [resultsMode, setResultsMode] = useState("quick"); // "quick" (single run) | "study"
   const [studyBusy, setStudyBusy] = useState(false);
   const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
+  // The comparison on the Processing screen: { studyId, state: running|error|stopped, error, label }
+  const [processing, setProcessing] = useState(null);
+  const [stopping, setStopping] = useState(false);
+  const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -323,6 +328,37 @@ export default function Shell() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [studyDoc, loadStudy, fetchStudies]);
 
+  // Processing: finished -> Results; failed -> stay, save a failed run to History.
+  useEffect(() => {
+    if (!processing || processing.state !== "running" || !studyProgress || selectedStudyId !== processing.studyId) return;
+    if (studyProgress.status === "done" && studyDoc && studyDoc.row && studyDoc.row.id === processing.studyId && studyDoc.stats) {
+      setProcessing(null); setWizStep(3); setActiveTab("results");
+    } else if (studyProgress.status === "error") {
+      const msg = studyProgress.error || "the comparison process stopped before writing its results";
+      setProcessing((p) => ({ ...p, state: "error", error: msg }));
+      const L = processing.label || {};
+      runsApi.saveRun({
+        strategy: "Run STACKR (all four methods)", strategy_code: null,
+        instance: L.custom ? `Custom load (${L.text})` : L.text || "—", dataset: L.custom ? "custom" : "wtpack",
+        seed: null, n_items: L.n_boxes ?? null, space_util: null, csr: null, placed: null, dissipation: null, runtime_s: null,
+        bins_used: null, placements: null, container: null, result: null, convergence: null, status: "failed", error: msg,
+      }).then(() => fetchRunHistory()).catch(() => {});
+    }
+  }, [processing, studyProgress, studyDoc, selectedStudyId, fetchRunHistory]);
+
+  const handleStopStudy = useCallback(async () => {
+    if (!processing) return;
+    setStopping(true);
+    try {
+      await studiesApi.stop(processing.studyId);
+      setProcessing((p) => ({ ...p, state: "stopped" }));
+      setSelectedStudyId(null);
+      fetchStudies();
+      toast("Cancelled.");
+    } catch (e) { setError(`Could not stop the comparison: ${e.message}`); }
+    setStopping(false);
+  }, [processing, fetchStudies, toast]);
+
   const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom }) => {
     setStudyBusy(true);
     setError(null);
@@ -337,7 +373,10 @@ export default function Shell() {
       fetchStudies();
       setSelectedStudyId(r.id);
       setResultsMode("study");
-      setActiveTab("results");
+      // The Processing screen (wizard) follows it; Results opens when it is done.
+      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current });
+      setWizStep(4);
+      setActiveTab("logistics");
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
@@ -781,6 +820,7 @@ export default function Shell() {
              text: standardMeta ? `standard test case ${standardMeta.label}` : `wtpack #${wtpackId ?? "—"}`, label: standardMeta ? standardMeta.label : null,
              n_boxes: standardMeta ? standardMeta.n_boxes : null };
   }, [source, customShown, customCurrent, csvFile, sampleId, sampleMeta, wtpackId, standardMeta]);
+  selectedLoadRef.current = selectedLoad;
 
   // Facts about the chosen load for the Review step: a custom load's
   // converter summary, or the test case loaded the way a run loads it.
@@ -934,6 +974,11 @@ export default function Shell() {
         <LogisticsTab
           step={wizStep}
           setStep={setWizStep}
+          processingPanel={wizStep === 4 && processing ? (
+            <ProcessingPanel progress={processing.state === "running" ? studyProgress : null} study={studyDoc ? studyDoc.study : null}
+              state={processing.state} error={processing.error} stopping={stopping} onStop={handleStopStudy}
+              onBack={() => { setProcessing(null); setWizStep(3); }} />
+          ) : null}
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
           running={running}
