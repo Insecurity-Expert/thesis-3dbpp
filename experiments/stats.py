@@ -99,57 +99,17 @@ def _f(x, sig=6):
     return float(f"{v:.{sig}g}")
 
 
-def descriptives(values):
-    v = np.asarray([x for x in values if x is not None], dtype=float)
-    n = int(v.size)
-    if n == 0:
-        return {"n": 0, "mean": None, "median": None, "sd": None, "min": None, "max": None}
-    return {"n": n, "mean": _f(v.mean()), "median": _f(np.median(v)),
-            "sd": _f(v.std(ddof=1)) if n > 1 else None,
-            "min": _f(v.min()), "max": _f(v.max())}
-
-
-def shapiro(values):
-    v = np.asarray(values, dtype=float)
-    if v.size < 3:
-        return {"applicable": False, "reason": "n < 3", "normal": False, "W": None, "p": None}
-    if np.ptp(v) == 0:
-        return {"applicable": False, "reason": "constant within the group - Shapiro-Wilk not applicable; treated as non-normal",
-                "normal": False, "W": None, "p": None}
-    W, p = sps.shapiro(v)
-    return {"applicable": True, "reason": None, "W": _f(W), "p": _f(p), "normal": bool(p >= ALPHA),
-            "test": "Shapiro-Wilk"}
-
-
-def cohens_d(a, b):
-    a, b = np.asarray(a, float), np.asarray(b, float)
-    na, nb = a.size, b.size
-    if na < 2 or nb < 2:
-        return None
-    sp = math.sqrt(((na - 1) * a.var(ddof=1) + (nb - 1) * b.var(ddof=1)) / (na + nb - 2))
-    if sp == 0:
-        return 0.0 if a.mean() == b.mean() else None
-    return (a.mean() - b.mean()) / sp
-
-
-def rank_biserial(a, b):
-    """r = 2U/(n1 n2) - 1, positive when a tends to exceed b."""
-    a, b = np.asarray(a, float), np.asarray(b, float)
-    if a.size == 0 or b.size == 0:
-        return None
-    if np.ptp(np.concatenate([a, b])) == 0:
-        return 0.0
-    u = sps.mannwhitneyu(a, b, alternative="two-sided").statistic
-    return 2.0 * u / (a.size * b.size) - 1.0
-
-
-def magnitude(kind, value):
-    if value is None:
-        return None
-    v = abs(value)
-    if kind == "d":
-        return "negligible" if v < 0.2 else "small" if v < 0.5 else "medium" if v < 0.8 else "large"
-    return "negligible" if v < 0.1 else "small" if v < 0.3 else "medium" if v < 0.5 else "large"
+def magnitude(kind, val):
+    v = abs(val)
+    if kind == "r":
+        if v < 0.1: return "negligible"
+        if v < 0.3: return "small"
+        if v < 0.5: return "medium"
+        return "large"
+    if v < 0.2: return "negligible"
+    if v < 0.5: return "small"
+    if v < 0.8: return "medium"
+    return "large"
 
 
 def holm(pvalues):
@@ -169,104 +129,75 @@ def holm(pvalues):
 
 
 # ─── the core: one measure, four groups ──────────────────────────────────────
-def compare_groups(groups, measure, configs=CONFIGS, lower_is_better=False, enforced_note=None):
-    """groups: {config: [values]}. Returns normality, omnibus, post-hoc pairs."""
-    present = [c for c in configs if len(groups.get(c, [])) > 0]
-    normality = {c: shapiro(groups[c]) for c in present}
-    desc = {c: descriptives(groups[c]) for c in present}
-    allv = np.concatenate([np.asarray(groups[c], float) for c in present]) if present else np.array([])
-
-    result = {"measure": measure, "label": MEASURE_LABELS.get(measure, measure),
-              "lower_is_better": lower_is_better, "descriptives": desc, "normality": normality,
-              "all_normal": bool(present) and all(normality[c]["normal"] for c in present)}
-
-    if len(present) < 2 or allv.size == 0:
-        result["omnibus"] = {"testable": False, "reason": "fewer than two configurations have data",
-                             "significant": False, "p": None}
+# ─── the core: one measure, four groups ──────────────────────────────────────
+def compare_rm(mat, configs, measure, lower_is_better=False, enforced_note=None):
+    N, k = mat.shape
+    result = {"measure": measure, "label": MEASURE_LABELS.get(measure, measure), "lower_is_better": lower_is_better}
+    if N < 2:
+        result["omnibus"] = {"testable": False, "reason": "requires >= 2 instances", "significant": False, "p": None}
         result["pairs"] = []
         return result
-    if np.ptp(allv) == 0:
-        reason = "not testable - no variance"
-        if enforced_note:
-            reason += f"; {enforced_note}"
-        result["omnibus"] = {"testable": False, "reason": reason, "significant": False, "p": None,
-                             "constant_value": _f(allv[0])}
+    if np.all(np.ptp(mat, axis=1) == 0):
+        reason = "not testable - no variance across configurations"
+        if enforced_note: reason += f"; {enforced_note}"
+        result["omnibus"] = {"testable": False, "reason": reason, "significant": False, "p": None}
         result["pairs"] = []
         return result
-
-    arrays = [np.asarray(groups[c], float) for c in present]
-    k, N = len(arrays), int(allv.size)
-    if result["all_normal"]:
-        F, p = sps.f_oneway(*arrays)
-        result["omnibus"] = {"testable": True, "test": "one-way ANOVA", "statistic_name": "F",
-                             "statistic": _f(F), "df": [k - 1, N - k], "p": _f(p),
-                             "significant": bool(p < ALPHA), "family": "parametric"}
-        post = "Tukey HSD"
-        th = sps.tukey_hsd(*arrays)
-        pmat = {(present[i], present[j]): float(th.pvalue[i][j]) for i in range(k) for j in range(k)}
-        effect_name = "Cohen's d"
-    else:
-        H, p = sps.kruskal(*arrays)
-        result["omnibus"] = {"testable": True, "test": "Kruskal-Wallis", "statistic_name": "H",
-                             "statistic": _f(H), "df": [k - 1], "p": _f(p),
-                             "significant": bool(p < ALPHA), "family": "non-parametric"}
-        post = "Dunn-Bonferroni"
-        dm = sph.posthoc_dunn(arrays, p_adjust="bonferroni")
-        pmat = {(present[i], present[j]): float(dm.iloc[i, j]) for i in range(k) for j in range(k)}
-        effect_name = "rank-biserial r"
-
-    pairs = []
-    for a, b in combinations(present, 2):
-        pa, pb = np.asarray(groups[a], float), np.asarray(groups[b], float)
-        p_pair = pmat[(a, b)]
-        if effect_name == "Cohen's d":
-            eff = cohens_d(pa, pb)
-            thr = D_THRESHOLD
-            kind = "d"
+    chi, p = sps.friedmanchisquare(*[mat[:, j] for j in range(k)])
+    W = chi / (N * (k - 1)) if N * (k - 1) != 0 else 0
+    result["omnibus"] = {"testable": True, "test": "Friedman", "statistic_name": "chi2",
+                         "statistic": _f(chi), "df": [k - 1], "p": _f(p),
+                         "significant": bool(p < ALPHA), "effect_size": "Kendall's W", "effect_value": _f(W)}
+    pairs, pvalues = [], []
+    pair_indices = list(combinations(range(k), 2))
+    for i_idx, j_idx in pair_indices:
+        diff = mat[:, i_idx] - mat[:, j_idx]
+        if np.all(diff == 0):
+            pvalues.append(1.0)
         else:
-            eff = rank_biserial(pa, pb)
-            thr = R_THRESHOLD
-            kind = "r"
-        ma, mb = pa.mean(), pb.mean()
-        if ma == mb:
-            favours = None
-        elif lower_is_better:
-            favours = a if ma < mb else b
+            try:
+                res = sps.wilcoxon(mat[:, i_idx], mat[:, j_idx], mode='approx')
+                pvalues.append(float(res.pvalue))
+            except Exception:
+                pvalues.append(1.0)
+    adj_p, _ = holm(pvalues)
+    for (i_idx, j_idx), p_val, p_adj in zip(pair_indices, pvalues, adj_p):
+        a, b = configs[i_idx], configs[j_idx]
+        ma, mb = mat[:, i_idx].mean(), mat[:, j_idx].mean()
+        if p_val == 1.0 or p_val == 0.0:
+            eff = 0.0
         else:
-            favours = a if ma > mb else b
-        significant = (p_pair is not None) and (not math.isnan(p_pair)) and p_pair < ALPHA
-        practical = eff is not None and abs(eff) >= thr
+            Z = abs(sps.norm.ppf(p_val / 2.0))
+            eff = Z / math.sqrt(N)
+        if ma == mb: favours = None
+        elif lower_is_better: favours = a if ma < mb else b
+        else: favours = a if ma > mb else b
+        significant = (p_adj is not None) and (p_adj < ALPHA)
+        practical = (eff >= R_THRESHOLD)
         omni_sig = result["omnibus"]["significant"]
         if not omni_sig or not significant:
-            verdict = "no significant difference"
-            winner = None
+            verdict, winner = "no significant difference", None
         elif not practical:
-            verdict = "statistically detectable but not practically meaningful"
-            winner = None
+            verdict, winner = "statistically detectable but not practically meaningful", None
         else:
             winner = favours
             verdict = f"{LABELS[winner]} outperforms {LABELS[b if winner == a else a]}"
-        pairs.append({"a": a, "b": b, "test": post, "p": _f(p_pair),
-                      "significant": bool(significant and omni_sig),
-                      "posthoc_significant": bool(significant),
-                      "effect": {"name": effect_name, "value": _f(eff), "threshold": thr,
-                                 "magnitude": magnitude(kind, eff), "practical": bool(practical)},
+        pairs.append({"a": a, "b": b, "test": "Wilcoxon signed-rank", "p_raw": _f(p_val), "p": _f(p_adj),
+                      "significant": bool(significant and omni_sig), "posthoc_significant": bool(significant),
+                      "effect": {"name": "matched-pairs r", "value": _f(eff), "threshold": R_THRESHOLD,
+                                 "magnitude": magnitude("r", eff), "practical": bool(practical)},
                       "mean_a": _f(ma), "mean_b": _f(mb), "favours": favours,
                       "outperforms": winner, "verdict": verdict})
-    result["posthoc_test"] = post
-    result["effect_size"] = effect_name
+    result["posthoc_test"] = "Wilcoxon signed-rank"
+    result["effect_size"] = "matched-pairs r"
     result["pairs"] = pairs
     return result
 
-
 def outperforms(cmp, winner, loser):
-    """Does `winner` outperform `loser` on this comparison (all three conditions)?"""
     for pr in cmp.get("pairs", []):
         if {pr["a"], pr["b"]} == {winner, loser}:
             return pr["outperforms"] == winner
     return False
-
-
 # ─── study-level ─────────────────────────────────────────────────────────────
 def derive_rows(runs):
     rows = []
@@ -315,22 +246,27 @@ def analyse(study):
                                                 (f"{runs_per_cfg} runs per configuration < 30" if runs_per_cfg < 30 else ""),
                           "seq_budget_split": study.get("seq_budget_split")}}
 
-    # ── descriptives for every measure, both compliance definitions ──────────
-    desc = {}
-    for m in ["SU", "placed", "ET", "PM"]:
-        desc[m] = {c: descriptives(v) for c, v in group_values(rows, m, configs).items()}
-    for m in COMPLIANCE_KEYS:
-        desc[m] = {d: {c: descriptives(v) for c, v in group_values(rows, f"{m}_{d}", configs).items()}
-                   for d in COMPLIANCE_DEFS}
-    out["descriptives"] = desc
-    # Robustness = sd of SU across runs (per configuration; per instance too).
-    out["robustness"] = {c: {"sd_su": desc["SU"][c]["sd"],
-                             "per_instance": {str(i): _f(np.std(group_values(rows, "SU", [c], i)[c], ddof=1))
-                                              if len(group_values(rows, "SU", [c], i)[c]) > 1 else None
-                                              for i in instances}} for c in configs}
+    def get_mat(measure):
+        mat = np.zeros((n_inst, len(configs)))
+        for i_idx, inst in enumerate(instances):
+            for j_idx, c in enumerate(configs):
+                vals = [x[measure] for x in rows if x["configuration"] == c and x["instance_id"] == inst]
+                mat[i_idx, j_idx] = np.mean(vals) if vals else 0.0
+        return mat
+
+    # Robustness = mean of per-instance SU sd across runs.
+    out["robustness"] = {}
+    for c in configs:
+        sds = []
+        for inst in instances:
+            vals = [x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]
+            if len(vals) > 1: sds.append(np.std(vals, ddof=1))
+        out["robustness"][c] = {"mean_sd": _f(np.mean(sds)) if sds else 0.0,
+                                "max_sd": _f(np.max(sds)) if sds else 0.0,
+                                "per_instance": {str(inst): _f(sd) for inst, sd in zip(instances, sds)}}
 
     # ── SP1 ──────────────────────────────────────────────────────────────────
-    sp1 = compare_groups(group_values(rows, "SU", configs), "SU", configs)
+    sp1 = compare_rm(get_mat("SU"), configs, "SU")
     out["SP1"] = {"measure": "SU", "comparison": sp1,
                   "confound_note": ("Sequential's DGWO phase receives only part of the iteration budget: "
                                     f"{study.get('seq_budget_split', {}).get('dgwo_iters', '?')} of "
@@ -345,22 +281,22 @@ def analyse(study):
             note = None
             if m in DECODER_ENFORCED and study.get(DECODER_ENFORCED[m], True):
                 note = f"enforced by the decoder ({DECODER_ENFORCED[m]}=true)"
-            per[m] = compare_groups(group_values(rows, f"{m}_{d}", configs), m, configs, enforced_note=note)
-        raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in COMPLIANCE_KEYS]
-        adj, fam = holm(raw)
-        for m, pa in zip(COMPLIANCE_KEYS, adj):
-            per[m]["omnibus"]["p_holm"] = _f(pa)
-            per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
-            per[m]["omnibus"]["holm_family_size"] = fam
-        rejected = [m for m in COMPLIANCE_KEYS if per[m]["omnibus"]["significant_holm"]]
-        sp2["by_definition"][d] = {
-            "definition": d, "per_measure": per, "holm_family_size": fam,
-            "significant_measures": rejected,
-            "h0_rejected": len(rejected) > 0,
-            "decision": ("H0 rejected: at least one Holm-corrected omnibus test is significant (" + ", ".join(rejected) + ")")
-                        if rejected else ("H0 not rejected: no Holm-corrected omnibus test is significant"
-                                          if fam else "H0 not testable: every compliance measure is constant"),
-        }
+            if d == "all_boxes":
+                per[m] = compare_rm(get_mat(f"{m}_{d}"), configs, m, enforced_note=note)
+            else:
+                per[m] = {"measure": m, "label": MEASURE_LABELS.get(m, m), "note": "output descriptively only (RM testing is on all_boxes)"}
+        if d == "all_boxes":
+            raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in COMPLIANCE_KEYS]
+            adj, fam = holm(raw)
+            for m, pa in zip(COMPLIANCE_KEYS, adj):
+                per[m]["omnibus"]["p_holm"] = _f(pa)
+                per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
+                per[m]["omnibus"]["holm_family_size"] = fam
+            rejected = [m for m in COMPLIANCE_KEYS if per[m]["omnibus"]["significant_holm"]]
+            decision = ("H0 rejected: at least one Holm-corrected omnibus test is significant (" + ", ".join(rejected) + ")") if rejected else ("H0 not rejected: no Holm-corrected omnibus test is significant" if fam else "H0 not testable: every compliance measure is constant")
+        else:
+            fam, rejected, decision = 0, [], "descriptive only"
+        sp2["by_definition"][d] = {"definition": d, "per_measure": per, "holm_family_size": fam, "significant_measures": rejected, "h0_rejected": len(rejected) > 0, "decision": decision}
     sp2["primary"] = sp2["by_definition"][PRIMARY_COMPLIANCE]
     sp2["h0_rejected"] = sp2["primary"]["h0_rejected"]
     sp2["decision"] = sp2["primary"]["decision"]
@@ -370,41 +306,37 @@ def analyse(study):
     if not timing_valid:
         out["SP3"] = {"available": False, "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"}
     else:
-        per = {m: compare_groups(group_values(rows, m, configs), m, configs, lower_is_better=True) for m in ("ET", "PM")}
-        raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in ("ET", "PM")]
-        adj, fam = holm(raw)
-        for m, pa in zip(("ET", "PM"), adj):
-            per[m]["omnibus"]["p_holm"] = _f(pa)
-            per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
-            per[m]["omnibus"]["holm_family_size"] = fam
-        sp3 = {"available": True, "per_metric": per, "holm_family_size": fam}
-        # per-BR-class profile (mean ET / PM per class per configuration)
         classes = {}
         for inst in study.get("instances", []):
             classes.setdefault(inst["br_class"], []).append(inst)
         prof = []
         for cls in sorted(classes, key=lambda s: int(''.join(ch for ch in s if ch.isdigit()) or 0)):
-            ids = [i["instance_id"] for i in classes[cls]]
-            entry = {"br_class": cls, "n_types": classes[cls][0].get("n_types"),
-                     "instances": ids, "n_boxes": [i.get("n_boxes") for i in classes[cls]],
-                     "mean_n_boxes": _f(np.mean([i.get("n_boxes") for i in classes[cls] if i.get("n_boxes") is not None])),
+            insts = classes[cls]
+            ids = [i["instance_id"] for i in insts]
+            entry = {"br_class": cls, "n_types": insts[0].get("n_types"), "instances": ids,
+                     "n_boxes": [i.get("n_boxes") for i in insts],
+                     "mean_n_boxes": _f(np.mean([i.get("n_boxes") for i in insts if i.get("n_boxes") is not None])),
                      "per_configuration": {}}
-            for c in configs:
-                sub = [x for x in rows if x["configuration"] == c and x["instance_id"] in ids]
-                entry["per_configuration"][c] = {"ET": descriptives([x["ET"] for x in sub]),
-                                                 "PM": descriptives([x["PM"] for x in sub])}
+            if len(ids) >= 2:
+                per = {}
+                for m in ("ET", "PM"):
+                    mat = np.zeros((len(ids), len(configs)))
+                    for i_idx, inst_id in enumerate(ids):
+                        for j_idx, c in enumerate(configs):
+                            vals = [x[m] for x in rows if x["configuration"] == c and x["instance_id"] == inst_id]
+                            mat[i_idx, j_idx] = np.mean(vals) if vals else 0.0
+                    per[m] = compare_rm(mat, configs, m, lower_is_better=True)
+                raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in ("ET", "PM")]
+                adj, fam = holm(raw)
+                for m, pa in zip(("ET", "PM"), adj):
+                    per[m]["omnibus"]["p_holm"] = _f(pa)
+                    per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
+                    per[m]["omnibus"]["holm_family_size"] = fam
+                entry["friedman"] = per
+            else:
+                entry["friedman"] = {"available": False, "reason": "requires >= 2 instances"}
             prof.append(entry)
-        sp3["profiles"] = prof
-        # Friedman with instances as blocks (per-instance mean over seeds)
-        if n_inst < 2:
-            sp3["friedman"] = {m: {"testable": False, "reason": "requires >= 2 instances"} for m in ("ET", "PM")}
-        else:
-            fr = {}
-            for m in ("ET", "PM"):
-                mat = np.array([[np.mean(group_values(rows, m, [c], i)[c]) for c in configs] for i in instances])
-                fr[m] = friedman_block(mat, configs, lower_is_better=True)
-            sp3["friedman"] = fr
-        out["SP3"] = sp3
+        out["SP3"] = {"available": True, "profiles": prof}
 
     # ── composite ────────────────────────────────────────────────────────────
     if n_inst < 2:
@@ -467,14 +399,16 @@ def composite_scores(rows, configs, instances, csr_key=f"CSR_{PRIMARY_COMPLIANCE
     mat = np.zeros((len(instances), len(configs)))
     details = []
     for pi, inst in enumerate(instances):
-        su = [np.mean(group_values(rows, "SU", [c], inst)[c]) for c in configs]
-        csr = [np.mean(group_values(rows, csr_key, [c], inst)[c]) for c in configs]
-        et = [np.mean(group_values(rows, "ET", [c], inst)[c]) for c in configs]
-        pm = [np.mean(group_values(rows, "PM", [c], inst)[c]) for c in configs]
-        rob = [float(np.std(group_values(rows, "SU", [c], inst)[c], ddof=1))
-               if len(group_values(rows, "SU", [c], inst)[c]) > 1 else 0.0 for c in configs]
-        cc = (_z(et) + _z(pm)) / 2.0
-        su_n, csr_n, cc_n, rob_n = _minmax(su), _minmax(csr), _minmax(cc), _minmax(rob)
+        su = [np.mean([x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        csr = [np.mean([x[csr_key] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        et = [np.mean([x["ET"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        pm = [np.mean([x["PM"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        rob = [float(np.std([x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst], ddof=1))
+               if len([x for x in rows if x["configuration"] == c and x["instance_id"] == inst]) > 1 else 0.0 for c in configs]
+        z_et, z_pm = _z(et), _z(pm)
+        cc = (z_et + z_pm) / 2.0
+        cc_n = _minmax(cc)
+        su_n, csr_n, rob_n = _minmax(su), _minmax(csr), _minmax(rob)
         cs = 0.25 * su_n + 0.25 * csr_n + 0.25 * (1 - cc_n) + 0.25 * (1 - rob_n)
         mat[pi, :] = cs
         details.append({"instance_id": inst, "per_configuration": {
@@ -483,15 +417,12 @@ def composite_scores(rows, configs, instances, csr_key=f"CSR_{PRIMARY_COMPLIANCE
                 "Rob_n": _f(rob_n[j]), "CS": _f(cs[j])} for j, c in enumerate(configs)}})
     return mat, details
 
-
 def composite(rows, configs, instances):
     mat, details = composite_scores(rows, configs, instances)
     fr = friedman_block(mat, configs, lower_is_better=False)
     mean_cs = {c: _f(mat[:, j].mean()) for j, c in enumerate(configs)}
     sd_cs = {c: _f(mat[:, j].std(ddof=1)) if mat.shape[0] > 1 else None for j, c in enumerate(configs)}
-    # component means across instances (for the "out of 5" breakdown in the UI)
-    comp = {c: {k: _f(np.mean([d["per_configuration"][c][k] for d in details]))
-                for k in ("SU_n", "CSR_n", "CC_n", "Rob_n")} for c in configs}
+    comp = {c: {k: _f(np.mean([d["per_configuration"][c][k] for d in details])) for k in ("SU_n", "CSR_n", "CC_n", "Rob_n")} for c in configs}
     ranking = sorted(configs, key=lambda c: -mean_cs[c])
     rec = None
     if fr.get("significant"):
@@ -502,8 +433,6 @@ def composite(rows, configs, instances):
             "mean_cs": mean_cs, "sd_cs": sd_cs, "components": comp, "ranking": ranking,
             "per_instance": details, "friedman": fr, "recommendation": rec,
             "recommendation_note": None if rec else "no recommendation: the Friedman test on the composite score is not significant, so the ranking is not distinguishable from chance"}
-
-
 def outcome_pattern(sp1, sp2_csr, configs):
     """Chapter 3 outcome pattern over the primary metrics: SU (SP1) and CSR over all boxes (SP2)."""
     metrics = {"SU": sp1, "CSR": sp2_csr}
@@ -544,28 +473,31 @@ def summary_lines(st):
              + (" [PRELIMINARY: " + pv["preliminary_reason"] + "]" if pv["preliminary"] else ""))
     c = st["SP1"]["comparison"]
     o = c["omnibus"]
-    L.append(f"SP1 SU: normality all_normal={c['all_normal']}; " +
+    L.append(f"SP1 SU: " +
              (f"{o['test']} {o['statistic_name']}={o['statistic']} df={o['df']} p={o['p']} sig={o['significant']}" if o.get("testable") else o["reason"]))
-    for pr in c["pairs"]:
+    for pr in c.get("pairs", []):
         L.append(f"   {pr['a']} vs {pr['b']}: p={pr['p']} {pr['effect']['name']}={pr['effect']['value']} ({pr['effect']['magnitude']}) -> {pr['verdict']}")
     for d in COMPLIANCE_DEFS:
         blk = st["SP2"]["by_definition"][d]
         L.append(f"SP2 [{d}{' PRIMARY' if d == PRIMARY_COMPLIANCE else ''}]: {blk['decision']}")
-        for m, cmp in blk["per_measure"].items():
-            o = cmp["omnibus"]
-            L.append(f"   {m}: " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}" if o.get("testable") else o["reason"]))
-            for pr in cmp["pairs"]:
-                if pr["outperforms"] or pr["posthoc_significant"]:
-                    L.append(f"      {pr['a']} vs {pr['b']}: p={pr['p']} eff={pr['effect']['value']} -> {pr['verdict']}")
+        if d == PRIMARY_COMPLIANCE:
+            for m, cmp in blk["per_measure"].items():
+                o = cmp["omnibus"]
+                L.append(f"   {m}: " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}" if o.get("testable") else o["reason"]))
+                for pr in cmp.get("pairs", []):
+                    if pr["outperforms"] or pr["posthoc_significant"]:
+                        L.append(f"      {pr['a']} vs {pr['b']}: p={pr['p']} eff={pr['effect']['value']} -> {pr['verdict']}")
     s3 = st["SP3"]
     if not s3.get("available"):
-        L.append(f"SP3: {s3['reason']}")
+        L.append(f"SP3: {s3.get('reason', 'N/A')}")
     else:
-        for m, cmp in s3["per_metric"].items():
-            o = cmp["omnibus"]
-            L.append(f"SP3 {m}: " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}" if o.get("testable") else o["reason"]))
-            fr = s3["friedman"][m]
-            L.append(f"   Friedman: " + (f"chi2={fr['statistic']} p={fr['p']} sig={fr['significant']} mean_rank={fr['mean_rank']}" if fr.get("testable") else fr["reason"]))
+        for p in s3["profiles"]:
+            L.append(f"SP3 {p['br_class']}:")
+            if "friedman" in p and p["friedman"].get("available", True) and "ET" in p["friedman"]:
+                for m in ("ET", "PM"):
+                    cmp = p["friedman"][m]
+                    o = cmp["omnibus"]
+                    L.append(f"   {m}: " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}" if o.get("testable") else o["reason"]))
     cs = st["composite"]
     if not cs.get("available"):
         L.append(f"composite: {cs['reason']}")
@@ -575,8 +507,6 @@ def summary_lines(st):
         L.append(f"   recommendation: {cs['recommendation'] or cs['recommendation_note']}")
     L.append(f"outcome pattern: {st['outcome']['pattern']} - {st['outcome']['description']}")
     return L
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("study")

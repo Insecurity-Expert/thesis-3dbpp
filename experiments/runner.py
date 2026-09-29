@@ -20,12 +20,74 @@ from preprocessing.pipeline import load_augmented_instance
 from thesis_algorithms import (StandaloneDGWO, StandaloneMOGWO,
                                SequentialHybrid, RepairBasedHybrid)
 from thesis_metrics import evaluate_constraints, space_utilization
+import psutil
+
+def _peak_mb():
+    mi = psutil.Process().memory_info()
+    peak = getattr(mi, 'peak_wset', None)          # Windows
+    if peak is None:                                # POSIX: ru_maxrss
+        try:
+            import resource
+            ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            peak = ru * (1 if sys.platform == 'darwin' else 1024)
+        except Exception:
+            peak = mi.rss
+    return peak / (1024 * 1024)
+
+class GreedyBaseline:
+    def __init__(self, items, container, enforce_support=True, enforce_fragility=True, **kwargs):
+        self.items = items
+        self.container = container
+        self.enforce_support = enforce_support
+        self.enforce_fragility = enforce_fragility
+    def run(self):
+        from geometry_3d import place_container_dblf
+        def weight(b): return b.get('mass', (b['l'] * b['w'] * b['h']) / 1000.0)
+        sequence = sorted(range(len(self.items)), key=lambda i: weight(self.items[i]), reverse=True)
+        orients = {i: self.items[i]['allowed_orientations'][0] for i in range(len(self.items))}
+        placements, unplaced, orientations, attempts, exhausted = place_container_dblf(
+            sequence, self.items, orients, self.container,
+            enforce_support=self.enforce_support, enforce_fragility=self.enforce_fragility)
+        class Result: pass
+        res = Result()
+        res.placements, res.orientations, res.placement_attempts, res.budget_exhausted = placements, orientations, attempts, exhausted
+        return res
+
+class RandomBaseline:
+    def __init__(self, items, container, seed=42, enforce_support=True, enforce_fragility=True, **kwargs):
+        self.items = items
+        self.container = container
+        self.seed = seed
+        self.enforce_support = enforce_support
+        self.enforce_fragility = enforce_fragility
+    def run(self):
+        from geometry_3d import place_container_dblf
+        import numpy as np
+        rng = np.random.default_rng(self.seed)
+        best_su = -1
+        best_res = None
+        for _ in range(30):
+            sequence = rng.permutation(len(self.items)).tolist()
+            orients = {i: self.items[i]['allowed_orientations'][0] for i in range(len(self.items))}
+            placements, unplaced, orientations, attempts, exhausted = place_container_dblf(
+                sequence, self.items, orients, self.container,
+                enforce_support=self.enforce_support, enforce_fragility=self.enforce_fragility)
+            su = space_utilization(placements, self.container)
+            if best_res is None or su > best_su:
+                best_su = su
+                class Result: pass
+                res = Result()
+                res.placements, res.orientations, res.placement_attempts, res.budget_exhausted = placements, orientations, attempts, exhausted
+                best_res = res
+        return best_res
 
 STRATEGIES = {
     'DGWO':  StandaloneDGWO,
     'MOGWO': StandaloneMOGWO,
     'SEQ':   SequentialHybrid,
     'REP':   RepairBasedHybrid,
+    'GREEDY': GreedyBaseline,
+    'RANDOM': RandomBaseline,
 }
 
 
@@ -47,6 +109,7 @@ def run_one(strategy, boxes, container, seed, pop_size, max_iter, lambdas,
     t0 = time.perf_counter()
     best = opt.run()
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    peak_mb = _peak_mb()
 
     csr, detail = evaluate_constraints(best.placements, boxes, best.orientations)
     return {
@@ -71,6 +134,7 @@ def run_one(strategy, boxes, container, seed, pop_size, max_iter, lambdas,
         'budget_exhausted': best.budget_exhausted,
         'peak_attempts':    best.placement_attempts,
         'exec_time_ms':     round(elapsed_ms, 1),
+        'peak_mem_mb':      round(peak_mb, 3),
     }
 
 
@@ -83,9 +147,9 @@ def main():
                    help='with --sample: run only the first N instances of the sample')
     p.add_argument('--seed', type=int, required=True, help='RNG seed (required)')
     p.add_argument('--strategy', choices=sorted(STRATEGIES))
-    p.add_argument('--all', action='store_true', help='Run all four configurations')
+    p.add_argument('--all', action='store_true', help='Run all configurations (including baselines)')
     p.add_argument('--pop-size', type=int, default=30)
-    p.add_argument('--max-iter', type=int, default=500)
+    p.add_argument('--max-iter', type=int, default=300)
     p.add_argument('--lambda', type=float, default=0.20, dest='lam',
                    help='Ties all four PEN-1 weights (the calibration grid runs tied)')
     p.add_argument('--lambda-w', type=float, default=None, help='override C3 weight')
@@ -123,7 +187,7 @@ def main():
       inst = load_augmented_instance(
           {'data': {'raw_dir': args.raw_dir}},
           instance_id=instance_id,
-          stop_seed=args.seed,
+          stop_seed=42,
           stop_count=args.stop_count,
       )
       container = inst['container']
@@ -134,7 +198,7 @@ def main():
         fresh = load_augmented_instance(
             {'data': {'raw_dir': args.raw_dir}},
             instance_id=instance_id,
-            stop_seed=args.seed,
+            stop_seed=42,
             stop_count=args.stop_count,
         )
         res = run_one(strategy, fresh['boxes'], fresh['container'], args.seed,

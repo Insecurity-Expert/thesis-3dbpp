@@ -21,7 +21,7 @@ const machineText = (m) => (m ? [m.processor, m.cpu_count ? `${m.cpu_count} logi
 
 function Item({ n, title, children }) {
   return (
-    <div style={{ display: "flex", gap: 12, padding: "12px 0", borderTop: n > 1 ? "1px solid var(--border)" : "none" }}>
+    <div style={{ display: "flex", gap: 12, padding: "16px 0", borderTop: n > 1 ? "1px solid var(--border)" : "none" }}>
       <div style={{ flex: "0 0 26px", height: 26, borderRadius: "50%", background: "var(--primary-light)", color: "var(--primary)", fontWeight: 800, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
       <div style={{ fontSize: 13, lineHeight: 1.55, color: "var(--text-muted)" }}>
         <div style={{ fontWeight: 700, color: "var(--text-main)", marginBottom: 2 }}>{title}</div>
@@ -66,7 +66,7 @@ export default function ThingsToKnow({ result = null, studies = [], bare = false
       <Item n={4} title="Timing depends on how and where a run was made">
         {done.length === 0 ? "No finished study is loaded, so there is no timing record to show. " : (
           <ul style={{ margin: "4px 0 6px", paddingLeft: 18 }}>
-            {done.map((s) => (
+            {Array.from(new Map(done.map(s => [s.name, s])).values()).map((s) => (
               <li key={s.id}>
                 <b>{s.name}</b>: run {s.mode || "in an unrecorded mode"}{s.mode === "parallel" && s.workers ? ` (${s.workers} at once)` : ""}
                 {machineText(s.machine) ? ` on ${machineText(s.machine)}` : ", machine not recorded"}.{" "}

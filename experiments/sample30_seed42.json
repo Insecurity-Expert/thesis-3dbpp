@@ -1,0 +1,610 @@
+{
+  "seed": 42,
+  "n_total": 30,
+  "max_boxes": 200,
+  "quotas": {
+    "BR1": 4,
+    "BR2": 4,
+    "BR3": 4,
+    "BR4": 4,
+    "BR5": 4,
+    "BR6": 5,
+    "BR7": 5
+  },
+  "per_file": {
+    "BR1": {
+      "quota": 4,
+      "selected": 4,
+      "tried": 5,
+      "rejected": 1
+    },
+    "BR2": {
+      "quota": 4,
+      "selected": 4,
+      "tried": 4,
+      "rejected": 0
+    },
+    "BR3": {
+      "quota": 4,
+      "selected": 4,
+      "tried": 4,
+      "rejected": 0
+    },
+    "BR4": {
+      "quota": 4,
+      "selected": 4,
+      "tried": 4,
+      "rejected": 0
+    },
+    "BR5": {
+      "quota": 4,
+      "selected": 4,
+      "tried": 4,
+      "rejected": 0
+    },
+    "BR6": {
+      "quota": 5,
+      "selected": 5,
+      "tried": 5,
+      "rejected": 0
+    },
+    "BR7": {
+      "quota": 5,
+      "selected": 5,
+      "tried": 5,
+      "rejected": 0
+    }
+  },
+  "selected": [
+    {
+      "instance_id": 413,
+      "br_class": "BR1",
+      "file": "wtpack1.txt",
+      "index": 59,
+      "n_types": 3,
+      "n_boxes": 105,
+      "fragile_rate": 0.3524,
+      "fragile_count": 37,
+      "lbs_min": 0.00509,
+      "lbs_max": 0.06871,
+      "lbs_ratio": 13.499,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 147,
+      "br_class": "BR1",
+      "file": "wtpack1.txt",
+      "index": 21,
+      "n_types": 3,
+      "n_boxes": 116,
+      "fragile_rate": 0.3103,
+      "fragile_count": 36,
+      "lbs_min": 0.00656,
+      "lbs_max": 0.14747,
+      "lbs_ratio": 22.4802,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 392,
+      "br_class": "BR1",
+      "file": "wtpack1.txt",
+      "index": 56,
+      "n_types": 3,
+      "n_boxes": 124,
+      "fragile_rate": 0.3468,
+      "fragile_count": 43,
+      "lbs_min": 0.04501,
+      "lbs_max": 0.14337,
+      "lbs_ratio": 3.1853,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 231,
+      "br_class": "BR1",
+      "file": "wtpack1.txt",
+      "index": 33,
+      "n_types": 3,
+      "n_boxes": 160,
+      "fragile_rate": 0.3375,
+      "fragile_count": 54,
+      "lbs_min": 0.00438,
+      "lbs_max": 0.06339,
+      "lbs_ratio": 14.4726,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 239,
+      "br_class": "BR2",
+      "file": "wtpack2.txt",
+      "index": 34,
+      "n_types": 5,
+      "n_boxes": 147,
+      "fragile_rate": 0.1905,
+      "fragile_count": 28,
+      "lbs_min": 0.03704,
+      "lbs_max": 0.12384,
+      "lbs_ratio": 3.3434,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 183,
+      "br_class": "BR2",
+      "file": "wtpack2.txt",
+      "index": 26,
+      "n_types": 5,
+      "n_boxes": 114,
+      "fragile_rate": 0.193,
+      "fragile_count": 22,
+      "lbs_min": 0.00806,
+      "lbs_max": 0.18134,
+      "lbs_ratio": 22.4988,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 295,
+      "br_class": "BR2",
+      "file": "wtpack2.txt",
+      "index": 42,
+      "n_types": 5,
+      "n_boxes": 102,
+      "fragile_rate": 0.2157,
+      "fragile_count": 22,
+      "lbs_min": 0.01149,
+      "lbs_max": 0.21439,
+      "lbs_ratio": 18.6588,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 323,
+      "br_class": "BR2",
+      "file": "wtpack2.txt",
+      "index": 46,
+      "n_types": 5,
+      "n_boxes": 160,
+      "fragile_rate": 0.1688,
+      "fragile_count": 27,
+      "lbs_min": 0.00266,
+      "lbs_max": 0.02356,
+      "lbs_ratio": 8.8571,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 520,
+      "br_class": "BR3",
+      "file": "wtpack3.txt",
+      "index": 74,
+      "n_types": 8,
+      "n_boxes": 139,
+      "fragile_rate": 0.3094,
+      "fragile_count": 43,
+      "lbs_min": 0.00938,
+      "lbs_max": 0.1317,
+      "lbs_ratio": 14.0405,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 485,
+      "br_class": "BR3",
+      "file": "wtpack3.txt",
+      "index": 69,
+      "n_types": 8,
+      "n_boxes": 108,
+      "fragile_rate": 0.2685,
+      "fragile_count": 29,
+      "lbs_min": 0.01285,
+      "lbs_max": 0.0894,
+      "lbs_ratio": 6.9572,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 429,
+      "br_class": "BR3",
+      "file": "wtpack3.txt",
+      "index": 61,
+      "n_types": 8,
+      "n_boxes": 114,
+      "fragile_rate": 0.2719,
+      "fragile_count": 31,
+      "lbs_min": 0.0128,
+      "lbs_max": 0.11203,
+      "lbs_ratio": 8.7523,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 639,
+      "br_class": "BR3",
+      "file": "wtpack3.txt",
+      "index": 91,
+      "n_types": 8,
+      "n_boxes": 97,
+      "fragile_rate": 0.2268,
+      "fragile_count": 22,
+      "lbs_min": 0.01577,
+      "lbs_max": 0.12762,
+      "lbs_ratio": 8.0926,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 185,
+      "br_class": "BR4",
+      "file": "wtpack4.txt",
+      "index": 26,
+      "n_types": 10,
+      "n_boxes": 119,
+      "fragile_rate": 0.2269,
+      "fragile_count": 27,
+      "lbs_min": 0.00142,
+      "lbs_max": 0.20261,
+      "lbs_ratio": 142.6831,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 31,
+      "br_class": "BR4",
+      "file": "wtpack4.txt",
+      "index": 4,
+      "n_types": 10,
+      "n_boxes": 130,
+      "fragile_rate": 0.2308,
+      "fragile_count": 30,
+      "lbs_min": 0.03269,
+      "lbs_max": 0.16216,
+      "lbs_ratio": 4.9605,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 346,
+      "br_class": "BR4",
+      "file": "wtpack4.txt",
+      "index": 49,
+      "n_types": 10,
+      "n_boxes": 167,
+      "fragile_rate": 0.2096,
+      "fragile_count": 35,
+      "lbs_min": 0.01246,
+      "lbs_max": 0.2419,
+      "lbs_ratio": 19.4141,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 304,
+      "br_class": "BR4",
+      "file": "wtpack4.txt",
+      "index": 43,
+      "n_types": 10,
+      "n_boxes": 138,
+      "fragile_rate": 0.2391,
+      "fragile_count": 33,
+      "lbs_min": 0.00632,
+      "lbs_max": 0.13571,
+      "lbs_ratio": 21.4731,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 165,
+      "br_class": "BR5",
+      "file": "wtpack5.txt",
+      "index": 23,
+      "n_types": 12,
+      "n_boxes": 111,
+      "fragile_rate": 0.2432,
+      "fragile_count": 27,
+      "lbs_min": 0.00486,
+      "lbs_max": 0.21763,
+      "lbs_ratio": 44.7798,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 137,
+      "br_class": "BR5",
+      "file": "wtpack5.txt",
+      "index": 19,
+      "n_types": 12,
+      "n_boxes": 138,
+      "fragile_rate": 0.2536,
+      "fragile_count": 35,
+      "lbs_min": 0.00402,
+      "lbs_max": 0.25161,
+      "lbs_ratio": 62.5896,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 53,
+      "br_class": "BR5",
+      "file": "wtpack5.txt",
+      "index": 7,
+      "n_types": 12,
+      "n_boxes": 98,
+      "fragile_rate": 0.2449,
+      "fragile_count": 24,
+      "lbs_min": 0.00078,
+      "lbs_max": 0.14253,
+      "lbs_ratio": 182.7308,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 214,
+      "br_class": "BR5",
+      "file": "wtpack5.txt",
+      "index": 30,
+      "n_types": 12,
+      "n_boxes": 147,
+      "fragile_rate": 0.2313,
+      "fragile_count": 34,
+      "lbs_min": 0.01542,
+      "lbs_max": 0.11323,
+      "lbs_ratio": 7.3431,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 47,
+      "br_class": "BR6",
+      "file": "wtpack6.txt",
+      "index": 6,
+      "n_types": 15,
+      "n_boxes": 123,
+      "fragile_rate": 0.2927,
+      "fragile_count": 36,
+      "lbs_min": 0.00186,
+      "lbs_max": 0.18076,
+      "lbs_ratio": 97.1828,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 138,
+      "br_class": "BR6",
+      "file": "wtpack6.txt",
+      "index": 19,
+      "n_types": 15,
+      "n_boxes": 140,
+      "fragile_rate": 0.2786,
+      "fragile_count": 39,
+      "lbs_min": 0.0008,
+      "lbs_max": 0.2077,
+      "lbs_ratio": 259.625,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 299,
+      "br_class": "BR6",
+      "file": "wtpack6.txt",
+      "index": 42,
+      "n_types": 15,
+      "n_boxes": 108,
+      "fragile_rate": 0.2222,
+      "fragile_count": 24,
+      "lbs_min": 0.00063,
+      "lbs_max": 0.21691,
+      "lbs_ratio": 344.3016,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 579,
+      "br_class": "BR6",
+      "file": "wtpack6.txt",
+      "index": 82,
+      "n_types": 15,
+      "n_boxes": 129,
+      "fragile_rate": 0.2171,
+      "fragile_count": 28,
+      "lbs_min": 0.00254,
+      "lbs_max": 0.20215,
+      "lbs_ratio": 79.5866,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 103,
+      "br_class": "BR6",
+      "file": "wtpack6.txt",
+      "index": 14,
+      "n_types": 15,
+      "n_boxes": 95,
+      "fragile_rate": 0.2316,
+      "fragile_count": 22,
+      "lbs_min": 0.00167,
+      "lbs_max": 0.17625,
+      "lbs_ratio": 105.5389,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 174,
+      "br_class": "BR7",
+      "file": "wtpack7.txt",
+      "index": 24,
+      "n_types": 20,
+      "n_boxes": 130,
+      "fragile_rate": 0.2615,
+      "fragile_count": 34,
+      "lbs_min": 0.00524,
+      "lbs_max": 0.19264,
+      "lbs_ratio": 36.7634,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 580,
+      "br_class": "BR7",
+      "file": "wtpack7.txt",
+      "index": 82,
+      "n_types": 20,
+      "n_boxes": 139,
+      "fragile_rate": 0.259,
+      "fragile_count": 36,
+      "lbs_min": 0.00366,
+      "lbs_max": 0.21428,
+      "lbs_ratio": 58.5464,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 538,
+      "br_class": "BR7",
+      "file": "wtpack7.txt",
+      "index": 76,
+      "n_types": 20,
+      "n_boxes": 158,
+      "fragile_rate": 0.2532,
+      "fragile_count": 40,
+      "lbs_min": 0.00967,
+      "lbs_max": 0.14112,
+      "lbs_ratio": 14.5936,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 209,
+      "br_class": "BR7",
+      "file": "wtpack7.txt",
+      "index": 29,
+      "n_types": 20,
+      "n_boxes": 143,
+      "fragile_rate": 0.2308,
+      "fragile_count": 33,
+      "lbs_min": 0.0026,
+      "lbs_max": 0.23503,
+      "lbs_ratio": 90.3962,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    },
+    {
+      "instance_id": 454,
+      "br_class": "BR7",
+      "file": "wtpack7.txt",
+      "index": 64,
+      "n_types": 20,
+      "n_boxes": 168,
+      "fragile_rate": 0.244,
+      "fragile_count": 41,
+      "lbs_min": 0.00308,
+      "lbs_max": 0.17547,
+      "lbs_ratio": 56.9708,
+      "container": {
+        "L": 587.0,
+        "W": 233.0,
+        "H": 220.0
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "instance_id": 126,
+      "br_class": "BR1",
+      "index": 18,
+      "n_boxes": 130,
+      "reason": "lbs_range: LBS range too narrow: LBS_max/LBS_min = 1.513"
+    }
+  ],
+  "addressing": "instance_id = index * 7 + (file_idx - 1); wtpackK = BRK"
+}

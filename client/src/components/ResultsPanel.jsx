@@ -71,12 +71,12 @@ function SolutionCard({ code, rep, load, recommended, onView, onGuide }) {
       <Metric k="Rule-following (all boxes)" v={`${f1(rep.csr_all_pct)}%`} title="Share of ALL the boxes in the load that follow the four loading rules. A box that was not loaded counts as not following them." />
       <Metric k="Rule score (loaded boxes)" v={`${f1(rep.csr_placed_pct)}%`} title="Share of the boxes that were loaded that follow the four loading rules. Boxes left out are not counted." />
       <Metric k="Boxes not loaded" v={`${rep.not_loaded} of ${rep.n_items}`} />
-      <Metric k="Time" v={rep.cpu_ms != null ? `${secs(rep.cpu_ms)} CPU` : `${secs(rep.wall_ms)}`} title={rep.cpu_ms != null ? `Processor time the run used (${secs(rep.wall_ms)} on the clock while sharing the machine).` : "Wall-clock time."} />
+      <Metric k="Time (ET)" v={rep.cpu_ms != null ? `${Math.round(rep.cpu_ms)} ms CPU` : `${Math.round(rep.wall_ms)} ms`} title={rep.cpu_ms != null ? `Processor time the run used (${Math.round(rep.wall_ms)} ms on the clock while sharing the machine).` : "Wall-clock time."} />
       {open && (
         <div style={{ fontSize: 12.5, marginTop: 10, lineHeight: 1.6, color: "var(--text-muted)" }}>
           <div><b>Loaded boxes following each rule:</b> load on top (C3) {f1(rep.C3_pct)}% · fragile (C4) {f1(rep.C4_pct)}% · stable stacking (C5) {f1(rep.C5_pct)}% · unload order (C6) {f1(rep.C6_pct)}%.</div>
           <div><b>All {runs.length} runs of {nameOf(code)}:</b> container fill {f1(mean(runs.map((r) => r.su_pct)))}% on average (from {f1(Math.min(...runs.map((r) => r.su_pct)))}% to {f1(Math.max(...runs.map((r) => r.su_pct)))}%).</div>
-          <div>Boxes loaded {rep.placed} of {rep.n_items}. Peak memory {f1(rep.peak_mem_mb, 0)} MB. Wall-clock {secs(rep.wall_ms)}.</div>
+          <div>Boxes loaded {rep.placed} of {rep.n_items}. Peak memory {f1(rep.peak_mem_mb, 0)} MB. Wall-clock {Math.round(rep.wall_ms)} ms.</div>
         </div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto", paddingTop: 12 }}>
@@ -103,7 +103,7 @@ function HowDecided({ load, study }) {
             {load.ranking.map((c, i) => (
               <tr key={c} style={{ background: c === load.top ? "var(--primary-light)" : undefined }}>
                 <td style={{ fontWeight: 700 }}>{nameOf(c)}</td>
-                <td>{f1(per[c].SU)}%</td><td>{f1(per[c].CSR)}%</td><td>{secs(per[c].ET)}</td><td>{f1(per[c].PM, 0)} MB</td><td>{f1(per[c].Rob, 2)}</td>
+                <td>{f1(per[c].SU)}%</td><td>{f1(per[c].CSR)}%</td><td>{Math.round(per[c].ET)} ms</td><td>{f1(per[c].PM, 0)} MB</td><td>{f1(per[c].Rob, 2)}</td>
                 <td>{f1(per[c].SU_n * 5, 2)}</td><td>{f1(per[c].CSR_n * 5, 2)}</td><td>{f1((1 - per[c].CC_n) * 5, 2)}</td><td>{f1((1 - per[c].Rob_n) * 5, 2)}</td>
                 <td style={{ fontWeight: 800 }}>{f1(per[c].CS * 5, 2)}</td><td>{i + 1}</td>
               </tr>
@@ -140,7 +140,7 @@ function RunTable({ runs }) {
               <tr key={`${r.configuration}-${r.seed}`}>
                 <td>{nameOf(r.configuration)}</td><td>{r.seed}</td><td>{f1(r.su_pct, 2)}%</td><td>{f1((r.csr_pct * r.placed) / r.n_items, 2)}%</td><td>{f1(r.csr_pct, 2)}%</td>
                 <td>{f1(r.C3_pct)}%</td><td>{f1(r.C4_pct)}%</td><td>{f1(r.C5_pct)}%</td><td>{f1(r.C6_pct)}%</td><td>{r.placed}/{r.n_items}</td>
-                <td>{secs(r.cpu_time_ms)}</td><td>{secs(r.exec_time_ms)}</td><td>{f1(r.peak_mem_mb, 0)} MB</td><td>{r.worker_warmup_cpu_ms != null ? secs(r.worker_warmup_cpu_ms) : "—"}</td>
+                <td>{r.cpu_time_ms != null ? Math.round(r.cpu_time_ms) + " ms" : "—"}</td><td>{Math.round(r.exec_time_ms)} ms</td><td>{f1(r.peak_mem_mb, 0)} MB</td><td>{r.worker_warmup_cpu_ms != null ? Math.round(r.worker_warmup_cpu_ms) + " ms" : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -222,17 +222,17 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
       {load && (
         <div className="winner-card">
           <div className="winner-inner">
-            <div className="winner-tag"><span>★</span><span>Recommended for this load</span></div>
+            <div className="winner-tag"><span>★</span><span>Best composite on this load (descriptive)</span></div>
             {top ? (
               <>
-                <div className="winner-label">{tie ? `${others.length === 1 ? "Two" : "Several"} methods did about equally well` : "Recommended method"}</div>
+                <div className="winner-label">{tie ? `${others.length === 1 ? "Two" : "Several"} methods did about equally well` : "Best composite method"}</div>
                 <div className="winner-name">{nameOf(top)}</div>
                 <div className="winner-algo">{nickOf(top)}{tie ? ` — together with ${andList(others.map(nameOf))}` : ""}</div>
                 <div className="winner-stats">
                   <div><div className="winner-stat-label">Overall score</div><div className="winner-stat-value">{f1(t.CS * 5, 2)} / 5</div></div>
                   <div><div className="winner-stat-label">Container full</div><div className="winner-stat-value">{f1(t.SU)}%</div></div>
                   <div><div className="winner-stat-label">Rules followed</div><div className="winner-stat-value">{f1(t.CSR)}%</div></div>
-                  <div><div className="winner-stat-label">{load.cost_basis === "cpu" ? "CPU time" : "Time"}</div><div className="winner-stat-value">{secs(t.ET)}</div></div>
+                  <div><div className="winner-stat-label">{load.cost_basis === "cpu" ? "CPU time" : "Time"}</div><div className="winner-stat-value">{Math.round(t.ET)} ms</div></div>
                 </div>
                 <div className="winner-note">
                   {tie && <b>{others.length === 1 ? "Two" : "Several"} methods did about equally well: {andList([top, ...others].map(nameOf))}. </b>}

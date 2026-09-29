@@ -611,3 +611,19 @@ input:checked + .slider:before { transform: translateX(16px); }
   .data-table.guide-load .sub { display: inline !important; margin-left: 4px; }
   .guide-unload-stop { font-size: 9.5px !important; break-inside: avoid; }
 }
+
+.account-layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(380px, 1.2fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
+}

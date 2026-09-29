@@ -90,7 +90,7 @@ export default function LogisticsTab({
   const PRESET_INFO = {
     quick:    { label: "Quick demo", pop: 10, iter: 60 },
     standard: { label: "Standard",   pop: 10, iter: 300 },
-    full:     { label: "Full",       pop: 30, iter: 500 },
+    thesis:   { label: "Thesis",     pop: 30, iter: 300 },
   };
 
   // Step 1 is done when the load on screen is ready.
@@ -167,16 +167,9 @@ export default function LogisticsTab({
                     disabled={running || !custom} onChange={(e) => setDim(k, e.target.value)} />
                 </div>
               ))}
-              <div>
-                <label className="field-label">Truck weight limit (kg) — optional</label>
-                <input type="number" className="field-input" min="0" placeholder="no limit" aria-label="Truck weight limit (kg)"
-                  value={custom ? containerSpecs.max_weight : ""} disabled={running || !custom}
-                  onChange={(e) => setDim("max_weight", e.target.value)} />
-              </div>
             </div>
             <div className="field-hint" style={{ marginTop: 8 }}>
-              {cDims.map((v) => v || "?").join(" × ")} cm (length door-to-cab × width × height).{" "}
-              {custom ? "Weight limit: checked after the run, not used for packing." : "A weight limit can be set for your own boxes only."}
+              {cDims.map((v) => v || "?").join(" × ")} cm (length door-to-cab × width × height).
             </div>
             {!containerOk && <div className="alert-danger" style={{ marginTop: 10 }}>Each container size must be a number greater than 0.</div>}
             {custom && loadSources.customErrors && loadSources.customErrors.length > 0 && (
@@ -274,8 +267,6 @@ export default function LogisticsTab({
                   warn={fillPct !== null && fillPct > 90 ? "This load nearly fills the container, so some boxes may not fit." : null} />
                 <Review label="Stops and fragile boxes" value={`${f.n_stops} stop${f.n_stops === 1 ? "" : "s"} · ${f.fragile_count} fragile`}
                   sub={`${n1((100 * f.fragile_count) / Math.max(f.boxes, 1))}% of the boxes are fragile`} />
-                <Review label="Truck weight limit" value={custom && f.max_weight_kg != null ? `${n1(f.max_weight_kg)} kg` : "None"}
-                  sub={custom && f.max_weight_kg != null ? "checked after the run, not used for packing" : custom ? "none entered" : "benchmark load — no limit"} />
                 <Review label="Time estimate" value={demo && demo.estimate_s != null ? `about ${vfmt.duration(demo.estimate_s)}` : "no estimate yet"}
                   sub={demo && demo.estimate_s != null
                     ? `from ${demo.basis_studies} earlier run${demo.basis_studies === 1 ? "" : "s"} of this size on this machine${custom && demo.basis_boxes ? ` (${Math.round(demo.basis_boxes)}-box loads; yours has ${f.boxes})` : ""}`

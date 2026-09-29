@@ -36,6 +36,7 @@ const VIEW_PY = path.join(ROOT, "experiments", "run_view.py");
 const RECOMMEND_PY = path.join(ROOT, "experiments", "recommend.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
+const SAMPLE30 = path.join(ROOT, "experiments", "sample30_seed42.json");
 if (!fs.existsSync(STUDIES_DIR)) fs.mkdirSync(STUDIES_DIR, { recursive: true });
 
 // The three sizes of the "Full Comparison" picker. Estimates are MEASURED on
@@ -57,6 +58,9 @@ const SIZES = {
   multi:    { name: "Multi-instance study (Study B)", preset: "quick", mode: "serial", seeds: "1-10", sample: SAMPLE8, workers: 1,
               runs: 320,
               blurb: "8 instances (BR1-BR7), Quick preset, seeds 1-10 x 4 configurations, run one at a time (timing valid)" },
+  thesis:   { name: "Thesis study", preset: "thesis", mode: "serial", seeds: "1-30", sample: SAMPLE30, workers: 1,
+              runs: 3600,
+              blurb: "30 instances x 30 runs x 4 configurations = 3,600 runs, executed serially on an idle machine with seeds 1 to 30." },
 };
 
 // Duration estimate for a size, from finished studies stored on this machine
@@ -230,9 +234,9 @@ router.post("/import", authRequired, (req, res) => {
 router.post("/", authRequired, (req, res) => {
   const b = req.body || {};
   const size = SIZES[b.size] ? b.size : null;
-  if (!size && !b.preset) return res.status(400).json({ error: "size (demo|standard|multi) or explicit parameters required" });
+  if (!size && !b.preset) return res.status(400).json({ error: "size (demo|standard|multi|thesis) or explicit parameters required" });
   const def = size ? SIZES[size] : {};
-  const preset = ["quick", "standard", "full"].includes(b.preset) ? b.preset : def.preset;
+  const preset = ["quick", "standard", "thesis"].includes(b.preset) ? b.preset : def.preset;
   const mode = ["serial", "parallel"].includes(b.mode) ? b.mode : def.mode;
   const seeds = typeof b.seeds === "string" && /^[0-9,\- ]+$/.test(b.seeds) ? b.seeds : def.seeds;
   const instanceId = Number.isInteger(Number(b.instanceId)) && b.instanceId !== undefined && b.instanceId !== null ? Number(b.instanceId) : def.instanceId;

@@ -20,19 +20,18 @@ from geometry_3d import get_dims, vertical_lbs, overlaps
 from thesis_metrics import (_is_above, _blocks_extraction, _overlap,
                             evaluate_constraints)
 
-R_MAX = 3
+R_MAX = 5
 SUPPORT_THRESHOLD = 0.80
 
-# R4 destinations are checked against C1-C6. Chapter 3 wrote "subject to
+# R2 destinations are checked against C1-C6. Chapter 3 wrote "subject to
 # (C1)-(C5)", which lets a relocated blocker block a DIFFERENT earlier-stop box
 # and prevents the pass loop from ever converging (Step 5: R_MAX hit 800/800).
 # Both directions of the blocking relation are checked (see _feasible_at, C6).
-R4_CHECK = ('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
-OPERATORS = ('R1', 'R2', 'R3', 'R4')
+R2_CHECK = ('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
+OPERATORS = ('R1', 'R2')
 
-STAT_KEYS = ('relocated_R1', 'relocated_R2', 'relocated_R3', 'relocated_R4',
-             'deferred_R1', 'deferred_R2', 'deferred_R3', 'deferred_R4',
-             'removed_R5', 'passes_used', 'rmax_hit')
+STAT_KEYS = ('relocated_R1', 'relocated_R2', 'deferred_R1', 'deferred_R2',
+             'removed_R3', 'passes_used', 'rmax_hit')
 
 
 # -- Per-pass caches -----------------------------------------------------------
@@ -458,21 +457,8 @@ def _relocate_or_defer(ctx, j, unpacked, stats, tag, **kw):
         stats['relocated_' + tag] += 1
 
 
-# -- R1: fragility -------------------------------------------------------------
+# -- R1: weight ----------------------------------------------------------------
 def repair_R1(ctx, unpacked, stats):
-    changed = False
-    for i in list(ctx.placements):
-        if i not in ctx.placements or ctx.items[i]['fragile'] != 1:
-            continue
-        for j in list(ctx.above(i)):
-            if j in ctx.placements:
-                _relocate_or_defer(ctx, j, unpacked, stats, 'R1')
-                changed = True
-    return changed
-
-
-# -- R2: weight ----------------------------------------------------------------
-def repair_R2(ctx, unpacked, stats):
     changed = False
     for i in list(ctx.placements):
         if i not in ctx.placements:
@@ -485,50 +471,13 @@ def repair_R2(ctx, unpacked, stats):
                 break
             if j in ctx.placements:
                 borne -= ctx.items[j]['mass']
-                _relocate_or_defer(ctx, j, unpacked, stats, 'R2')
+                _relocate_or_defer(ctx, j, unpacked, stats, 'R1')
                 changed = True
     return changed
 
 
-# -- R3: balance ---------------------------------------------------------------
-def repair_R3(ctx, unpacked, stats):
-    changed = False
-    for i in list(ctx.placements):
-        if i not in ctx.placements:
-            continue
-        (x_i, y_i, z_i, dx_i, dy_i, dz_i) = ctx.placements[i]
-        if z_i == 0 or _support_ratio(i, ctx.placements) >= SUPPORT_THRESHOLD:
-            continue
-        ctx.remove(i)
-        eps = ctx.extreme_points()
-
-        # 1. translate in the (x, y) plane: same layer, nearest first
-        same_layer = eps[eps[:, 2] == z_i]
-        if same_layer.shape[0]:
-            dist = np.hypot(same_layer[:, 0] - x_i, same_layer[:, 1] - y_i)
-            same_layer = same_layer[np.argsort(dist, kind='stable')]
-        found = find_feasible_position(i, ctx.items, ctx.placements, ctx.orientations,
-                                       ctx.container, check=('C1', 'C2', 'C5'),
-                                       eps=same_layer, reject=ctx.rejections['R3'])
-        # 2. demote to a lower layer
-        if found is None:
-            lower = eps[eps[:, 2] < z_i]
-            found = find_feasible_position(i, ctx.items, ctx.placements, ctx.orientations,
-                                           ctx.container, check=('C1', 'C2', 'C5'),
-                                           eps=lower, reject=ctx.rejections['R3'])
-        if found is None:
-            unpacked.append(i)
-            stats['deferred_R3'] += 1
-        else:
-            pos, r = found
-            ctx.place(i, pos, r)
-            stats['relocated_R3'] += 1
-        changed = True
-    return changed
-
-
-# -- R4: stop order ------------------------------------------------------------
-def repair_R4(ctx, unpacked, stats):
+# -- R2: stop order ------------------------------------------------------------
+def repair_R2(ctx, unpacked, stats):
     changed = False
     for i in list(ctx.placements):
         if i not in ctx.placements:
@@ -541,13 +490,13 @@ def repair_R4(ctx, unpacked, stats):
 
         for j in blockers:
             if j in ctx.placements:
-                _relocate_or_defer(ctx, j, unpacked, stats, 'R4',
-                                   check=R4_CHECK, corridor=corridor)
+                _relocate_or_defer(ctx, j, unpacked, stats, 'R2',
+                                   check=R2_CHECK, corridor=corridor)
                 changed = True
     return changed
 
 
-# -- R5: fixpoint removal ------------------------------------------------------
+# -- R3: fixpoint removal ------------------------------------------------------
 def _violators(items, placements, orientations):
     out = set()
     members = list(placements)
@@ -568,7 +517,7 @@ def _violators(items, placements, orientations):
     return out
 
 
-def repair_R5(ctx, unpacked, stats):
+def repair_R3(ctx, unpacked, stats):
     """Remove every box still in violation, to a fixpoint: pulling a support
     can orphan the boxes above it, so one sweep is not enough."""
     while True:
@@ -578,7 +527,7 @@ def repair_R5(ctx, unpacked, stats):
         for i in bad:
             ctx.remove(i)
             unpacked.append(i)
-            stats['removed_R5'] += 1
+            stats['removed_R3'] += 1
 
 
 # -- Driver --------------------------------------------------------------------
@@ -593,15 +542,13 @@ def repair_arrangement(placements, orientations, unpacked, items, container):
         changed = False
         changed |= repair_R1(ctx, unpacked, stats)
         changed |= repair_R2(ctx, unpacked, stats)
-        changed |= repair_R3(ctx, unpacked, stats)
-        changed |= repair_R4(ctx, unpacked, stats)
         if not changed and not _violators(items, placements, orientations):
             break
     else:
         stats['rmax_hit'] = 1
     stats['passes_used'] = passes
 
-    repair_R5(ctx, unpacked, stats)
+    repair_R3(ctx, unpacked, stats)
 
     stats['rejections'] = {op: dict(c) for op, c in ctx.rejections.items()}
 

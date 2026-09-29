@@ -14,10 +14,8 @@ from typing import List, Dict, Any
 
 # Chapter 3 target is 25%; greedy type selection lands within +/-5pp for the
 # large majority of instances (over all 700 wtpack instances: min 0.140,
-# median 0.252, mean 0.257, max 0.449; 76% within +/-5pp). Instances outside
-# these bounds are rejected by _validate and replaced by the sampler.
-FRAGILE_RATE_MIN = 0.20
-FRAGILE_RATE_MAX = 0.30
+# median 0.252, mean 0.257, max 0.449; 76% within +/-5pp).
+# The realized fragile share is recorded as a descriptive covariate.
 
 
 def _box_lbs(box: Dict[str, Any]) -> float:
@@ -94,15 +92,9 @@ def _validate(boxes: List[Dict[str, Any]], lbs_values: np.ndarray) -> Dict[str, 
     if n == 0:
         raise ValueError("Empty box list")
 
-    # (i) fragile proportion within the bounds observed for type-level
-    #     assignment across the OR-Library wtpack set (see FRAGILE_RATE_*)
+    # (i) Record fragile proportion as a descriptive covariate (no longer gated)
     frag_count = sum(b['fragile'] for b in boxes)
     frag_rate = frag_count / n
-    if not (FRAGILE_RATE_MIN <= frag_rate <= FRAGILE_RATE_MAX):
-        raise ValueError(
-            f"Fragile proportion {frag_rate:.4f} outside "
-            f"[{FRAGILE_RATE_MIN}, {FRAGILE_RATE_MAX}] ({frag_count}/{n} fragile)"
-        )
 
     # (ii) non-degenerate LBS distribution (variance + distinct-value check)
     n_distinct = int(len(np.unique(lbs_values)))

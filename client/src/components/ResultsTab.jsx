@@ -88,23 +88,8 @@ export default function ResultsTab({
           {(() => {
             const m = finalResult.metrics || {};
             const cd = m.constraint_detail;
-            const thesis = cd && cd.C3_weight_pct !== undefined;   // DGWO / MOGWO / SEQ / REP
             const placed = finalResult.placed ?? (finalResult.items ? finalResult.items.length : 0);
             const total  = finalResult.n_items ?? placed;
-            if (!thesis) {
-              return (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-                  <StatChip label="Space Utilization" value={`${Number(m.M1_space_utilization_pct ?? finalResult.volume_util_pct ?? 0).toFixed(1)}%`} color="var(--primary)" subtitle={finalResult.legacy ? "as saved" : "NAB score"} />
-                  {finalResult.legacy ? (
-                    <StatChip label="Boxes placed" value={`${placed}${finalResult.n_items ? ` / ${finalResult.n_items}` : ""}`} color="var(--text-muted)" subtitle="from saved placements" />
-                  ) : (
-                    <StatChip label="Optimality Gap" value={`${Number(finalResult.gap_pct ?? 0).toFixed(1)}%`} color={finalResult.gap_pct === 0 ? "var(--green)" : "var(--amber)"} subtitle="vs. lower bound" />
-                  )}
-                  {!finalResult.legacy && <StatChip label="Dissipation D(X)" value={Number(finalResult.dissipation ?? 0).toFixed(3)} color="var(--text-muted)" subtitle="C1=C2=0.5" />}
-                  <StatChip label="Runtime" value={`${Number(finalResult.runtime_s ?? 0).toFixed(1)}s`} color="var(--text-muted)" subtitle={finalResult.legacy ? "as saved" : `${shownIter} iterations`} />
-                </div>
-              );
-            }
             return (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
                 <StatChip label="Space Utilization (M-1)" value={`${m.M1_space_utilization_pct.toFixed(1)}%`} color="var(--primary)" subtitle="single container, OF-1" />
@@ -123,7 +108,7 @@ export default function ResultsTab({
                   title="Denominator: all n boxes of the instance. A box left unplaced counts as non-compliant. Exact: CSR × placed / n."
                 />
                 <StatChip label="Boxes placed" value={`${placed} / ${total}`} color={placed === total ? "var(--green)" : "var(--amber)"} subtitle={`${(100 * placed / Math.max(total, 1)).toFixed(0)}% of the load`} />
-                <StatChip label="Execution time (M-3)" value={`${finalResult.runtime_s.toFixed(1)}s`} color="var(--text-muted)" subtitle={`pop ${shownPop ?? "—"} × ${shownIter} iterations`} />
+                <StatChip label="Execution time (ET, M-3)" value={`${Math.round(finalResult.runtime_s * 1000)} ms`} color="var(--text-muted)" subtitle={`pop ${shownPop ?? "—"} × ${shownIter} iterations`} />
                 <StatChip label="Peak memory (M-4)" value={`${(m.M4_peak_memory_mb ?? 0).toFixed(1)} MB`} color="var(--text-muted)" subtitle="tracemalloc peak" />
               </div>
             );
@@ -217,7 +202,7 @@ export default function ResultsTab({
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>NAB (space fill)</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Space fill (M-1)</span>
                   <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{(Number(finalResult.metrics?.M1_space_utilization_pct ?? finalResult.volume_util_pct ?? 0) / 100).toFixed(3)}</span>
                 </div>
 
@@ -240,7 +225,7 @@ export default function ResultsTab({
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>CV (consistency)</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Robustness (SU Std. Dev.)</span>
                   <span style={{ fontWeight: "700", color: "var(--text-main)", fontSize: "14px" }}>{finalResult.metrics?.M5_robustness_su_std != null ? finalResult.metrics.M5_robustness_su_std.toFixed(3) : "n/a (single run)"}</span>
                 </div>
               </div>

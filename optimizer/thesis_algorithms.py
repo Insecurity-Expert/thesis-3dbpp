@@ -38,6 +38,9 @@ class WolfContinuous:
         that would violate C5 / C4 (the two constraints that stay satisfied as
         more boxes are added).
         """
+    def decode_and_evaluate(self, items, container, apply_repair=False,
+                            enforce_support=False, enforce_fragility=False,
+                            compute_penalty=False):
         # 1. Decode the genome into a placement sequence and orientations
         sequence, orients_map = decode_position(self.X, items, container)
 
@@ -56,17 +59,14 @@ class WolfContinuous:
         self.csr, detail = evaluate_constraints(self.placements, items, self.orientations)
 
         # 5. Scalar Fitness F(X) for DGWO — Chapter 3 PEN-1.
-        # Violations are RATES over placed boxes so SumV is in [0, 4] and lives
-        # on the same scale as U(X) in [0, 1]; percentage-point deficits would
-        # let the penalty outweigh utilization by 20-90x at every grid lambda.
-        # No separate unplaced term: V_unplaced/V_c = V_total/V_c - U(X), so it
-        # is just a rescale of U plus a per-instance constant.
-        penalty = (self.lambda_w * detail['C3_weight_rate']
-                   + self.lambda_f * detail['C4_fragility_rate']
-                   + self.lambda_b * detail['C5_balance_rate']
-                   + self.lambda_a * detail['C6_stop_order_rate'])
-
-        self.scalar_fitness = -self.su + penalty
+        if compute_penalty:
+            penalty = (self.lambda_w * detail['C3_weight_rate']
+                       + self.lambda_f * detail['C4_fragility_rate']
+                       + self.lambda_b * detail['C5_balance_rate']
+                       + self.lambda_a * detail['C6_stop_order_rate'])
+            self.scalar_fitness = -self.su + penalty
+        else:
+            self.scalar_fitness = None
 
     def _repair(self, items, container):
         """Relocate-then-defer repair R1-R5 (see repair.py). Mutates the
@@ -134,16 +134,17 @@ class ThesisOptimizerBase:
 
     @staticmethod
     def _archive_best(archive):
-        return max(archive, key=lambda w: (w.csr, len(w.placements), w.su))
+        return max(archive, key=lambda w: w.su)
 
     def _new_wolf(self):
         return WolfContinuous(self.n, lambda_w=self.lambda_w, lambda_f=self.lambda_f,
                               lambda_b=self.lambda_b, lambda_a=self.lambda_a, rng=self.rng)
 
-    def _evaluate(self, w, apply_repair=False):
+    def _evaluate(self, w, apply_repair=False, compute_penalty=False):
         w.decode_and_evaluate(self.items, self.container, apply_repair=apply_repair,
                               enforce_support=self.enforce_support,
-                              enforce_fragility=self.enforce_fragility)
+                              enforce_fragility=self.enforce_fragility,
+                              compute_penalty=compute_penalty)
 
 class StandaloneDGWO(ThesisOptimizerBase):
     def run(self):
@@ -151,7 +152,7 @@ class StandaloneDGWO(ThesisOptimizerBase):
                for _ in range(self.pop_size)]
 
         for w in pop:
-            self._evaluate(w)
+            self._evaluate(w, compute_penalty=True)
 
         pop.sort(key=lambda w: w.scalar_fitness)
         alpha, beta, delta = pop[0], pop[1], pop[2]
@@ -162,7 +163,7 @@ class StandaloneDGWO(ThesisOptimizerBase):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                self._evaluate(pop[i])
+                self._evaluate(pop[i], compute_penalty=True)
 
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
@@ -213,9 +214,8 @@ class StandaloneMOGWO(ThesisOptimizerBase):
             if self.stream_cb:
                 self._emit(iteration, alpha)
 
-        # Return best from archive based on CSR then SU
-        archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
-        return archive[0]
+        # Return best from archive based on SU alone
+        return max(archive, key=lambda w: w.su)
 
     def _update_archive(self, archive, wolf):
         dominated = []
@@ -321,7 +321,7 @@ class SequentialHybrid(StandaloneMOGWO):
         pop = [self._new_wolf() for _ in range(self.pop_size)]
 
         for w in pop:
-            self._evaluate(w)
+            self._evaluate(w, compute_penalty=True)
 
         pop.sort(key=lambda w: w.scalar_fitness)
         alpha, beta, delta = pop[0], pop[1], pop[2]
@@ -331,7 +331,7 @@ class SequentialHybrid(StandaloneMOGWO):
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                self._evaluate(pop[i])
+                self._evaluate(pop[i], compute_penalty=True)
 
             pop.sort(key=lambda w: w.scalar_fitness)
             alpha, beta, delta = pop[0], pop[1], pop[2]
@@ -366,8 +366,7 @@ class SequentialHybrid(StandaloneMOGWO):
             if self.stream_cb:
                 self._emit(T1 + iteration, alpha, T2, "Phase 2: MOGWO")
 
-        archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
-        return archive[0]
+        return max(archive, key=lambda w: w.su)
 
     def _emit(self, it, best, max_it, phase):
         self.stream_cb("iteration_update", {
@@ -428,5 +427,4 @@ class RepairBasedHybrid(StandaloneMOGWO):
             if self.stream_cb:
                 self._emit(iteration, alpha)
 
-        archive.sort(key=lambda w: (w.csr, len(w.placements), w.su), reverse=True)
-        return archive[0]
+        return max(archive, key=lambda w: w.su)

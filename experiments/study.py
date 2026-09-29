@@ -51,7 +51,7 @@ CONFIG_LABELS = {'DGWO': 'DGWO', 'MOGWO': 'MOGWO', 'SEQ': 'Sequential', 'REP': '
 PRESETS = {
     'quick':    {'pop_size': 10, 'max_iter': 60},
     'standard': {'pop_size': 10, 'max_iter': 300},
-    'full':     {'pop_size': 30, 'max_iter': 500},
+    'thesis':   {'pop_size': 30, 'max_iter': 300},
 }
 
 # The stop augmentation is part of the instance, so it is fixed (as the UI's
@@ -73,6 +73,8 @@ SIZES = {
                  'name': 'Standard study (Study A)'},
     'multi':    {'sample': str(SAMPLE8), 'preset': 'quick', 'seeds': '1-10', 'mode': 'serial',
                  'name': 'Multi-instance study (Study B)'},
+    'thesis':   {'sample': str(_ROOT / 'experiments' / 'sample30_seed42.json'), 'preset': 'thesis', 'seeds': '1-30', 'mode': 'serial',
+                 'name': 'Thesis study'},
 }
 
 

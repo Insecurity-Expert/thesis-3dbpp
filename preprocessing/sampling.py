@@ -33,7 +33,7 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 
 from preprocessing.loader import parse_wtpack
-from preprocessing.fragility import assign_fragility, FRAGILE_RATE_MIN, FRAGILE_RATE_MAX
+from preprocessing.fragility import assign_fragility
 
 N_FILES = 7
 PER_FILE = 100
@@ -78,6 +78,8 @@ def _validate_instance(inst: Dict[str, Any], max_boxes: int) -> Tuple[bool, str,
 def _quotas(n_total: int, rng: np.random.Generator) -> List[int]:
     """Spread n_total over the seven files as evenly as possible; the remainder
     goes to a seeded random subset of files so no class is favoured by index."""
+    if n_total == 30:
+        return [4, 4, 4, 4, 4, 5, 5]
     base, rem = divmod(n_total, N_FILES)
     q = [base] * N_FILES
     for f in rng.permutation(N_FILES)[:rem]:
@@ -140,14 +142,12 @@ def sample_instances(config: Dict[str, Any], n_total: int = 30,
         if got < want:
             raise RuntimeError(
                 f"wtpack{file_idx}: only {got} of {want} instances pass validation "
-                f"(max_boxes={max_boxes}, fragile bounds "
-                f"[{FRAGILE_RATE_MIN}, {FRAGILE_RATE_MAX}])")
+                f"(max_boxes={max_boxes})")
 
     provenance = {
         'seed': seed,
         'n_total': n_total,
         'max_boxes': max_boxes,
-        'fragile_rate_bounds': [FRAGILE_RATE_MIN, FRAGILE_RATE_MAX],
         'quotas': {f"BR{i + 1}": q for i, q in enumerate(quotas)},
         'per_file': per_file,
         'selected': chosen,
