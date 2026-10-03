@@ -93,10 +93,30 @@ def parse_seeds(spec):
     return out
 
 
+# Windows: never open a console window for a child process. The server starts
+# this script detached (no console of its own), so every console program it
+# launches would otherwise get a fresh, visible window.
+_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
+
+def _hide_worker_windows():
+    """Pool workers are started by multiprocessing with fixed creation flags,
+    so CREATE_NO_WINDOW cannot be passed to them. pythonw.exe is the same
+    interpreter without a console; workers talk to the parent over pipes,
+    never stdout, so nothing is lost."""
+    if sys.platform != 'win32':
+        return
+    import multiprocessing
+    pythonw = Path(sys.executable).with_name('pythonw.exe')
+    if pythonw.exists():
+        multiprocessing.set_executable(str(pythonw))
+
+
 def git_commit():
     try:
         return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=_ROOT,
-                                       stderr=subprocess.DEVNULL).decode().strip()
+                                       stderr=subprocess.DEVNULL,
+                                       creationflags=_NO_WINDOW).decode().strip()
     except Exception:
         return None
 
@@ -337,6 +357,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
 
     try:
         # One fresh process per run, in both modes (see module docstring).
+        _hide_worker_windows()
         with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
                                  max_tasks_per_child=1, initializer=warm_worker,
                                  initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:

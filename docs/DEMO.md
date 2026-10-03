@@ -13,9 +13,8 @@ cd client && npm install && cd ..
 python -m preprocessing.sampling --n 30 --out experiments/samples/sample30_seed42.json   # already committed
 ```
 
-The BR JSON dataset (`data/CLP-Datasets-Main/BR`) is **not** in the repo any
-more. The legacy BR / HD-GWO path is still wired but has no data; the demo runs
-on wtpack via `--dataset wtpack`.
+The demo runs on the OR-Library wtpack data (`data/raw/`). The older BR JSON
+dataset and the HD-GWO code that read it have been removed.
 
 ## 1. Start
 
@@ -100,7 +99,7 @@ confirms DGWO's row before the session.
 
 ### Repair-based is the slow one
 
-Repair (R1–R5) runs on every candidate every iteration. **At the Quick
+Repair (R1–R3) runs on every candidate every iteration. **At the Quick
 preset it takes ~3.5 min** on this machine, which is long to stand in front
 of. Options for the live session:
 
@@ -150,10 +149,8 @@ removed.
 ## 8. Known gaps (deliberately not fixed for the demo)
 
 - The header still reads **STACKR**. Renaming was out of scope for this branch.
-- The BR JSON / HD-GWO legacy path has no data in the repo; the UI toggle
-  is present but the list is empty.
-- `/api/instance-details` (per-item preview) is BR-only; the wtpack path shows
-  provenance (class, container, box count, fragile share) instead of a table.
+- The wtpack path shows provenance (class, container, box count, fragile
+  share) rather than a per-box table before the run.
 
 ## 9. Full Comparison (SOP studies)
 

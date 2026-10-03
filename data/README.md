@@ -52,5 +52,5 @@ Instance ids are 0..699, round-robin over the files:
 
 `CLP-Datasets-main/` (the Bischoff–Ratcliff BR0–BR18 JSON conversions) was
 deleted from the repository; it carried no mass or load-bearing data and is
-not used by the thesis pipeline. The legacy HD-GWO code path that read it is
-retained but has no data.
+not used by the thesis pipeline. The legacy HD-GWO code path that read it has
+been removed as well.

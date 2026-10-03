@@ -1,114 +1,81 @@
-# STACKR Page & Interface Documentation
+# STACKR — pages and components
 
-Welcome to the official frontend interface documentation for **STACKR** (Structural Three-dimensional Adaptive Constraint-aware pacKing, Route-aware). This guide details the structure, functionality, routes, and interactive components of the web application.
+What each screen of the client does and which component draws it. Every
+number on screen comes from the server (an optimizer run, a study file or
+saved history); nothing is typed into the components.
 
----
+## Routes (`client/src/index.js`)
 
-## 🧭 Application Routing Architecture
+| route | page | notes |
+|---|---|---|
+| `/` | `LandingPage.jsx` | public landing page |
+| `/login` | `auth/LoginPage.jsx` | email + password |
+| `/register` | `auth/RegisterPage.jsx` | name, email, password, and "I am a…" (researcher or logistics manager) |
+| `/app` | `Shell.jsx` | signed-in only; anyone else is sent to `/login` |
 
-The client application utilizes `react-router-dom` for navigation, enforcing route-guarding based on user authentication status:
+Sign-in is a JWT in an httpOnly cookie (`server/auth.js`).
 
-*   **`/login`**: The entry page for user authentication.
-*   **`/register`**: Allows new accounts to be registered with designated roles.
-*   **`/app`** *(Protected)*: The main interactive application shell. Unauthenticated users are automatically redirected to `/login`.
+## The app shell (`Shell.jsx`)
 
----
+`Shell.jsx` holds the app's state: the chosen load, the WebSocket to the
+optimizer, the selected study and the run history. It also draws the sidebar
+and the top bar. The top bar shows the chosen load with a dot for the
+optimizer's warm-up state (`/api/ready`), the help button and the light/dark
+toggle.
 
-## 🔒 Authentication Pages
+The sidebar groups the pages:
 
-Both authentication pages are styled using a premium, clean **glassmorphic container** design with the STACKR monogram block-stacked logo.
+**Get started**
 
-### 1. Login Page (`/login`)
-*   **Purpose**: Validates registered credentials.
-*   **Key Fields**: Email Address, Password.
-*   **Design Details**:
-    *   Responsive central card layout with HSL-based theme integration.
-    *   Direct links to the registration page.
-    *   Interactive validation feedback for incorrect credentials.
+| page | component | what it shows |
+|---|---|---|
+| Home | `components/DashboardTab.jsx` | the "New here?" banner, three step cards, what you need, and counts of your own runs and studies |
+| Start analysis | `components/LogisticsTab.jsx` | the three-step wizard (below) |
+| Results | `components/ResultsPanel.jsx` (study) / `components/ResultsTab.jsx` (single run) | the recommended solution for the load and four solution cards; "Things to know"; the trade-offs chart; technical numbers behind "Show all numbers" |
+| Loading Guide | `components/GuideTab.jsx`, `components/GuideViews.jsx` | a printable loading and unloading guide built from one stored solution: summary, step order, top views per layer, the view from the rear door, and a box-details appendix |
 
-### 2. Registration Page (`/register`)
-*   **Purpose**: Creates new user records stored in the database.
-*   **Key Fields**: Full Name, Email Address, Password, Profile Role selection.
-*   **Profile Roles**:
-    *   **Researcher**: Focused on analytical bounds, composite scores, and algorithm tuning.
-    *   **Logistics Manager**: Focused on operational constraints, load-compliance, and LIFO routing.
+**Advanced tools**
 
----
+| page | component | what it shows |
+|---|---|---|
+| Technical details | `study/CompareTab.jsx`, `study/StudyResults.jsx`, `study/StatsTables.jsx` | a study's Chapter 3 statistics: SP1 (space utilisation), SP2 (compliance C3–C6), SP3 (time and memory, serial studies only), the composite score, and saved runs side by side. Every sentence comes from `study/verdicts.js` |
+| 3D Viewer | `components/VisualizationTab.jsx`, `BinViewer.jsx` | the packed container in three.js: colour by delivery stop or by box, filter by stop, "Highlight problems" (boxes breaking C3–C6), orientation guides, box names, the rear door and cab end marked |
+| Run History | `components/RunHistoryTab.jsx` | your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete |
 
-## 💻 Main Application Workspace (`/app`)
+**Account**
 
-The main application workspace is structured around a **sticky global header** and an **interactive tabbed panel layout**.
+| page | component | what it shows |
+|---|---|---|
+| Account Settings | `components/AccountTab.jsx` | your details and sign out; actions not built yet are shown disabled |
 
-### 🌟 Global Header
-The header provides branding, context, and profile utilities:
-*   **STACKR Logo**: Stacked monogram logo representing bin layers.
-*   **Benchmark Badge**: Dynamic chip reflecting the currently loaded benchmark instance (e.g., OR-Library Benchmark: `BR0`).
-*   **Theme Toggle**: Seamless light/dark mode switcher utilizing a custom HSL token scheme.
-*   **User Avatar Dropdown**: Displays initials of the logged-in user. Clicking opens a dropdown showing user details, role (e.g., Researcher), and a **Log out** utility.
+## Start analysis: the wizard (`LogisticsTab.jsx`)
 
----
+1. **Your boxes** (`components/LoadSources.jsx`), with three ways in:
+   - **Upload your own dataset**: a CSV, checked by `preprocessing/custom_load.py`. Problems appear in the Invalid Dataset panel, each naming its row and column.
+   - **Type in your boxes**: rows typed into a table, checked by the same converter.
+   - **Try a sample**: OR-Library wtpack instances, either the ready-made samples or the thesis's standard test cases.
 
-### 📥 1. Logistics Tab
-The control center of STACKR, enabling configuration of physical bounds, algorithm variables, and items cargo.
+   A typed or uploaded load is a *custom load*. It carries the "not part of the thesis dataset" label everywhere (`components/CustomLoadBanner.jsx`).
+2. **Settings**: the container (587 × 233 × 220 cm by default), the four methods and the safety rules. The penalty weights λ and the C4/C5 enforcement are fixed to `experiments/calibration.json`; they are shown but can't be edited.
+3. **Review & run**: facts computed from the load, then **Run STACKR**. This launches a comparison of all four methods on the load (`POST /api/studies`). `components/ProcessingPanel.jsx` shows its real progress, and Stop ends every process of the comparison.
 
-#### 📏 Container (Bin) Config
-*   **Dimensions Input**: Interactive length ($L$), depth ($D$), and height ($H$) inputs in centimeters.
-*   **Max Weight Load**: Defines the threshold limit in kilograms.
-*   **Real-time Isometric Graphic**: Displays a dynamic wireframe preview of current dimensions alongside summary load text.
+Under **Two ways to run this** (`study/StudyLauncher.jsx`):
 
-#### ⚙️ Algorithm Settings
-*   **Hybrid Strategy badges**: Choose the optimization method:
-    *   `Sequential`: Solves instances in strict sequence.
-    *   `Embedded`: Runs embedded local-search steps.
-    *   `Repair-based`: Actively repairs violations during pack iterations.
-*   **Wolf Pack Size**: Sets the agent population count for the Grey Wolf Optimizer.
-*   **Max Iterations**: Controls the search limits of the heuristic.
+- **Quick Test** is one method, one repeat code. It streams over the WebSocket and opens the 3D Viewer.
+- **Full Comparison** is the larger study sizes.
+- **Import a precomputed study** brings in a study file from `experiments/results/studies/`.
 
-#### ⚖️ Constraint Policies
-*   **Fragility (LBS-based)**: Toggles fragility calculation rules.
-*   **Allow Item Rotation**: Toggles whether items can be rotated in 3D to fit.
-*   **LIFO Constraint**: Ensures items are packed based on delivery order.
+The locked test settings shown there are read from `experiments/study.py --print-defaults`.
 
-#### 📦 Item / Box Log Editor
-*   **Stat Cards**: Dynamic totals reflecting standard/fragile/heavy item distributions and overall weight metrics.
-*   **Add Item Form**: Manual input for custom dimensions, weight, destination stop index, cargo type (Standard, Fragile, Heavy), and quantity.
-*   **CSV Import**: Directly parse and load bulk cargo lists formatting `ID, Stop, L, H, D, Qty, Type, Weight`.
-*   **Box Log Table**: Interactive grid to review loaded boxes, showing custom category tags and single-click removal (`✕`).
+## Shared pieces
 
----
-
-### 📊 2. Results Tab
-Displays detailed mathematical analysis of the packing results, including charts and export options.
-
-*   **Live Loop Progress**: Shows current iteration counts and progress bars during active runs.
-*   **Metric Stat Chips**:
-    *   **Space Utilization**: Percent-volume occupied (NAB metric).
-    *   **Optimality Gap**: Relative margin vs. the theoretical lower bound.
-    *   **Dissipation $D(X)$**: Measures distribution balance across bins.
-    *   **Runtime**: Execution time in seconds.
-*   **Axis Utilization**: Progress breakdown along individual coordinate axes (X-axis, Y-axis, Z-axis).
-*   **Convergence Curve**: SVG chart mapping Bins Used vs. Iterations.
-*   **Actions**:
-    *   **Export CSV**: Download standard comma-separated details of placed boxes.
-    *   **Export Report**: Formats the results tab into a clean print-ready layout.
-
----
-
-### 👁️ 3. Visualization Tab
-A WebGL viewport powered by Three.js displaying the calculated 3D layout.
-
-*   **Viewport Canvas**: Fully interactive 3D rendering allowing click-and-drag rotation, scroll-to-zoom, and right-click panning.
-*   **Rotate View Presets**: Fast camera snapping buttons (`Front`, `Side`, `Top`, `3D`).
-*   **Filter Panel**:
-    *   **Cargo Types**: Checkboxes to toggle visibility of Standard, Fragile, and Heavy items.
-    *   **Stop Selection**: Filter item rendering by delivery destination index (`All`, `Stop 1`, `Stop 2`, etc.).
-*   **Item Selection Detail**: Clicking a physical box highlights it in the viewport and populates a sidebar detailing its exact positioning coordinate ($x, y, z$) and dimensions.
-
----
-
-### 📜 4. Run History Tab
-Tracks and retrieves user-specific execution logs.
-
-*   **Historical Log Table**: Lists strategy, benchmark name, packed item count, space utilization percent, runtime, and total bins used.
-*   **Queries & Filters**: Select logs matching specific optimization strategies or search by benchmark label.
-*   **JSON Exporter**: Save entire historical run logs local to the profile as a structured JSON file.
+| component | role |
+|---|---|
+| `components/ui.jsx` | pop-up (modal) and toast |
+| `components/HowToModal.jsx` | the six-step "How to use STACKR" pop-up; opens by itself only on a new account's first login |
+| `components/ThingsToKnow.jsx` | caveats shown in Results and Account, computed from the data held |
+| `components/TradeoffsChart.jsx` | one dot per run: container fill against rule-following over all boxes |
+| `study/LineChart.jsx` | small inline-SVG line chart |
+| `methods.js` | the four methods' names and one-line descriptions |
+| `services/api.js` | the HTTP helpers for every `/api` route |
+| `viewer/*.js` | pure logic for the loading plan, guide and trade-offs, with unit tests (`*.test.js`) |

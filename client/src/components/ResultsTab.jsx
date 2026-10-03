@@ -87,7 +87,6 @@ export default function ResultsTab({
           {/* Summary cards */}
           {(() => {
             const m = finalResult.metrics || {};
-            const cd = m.constraint_detail;
             const placed = finalResult.placed ?? (finalResult.items ? finalResult.items.length : 0);
             const total  = finalResult.n_items ?? placed;
             return (

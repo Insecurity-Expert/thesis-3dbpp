@@ -79,10 +79,6 @@ export const authApi = {
 // Instances API (OR-Library & Custom instances)
 // ─────────────────────────────────────────────────────────────────────────────
 export const instancesApi = {
-  async getAll() {
-    return request("/api/instances");
-  },
-
   // Sampled wtpack instances with provenance (experiments/samples/sample30_seed42.json)
   async getWtpack() {
     return request("/api/instances?dataset=wtpack");
@@ -91,20 +87,6 @@ export const instancesApi = {
   // numba warm-up state: { state: "cold"|"warming"|"warm"|"error", warm, seconds }
   async getReady() {
     return request("/api/ready");
-  },
-
-  async getDetails(instancePath) {
-    if (!instancePath) {
-      throw new Error("instancePath is required");
-    }
-    return request(`/api/instance-details?path=${encodeURIComponent(instancePath)}`);
-  },
-
-  async saveCustom({ container, items }) {
-    return request("/api/instances/custom", {
-      method: "POST",
-      body: JSON.stringify({ container, items }),
-    });
   },
 };
 

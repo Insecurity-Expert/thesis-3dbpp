@@ -47,9 +47,9 @@ seeded). Provenance, citations and the augmentation rules are in
 | code | UI label | what it does |
 |---|---|---|
 | **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates) |
-| **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the most compliant archive member |
-| **SEQ** | Sequential | GWO search, then one repair pass (R1–R5) on the final arrangement |
-| **REP** | Repair-based | repair inside the loop — every evaluated wolf is repaired first, so CSR = 100 % by construction |
+| **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the archive member with the highest SU |
+| **SEQ** | Sequential | DGWO for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
+| **REP** | Repair-based | MOGWO with repair inside the loop — every evaluated wolf is repaired first (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction |
 
 All four share the same decoder (deepest-bottom-left-fill over extreme
 points with a 2n random-key genome: n sequence keys + n orientation keys),
@@ -117,7 +117,7 @@ optimizer/          the thesis optimizer
   geometry_3d.py      DBLF decoder, extreme points, decode-time C4/C5 checks (numba)
   thesis_algorithms.py DGWO / MOGWO / SequentialHybrid / RepairBasedHybrid
   thesis_metrics.py   SU, CSR and per-constraint evaluation (compiled + reference)
-  repair.py           relocate-then-defer repair operators R1-R5
+  repair.py           relocate-then-defer repair: R1 weight (C3), R2 stop order (C6), R3 fixpoint removal
   main_optimizer.py   CLI / streaming entry point used by the server
 preprocessing/      wtpack loader, fragility and stop augmentation, sampling, tests
 experiments/        runner, baselines, convergence scripts, results/ and samples/

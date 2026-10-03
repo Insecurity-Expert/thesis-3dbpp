@@ -353,7 +353,7 @@ function studyProcesses(pid) {
 function killStudyTree(pid, signal = "SIGTERM") {
   if (!pid) return;
   if (process.platform === "win32") {
-    try { require("child_process").execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" }); } catch {}
+    try { require("child_process").execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }); } catch {}
     return;
   }
   try { process.kill(-pid, signal); } catch {}

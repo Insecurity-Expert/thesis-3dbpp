@@ -44,13 +44,8 @@ export default function Shell() {
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Dataset selection & Loader states
-  const [instances, setInstances] = useState([]);
-  const [selected] = useState("");   // legacy BR path (not offered in the UI)
-  const [, setLoadingList] = useState(true);
-
   // wtpack (thesis) dataset: sampled instances addressed by integer id 0..699
-  const [dataset] = useState("wtpack");          // "wtpack" | "br"
+  const [dataset] = useState("wtpack");
   const [wtpackInstances, setWtpackInstances] = useState([]);
   const [wtpackId, setWtpackId] = useState(null);
   const [optimizerReady, setOptimizerReady] = useState({ state: "cold", seconds: null });
@@ -71,12 +66,9 @@ export default function Shell() {
   const [customErrors, setCustomErrors] = useState([]);
   const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
-  const [, setInstanceItems] = useState([]);
-  const [, setIsCustomized] = useState(false);   // legacy BR preview flag
 
   // Algorithm Settings & Constraints
   const [strategy, setStrategy] = useState("DGWO");
-  const [maxTime] = useState(90);
   const [preset, setPresetState] = useState("quick");
   const [wolfSize, setWolfSize] = useState(10);
   const [maxIter, setMaxIter] = useState(60);
@@ -160,22 +152,6 @@ export default function Shell() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Load instances list
-  useEffect(() => {
-    instancesApi
-      .getAll()
-      .then((data) => {
-        const list = data.instances || [];
-        setInstances(list);
-        // Don't auto-select — let the user choose
-        setLoadingList(false);
-      })
-      .catch(() => {
-        setError("Cannot reach backend server. Please verify the port 3001.");
-        setLoadingList(false);
-      });
-  }, []);
-
   // Load the sampled wtpack instances
   useEffect(() => {
     instancesApi
@@ -186,7 +162,7 @@ export default function Shell() {
         // Default to the first sampled instance so the demo needs one click fewer
         if (list.length && wtpackId === null) setWtpackId(list[0].instance_id);
       })
-      .catch(() => {});
+      .catch(() => setError("Cannot reach backend server. Please verify the port 3001."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -258,23 +234,6 @@ export default function Shell() {
     if (source === "csv" && csvFile) ensureCustomLoad();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [csvFile]);
-
-  // Load selected instance details
-  useEffect(() => {
-    if (!selected) {
-      setInstanceItems([]);   // clear preview when nothing is selected
-      return;
-    }
-    instancesApi
-      .getDetails(selected)
-      .then((data) => {
-        if (data.items) {
-          setInstanceItems(data.items);
-        }
-        setIsCustomized(false);
-      })
-      .catch(() => {});
-  }, [selected]);
 
   // Fetch Run History
   const fetchRunHistory = useCallback(() => {
@@ -611,13 +570,8 @@ export default function Shell() {
       }
       wsRef.current.send(JSON.stringify({ action: "run", dataset: "wtpack", instanceId: id, ...tuning }));
       setActiveTab("visualization");
-      return;
     }
-
-    // Legacy BR JSON path (not offered in the UI).
-    wsRef.current.send(JSON.stringify({ action: "run", instancePath: selected, maxTime, strategy }));
-    setActiveTab("visualization");
-  }, [selected, running, wsConnected, maxTime, strategy, source, sampleId, ensureCustomLoad,
+  }, [running, wsConnected, strategy, source, sampleId, ensureCustomLoad,
       dataset, wtpackId, wolfSize, maxIter, seed]);
 
   const handleStopRun = useCallback(() => {
@@ -764,10 +718,6 @@ export default function Shell() {
     } catch (e) { setError(`Import failed: ${e.message}`); }
   }, [fetchRunHistory]);
 
-  const selectedInstanceObj = useMemo(() => {
-    return instances.find((i) => i.path === selected);
-  }, [instances, selected]);
-
   const initials = user?.name ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "US";
 
   // Calculate actual X, Y, Z axis utilization dynamically
@@ -898,9 +848,6 @@ export default function Shell() {
             <div className="page-title">{activeNav.title}</div>
           </div>
           <div className="topbar-right">
-            {selectedInstanceObj && (
-              <span className="chip"><span className="chip-dot" />OR-Library: {selectedInstanceObj.label}</span>
-            )}
             {dataset === "wtpack" && (selectedLoad.custom || selectedLoad.instanceId !== null) && (
               <span className="chip"><span className={`chip-dot${optimizerReady.state === "warm" ? "" : optimizerReady.state === "error" || optimizerReady.state === "offline" ? " danger" : " warn"}`} />{selectedLoad.custom ? "Custom load" : selectedLoad.text}</span>
             )}

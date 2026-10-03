@@ -16,7 +16,6 @@ import StudyResults, { StudyProgress } from "../study/StudyResults";
 import { StudySelect } from "../study/CompareTab";
 
 const f1 = (v, d = 1) => (v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
-const secs = (ms) => (ms == null ? "—" : ms >= 120000 ? `${(ms / 60000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`);
 const nameOf = (c) => (methodOf(c) ? methodOf(c).name : c);
 const nickOf = (c) => (methodOf(c) ? methodOf(c).nick : "");
 const ORD = ["", "first", "second", "third", "fourth"];

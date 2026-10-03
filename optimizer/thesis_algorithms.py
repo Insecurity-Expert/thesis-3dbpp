@@ -30,17 +30,15 @@ class WolfContinuous:
         self.scalar_fitness = float('inf')
 
     def decode_and_evaluate(self, items, container, apply_repair=False,
-                            enforce_support=False, enforce_fragility=False):
+                            enforce_support=False, enforce_fragility=False,
+                            compute_penalty=False):
         """
         Decodes X into discrete placements using DBLF and evaluates fitness.
         If apply_repair is True, applies heuristic repair logic before evaluation.
         enforce_support / enforce_fragility make the decoder reject positions
         that would violate C5 / C4 (the two constraints that stay satisfied as
-        more boxes are added).
+        more boxes are added). compute_penalty computes DGWO's scalar fitness.
         """
-    def decode_and_evaluate(self, items, container, apply_repair=False,
-                            enforce_support=False, enforce_fragility=False,
-                            compute_penalty=False):
         # 1. Decode the genome into a placement sequence and orientations
         sequence, orients_map = decode_position(self.X, items, container)
 
