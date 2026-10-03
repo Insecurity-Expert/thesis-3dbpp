@@ -6,7 +6,7 @@ import CustomLoadBanner, { customLoadOf, CustomLoadBadge, CUSTOM_LOAD_LABEL } fr
 import { Section, Empty, DescriptivesTable, NormalityTable, OmnibusCard, PairsTable, ConfoundNote, cell, ConfigName } from "./StatsTables";
 import { ProvenanceStrip } from "./StudyResults";
 import LineChart from "./LineChart";
-import { fmt, label, sp1Summary, sp2Summary, sp3Summary, compositeSummary, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, compositeSummary, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 
 const { th, td } = cell;
 
@@ -63,7 +63,7 @@ function SP2({ stats }) {
                   <tr key={m} style={{ cursor: "pointer", background: m === measure ? "var(--primary-light)" : "transparent" }} onClick={() => setMeasure(m)}>
                     <td style={{ ...td, fontWeight: 700 }}>{MEASURE_PLAIN[m]}</td>
                     <td style={td}>{o.testable ? o.test : "—"}</td>
-                    <td style={td}>{o.testable ? `${o.statistic_name} = ${fmt.num(o.statistic, 3)}, df = ${o.df.join(", ")}` : "—"}</td>
+                    <td style={td}>{o.testable ? `${o.statistic_name} = ${fmt.num(o.statistic, 3)}, df = ${dfText(o)}` : "—"}</td>
                     <td style={td}>{o.testable ? fmt.p(o.p) : "—"}</td>
                     <td style={td}>{o.testable ? fmt.p(o.p_holm) : "—"}</td>
                     <td style={{ ...td, color: o.testable ? (o.significant_holm ? "var(--green)" : "var(--text-muted)") : "var(--text-dim)" }}>
@@ -89,24 +89,22 @@ function SP2({ stats }) {
   );
 }
 
-function SP3({ stats, study }) {
+function SP3({ stats }) {
   const s3 = stats.SP3;
   const [metric, setMetric] = useState("ET");
   if (!s3.available) {
     return <Empty title="Time and memory were not compared" text={`${s3.reason}.`} />;
   }
-  const cmp = s3.per_metric[metric];
   const prof = s3.profiles || [];
   const configs = stats.configurations;
   const xLabels = prof.map((p) => ({ label: `${p.br_class} — ${p.n_types ?? "?"} types`, sub: `${p.n_boxes.join("/")} boxes` }));
   const series = configs.map((c) => ({ code: c, label: label(stats, c), points: prof.map((p, i) => ({ x: i, y: p.per_configuration[c][metric].mean })) }));
-  const fr = s3.friedman && s3.friedman[metric];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <Section title="Result" desc="Time and memory as loads get more heterogeneous (BR1 = 3 box types … BR7 = 20 box types).">
         <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-main)" }}>{sp3Summary(stats)}</p>
       </Section>
-      <Section title={`${MEASURE_PLAIN[metric]} by test case`} desc="x-axis: heterogeneity class (number of box types); the box count of each instance is the secondary label."
+      <Section title={`${MEASURE_PLAIN[metric]} by heterogeneity class`} desc="x-axis: heterogeneity class (number of box types); the box count of each instance is the secondary label."
         right={<div className="tabs-inline">{["ET", "PM"].map((m) => <button key={m} className={metric === m ? "active" : ""} onClick={() => setMetric(m)}>{MEASURE_PLAIN[m]}</button>)}</div>}>
         <LineChart series={series} xLabels={xLabels} yLabel={metric === "ET" ? "seconds" : "MB"} yFmt={(v) => (metric === "ET" ? (v / 1000).toFixed(1) : v.toFixed(0))} />
         <div style={{ overflowX: "auto", marginTop: 12 }}>
@@ -125,32 +123,43 @@ function SP3({ stats, study }) {
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>Each cell: mean time / mean peak memory over the seeds of that class.</p>
+        <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>Each cell: mean time / mean peak memory over the runs of that class.</p>
+      </Section>
+      <Section title="Do the methods differ within each class?" desc="Friedman test within each heterogeneity class (its test cases as subjects; at least 2 needed), Holm-corrected across time and memory.">
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr><th style={th}>Class</th><th style={th}>Test cases</th><th style={th}>Measure</th><th style={th}>Friedman χ²</th><th style={th}>Raw p</th><th style={th}>Holm-corrected p</th><th style={th}>Mean rank (1 = best)</th><th style={th}>Result</th></tr></thead>
+            <tbody>
+              {prof.map((p) => ["ET", "PM"].map((m, mi) => {
+                const cmp = p.friedman[m];
+                const o = cmp.omnibus;
+                return (
+                  <tr key={p.br_class + m}>
+                    {mi === 0 && <td style={{ ...td, fontWeight: 700 }} rowSpan={2}>{p.br_class}</td>}
+                    {mi === 0 && <td style={td} rowSpan={2}>{p.instances.length}</td>}
+                    <td style={td}>{MEASURE_PLAIN[m]}</td>
+                    <td style={td}>{o.testable ? `${fmt.num(o.statistic, 2)} (df ${dfText(o)})` : "—"}</td>
+                    <td style={td}>{o.testable ? fmt.p(o.p) : "—"}</td>
+                    <td style={td}>{o.testable ? fmt.p(o.p_holm) : "—"}</td>
+                    <td style={td}>{cmp.mean_rank ? Object.entries(cmp.mean_rank).sort((a, b) => a[1] - b[1]).map(([c, r]) => `${label(stats, c)} ${fmt.num(r, 2)}`).join(" · ") : "—"}</td>
+                    <td style={{ ...td, color: o.testable ? (o.significant_holm ? "var(--green)" : "var(--text-muted)") : "var(--text-dim)" }}>
+                      {o.testable ? (o.significant_holm ? "Yes — methods differ" : "No difference detected") : o.reason}
+                    </td>
+                  </tr>
+                );
+              }))}
+            </tbody>
+          </table>
+        </div>
+        <ul style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.6, paddingLeft: 18 }}>
+          {prof.filter((p) => p.testable).map((p) => <li key={p.br_class}>{sp3ClassSentence(stats, p, metric)}</li>)}
+        </ul>
       </Section>
       <Section title="All numbers at a glance">
         <DescriptivesTable stats={stats} measures={[
           { code: "ET", label: "Time (s)", get: (s, c) => s.descriptives.ET[c], fmt: (v) => (v === null || v === undefined ? "—" : (v / 1000).toFixed(2)) },
           { code: "PM", label: "Peak memory (MB)", get: (s, c) => s.descriptives.PM[c], fmt: (v) => fmt.num(v, 1) },
         ]} />
-      </Section>
-      <Section title={`Do the numbers look normal? — ${MEASURE_PLAIN[metric]}`}>
-        <NormalityTable stats={stats} cmp={cmp} unitFmt={(v) => (metric === "ET" ? (v / 1000).toFixed(2) : fmt.num(v, 1))} />
-      </Section>
-      <Section title="Are any of the differences real?" desc="Holm-corrected across the two metrics (time, memory).">
-        <OmnibusCard cmp={cmp} measureCode={metric} holm />
-      </Section>
-      <Section title="Which methods are different from each other?">
-        <PairsTable stats={stats} cmp={cmp} measureCode={metric} valueFmt={(v) => (metric === "ET" ? fmt.ms(v) : fmt.mb(v))} />
-      </Section>
-      <Section title="Is the ranking consistent across test cases?" desc="Friedman test with the test cases as blocks (per-instance means).">
-        {fr && fr.testable ? (
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <div className="stat-chip"><div className="stat-chip-label">Friedman χ²</div><div className="stat-chip-value" style={{ fontSize: 22 }}>{fmt.num(fr.statistic, 2)}</div><div className="stat-chip-sub">df = {fr.df.join(", ")} · {fr.blocks} test cases</div></div>
-            <div className="stat-chip"><div className="stat-chip-label">p</div><div className="stat-chip-value" style={{ fontSize: 22, color: fr.significant ? "var(--green)" : "var(--text-muted)" }}>{fmt.p(fr.p)}</div><div className="stat-chip-sub">{fr.significant ? "rankings are consistent" : "rankings not distinguishable from chance"}</div></div>
-            <div className="stat-chip" style={{ flex: "2 1 260px" }}><div className="stat-chip-label">Mean rank (1 = best)</div>
-              <div style={{ fontSize: 13, marginTop: 6 }}>{Object.entries(fr.mean_rank).sort((a, b) => a[1] - b[1]).map(([c, r]) => `${label(stats, c)} ${fmt.num(r, 2)}`).join(" · ")}</div></div>
-          </div>
-        ) : <p style={{ fontSize: 13, color: "var(--text-dim)" }}>{fr ? fr.reason : "—"}</p>}
       </Section>
     </div>
   );
@@ -310,7 +319,7 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
           <ProvenanceStrip study={study} stats={stats} />
           {sub === "sp1" && <SP1 stats={stats} />}
           {sub === "sp2" && <SP2 stats={stats} />}
-          {sub === "sp3" && <SP3 stats={stats} study={study} />}
+          {sub === "sp3" && <SP3 stats={stats} />}
           {sub === "overall" && <Overall stats={stats} />}
         </>
       )}

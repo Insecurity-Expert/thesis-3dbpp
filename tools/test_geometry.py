@@ -244,12 +244,15 @@ pl_rev, _, _, _, _ = place_container_dblf(list(reversed(by_vol)), _mix,
 check("sequence order changes the result (no internal re-sort)", pl != pl_rev, True)
 
 # -- Part B (Step 5): relocate-then-defer repair ------------------------------
+# Operators (manuscript, Repair Operator section): R1 weight (C3), R2 stop order
+# (C6), R3 re-evaluation / removal of any box still in violation. C4 and C5 are
+# enforced in the decoder, so they have no relocation step.
 print("")
 print("[repair] relocation is attempted before deferral")
 _rc = {'L': 100, 'W': 100, 'H': 100}
 
-# A box resting on a fragile box, with plenty of free floor: must be RELOCATED.
-_b = [box(10, 10, 10, fragile=1, lbs=10.0), box(10, 10, 10, lbs=10.0)]
+# R1 weight: a heavy box on a weak one, with plenty of free floor -> RELOCATED.
+_b = [box(10, 10, 10, lbs=0.05), box(10, 10, 10, mass=8.0, lbs=10.0)]
 _pl = {0: (0, 0, 0, 10, 10, 10), 1: (0, 0, 10, 10, 10, 10)}
 _or = {0: 1, 1: 1}
 _un = []
@@ -260,29 +263,53 @@ check("both boxes still placed", len(_pl), 2)
 check("relocated box now on the floor", _pl[1][2], 0)
 check("post-repair S == 100", evaluate_constraints(_pl, _b, _or)[0], 100.0)
 
-# Same violation in a container with NO free floor: must be DEFERRED.
-_b2 = [box(100, 100, 10, fragile=1, lbs=10.0), box(10, 10, 10, lbs=10.0)]
+# Same overload in a container with NO free floor: must be DEFERRED.
+_b2 = [box(100, 100, 10, lbs=0.0001), box(10, 10, 10, mass=8.0, lbs=10.0)]
 _pl2 = {0: (0, 0, 0, 100, 100, 10), 1: (0, 0, 10, 10, 10, 10)}
 _or2 = {0: 1, 1: 1}
 _un2 = []
 st2 = repair_arrangement(_pl2, _or2, _un2, _b2, _rc)
 check("R1 defers when no feasible position exists", st2['deferred_R1'], 1)
 check("deferred box lands in the unpacked list", _un2, [1])
-check("fragile base box survives", 0 in _pl2, True)
+check("weak base box survives", 0 in _pl2, True)
 
-# Overloaded stack: capacity 10 kg, two boxes above -> heaviest is moved first.
+# R1 on a stack: capacity 10 kg, two boxes above -> heaviest is moved first.
 _b3 = [box(10, 10, 10, lbs=0.10), box(10, 10, 10, mass=8.0, lbs=10.0),
        box(10, 10, 10, mass=8.5, lbs=10.0)]
 _pl3 = {0: (0, 0, 0, 10, 10, 10), 1: (0, 0, 10, 10, 10, 10), 2: (0, 0, 20, 10, 10, 10)}
 _or3 = {0: 1, 1: 1, 2: 1}
 _un3 = []
 st3 = repair_arrangement(_pl3, _or3, _un3, _b3, _rc)
-check("R2 acted on the overloaded stack", st3['relocated_R2'] + st3['deferred_R2'] >= 1, True)
+check("R1 acted on the overloaded stack", st3['relocated_R1'] + st3['deferred_R1'] >= 1, True)
 check("heaviest box (2) no longer above box 0",
       2 not in _pl3 or _pl3[2][2] == 0 or _pl3[2][0] >= 10 or _pl3[2][1] >= 10, True)
 check("post-repair S == 100 (overload)", evaluate_constraints(_pl3, _b3, _or3)[0], 100.0)
 
-# find_feasible_position honours min_y (R4 uses it to push blockers deeper).
+# R2 stop order: a stop-2 box between a stop-1 box and the rear door (y = 0)
+# is moved out of the way (deeper), not deferred, when there is room.
+_b4 = [box(10, 10, 10, stop=1), box(10, 10, 10, stop=2)]
+_pl4 = {0: (0, 50, 0, 10, 10, 10), 1: (0, 0, 0, 10, 10, 10)}
+_or4 = {0: 1, 1: 1}
+_un4 = []
+st4 = repair_arrangement(_pl4, _or4, _un4, _b4, _rc)
+check("R2 relocates the blocking later-stop box", st4['relocated_R2'], 1)
+check("R2 deferred nothing", st4['deferred_R2'], 0)
+check("blocker no longer between the stop-1 box and the door", _pl4[1][1] >= _pl4[0][1] + _pl4[0][4], True)
+check("post-repair S == 100 (stop order)", evaluate_constraints(_pl4, _b4, _or4)[0], 100.0)
+
+# C4 has no relocation operator (the decoder enforces it); if a violation reaches
+# repair anyway (enforcement off), R3 removes violators to a fixpoint and the
+# result is still feasible.
+_b6 = [box(10, 10, 10, fragile=1, lbs=10.0), box(10, 10, 10, lbs=10.0)]
+_pl6 = {0: (0, 0, 0, 10, 10, 10), 1: (0, 0, 10, 10, 10, 10)}
+_or6 = {0: 1, 1: 1}
+_un6 = []
+st6 = repair_arrangement(_pl6, _or6, _un6, _b6, _rc)
+check("no R1 / R2 action on a pure C4 violation", st6['relocated_R1'] + st6['relocated_R2'], 0)
+check("R3 removes the C4 violator and the box it orphans", st6['removed_R3'], 2)
+check("removed boxes land in the unpacked list", sorted(_un6), [0, 1])
+
+# find_feasible_position honours min_y (an optional filter; no operator passes it).
 # A box spanning y in [0,60) creates an EP at y=60; min_y=50 must skip (0,0,0).
 _b5 = [box(10, 60, 10), box(10, 10, 10)]
 found = find_feasible_position(1, _b5, {0: (0, 0, 0, 10, 60, 10)}, {0: 1}, _rc, min_y=50)

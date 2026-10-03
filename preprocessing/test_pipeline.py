@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from preprocessing.loader import parse_wtpack
-from preprocessing.fragility import assign_fragility, FRAGILE_RATE_MIN, FRAGILE_RATE_MAX
+from preprocessing.fragility import assign_fragility, fragile_types_by_share
 from preprocessing.stop_assignment import assign_stops
 from preprocessing.pipeline import load_augmented_instance
 
@@ -116,11 +116,40 @@ class TestLoader:
 
 class TestFragility:
 
-    def test_fragile_rate_within_type_level_bounds(self, fresh_instance):
-        assign_fragility(fresh_instance["boxes"])
+    def test_fragile_rate_is_recorded_not_gated(self, fresh_instance):
+        """25% is the target; the realized share is a covariate, never a reason to reject."""
+        report = assign_fragility(fresh_instance["boxes"])
         n = len(fresh_instance["boxes"])
         rate = sum(b["fragile"] for b in fresh_instance["boxes"]) / n
-        assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+        assert report["fragile_rate"] == pytest.approx(rate)
+        assert report["fragile_count"] == sum(b["fragile"] for b in fresh_instance["boxes"])
+        assert 0 < rate < 1
+
+    def test_realized_share_is_the_closest_type_boundary_to_25pct(self, fresh_instance):
+        boxes = fresh_instance["boxes"]
+        assign_fragility(boxes)
+        n = len(boxes)
+        rate = sum(b["fragile"] for b in boxes) / n
+        # every achievable share at a type boundary, types ranked by LBS ascending
+        lbs = {}
+        count = {}
+        for b in boxes:
+            lbs.setdefault(b["type_id"], min(b["lbs_l"], b["lbs_w"], b["lbs_h"]))
+            count[b["type_id"]] = count.get(b["type_id"], 0) + 1
+        cum, shares = 0, []
+        for t in sorted(lbs, key=lambda t: (lbs[t], t)):
+            cum += count[t]
+            shares.append(cum / n)
+        best = min(shares, key=lambda x: abs(x - 0.25))
+        assert rate == pytest.approx(best)
+        assert fragile_types_by_share(boxes, 0.25) == {b["type_id"] for b in boxes if b["fragile"]}
+
+    def test_out_of_band_share_is_accepted(self):
+        """A share far from 25% (one dominant weak type) is recorded, not rejected."""
+        boxes = [{"type_id": 1, "lbs_l": 1.0, "lbs_w": 1.0, "lbs_h": 1.0} for _ in range(9)] + \
+                [{"type_id": 2, "lbs_l": 5.0, "lbs_w": 5.0, "lbs_h": 5.0}]
+        report = assign_fragility(boxes)
+        assert report["fragile_rate"] == pytest.approx(0.9)
 
     def test_fragility_is_a_property_of_the_type(self, fresh_instance):
         """Boxes with identical LBS must never carry different flags."""
@@ -279,9 +308,10 @@ class TestPipeline:
 
     def test_pipeline_works_across_all_seven_files(self, minimal_config):
         # Sample one instance from each wtpack file. Validation may reject an
-        # instance (the documented contract is "reject and try the next"), so
-        # a ValueError is a legitimate outcome; every accepted instance must
-        # satisfy the bounds, and at least one file must yield an instance.
+        # instance on its LBS range (the documented contract is "reject and try
+        # the next"), so a ValueError is a legitimate outcome; the fragile share
+        # is recorded, never a reason to reject. At least one file must yield
+        # an instance.
         accepted = 0
         for instance_id in range(7):
             try:
@@ -292,5 +322,5 @@ class TestPipeline:
             assert len(inst["boxes"]) > 0
             n = len(inst["boxes"])
             rate = sum(b["fragile"] for b in inst["boxes"]) / n
-            assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+            assert inst["augmentation"]["fragility"]["fragile_rate"] == pytest.approx(rate)
         assert accepted >= 1

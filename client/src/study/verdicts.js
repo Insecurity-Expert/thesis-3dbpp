@@ -13,7 +13,7 @@ export const CONFIG_DESC = {
   DGWO: "single-objective search (baseline)",
   MOGWO: "multi-objective search (baseline)",
   SEQ: "hybrid: DGWO phase, then MOGWO phase",
-  REP: "hybrid: repair R1–R5 inside the loop",
+  REP: "hybrid: repair R1–R3 inside the loop",
 };
 
 export const MEASURE_PLAIN = {
@@ -61,21 +61,37 @@ export const fmt = {
 };
 
 // ── normality ────────────────────────────────────────────────────────────────
+// Repeated measures: Shapiro-Wilk runs on the within-instance differences of
+// each pair of configurations (one value per test case).
 export function normalitySentence(cmp) {
-  if (!cmp || !cmp.normality) return "";
-  const groups = Object.entries(cmp.normality);
-  const tested = groups.filter(([, n]) => n.applicable);
-  const untested = groups.filter(([, n]) => !n.applicable);
+  const nm = cmp && cmp.normality;
+  if (!nm || !Array.isArray(nm.pairs) || !nm.pairs.length) return "";
+  if (nm.skipped) return "No normality step: this comparison always uses the Friedman test.";
+  const tested = nm.pairs.filter((n) => n.applicable);
+  const untested = nm.pairs.filter((n) => !n.applicable);
   const parts = [];
   if (tested.length) {
-    const normal = tested.filter(([, n]) => n.normal).length;
-    parts.push(`Shapiro-Wilk found ${normal} of ${tested.length} tested groups consistent with a normal distribution`);
+    const normal = tested.filter((n) => n.normal).length;
+    parts.push(`Shapiro-Wilk found the differences of ${normal} of ${tested.length} tested pairs consistent with a normal distribution`);
   }
   if (untested.length) {
-    parts.push(`${untested.map(([c]) => c).join(", ")} ${untested.length === 1 ? "was" : "were"} not testable (constant or too few runs) and ${untested.length === 1 ? "is" : "are"} treated as non-normal`);
+    parts.push(`${untested.length} pair${untested.length === 1 ? " was" : "s were"} not testable (${untested[0].reason}) and ${untested.length === 1 ? "is" : "are"} treated as non-normal`);
   }
-  const family = cmp.all_normal ? "so the parametric route (ANOVA, Tukey HSD, Cohen's d) is used" : "so the rank-based route (Kruskal-Wallis, Dunn-Bonferroni, rank-biserial r) is used";
+  const family = cmp.all_normal
+    ? "so the parametric route is used (repeated-measures ANOVA with Mauchly's sphericity test, paired t-tests, d_z)"
+    : "so the rank-based route is used (Friedman, Wilcoxon signed-rank, matched-pairs rank-biserial r)";
   return parts.length ? `${parts.join("; ")}, ${family}.` : "";
+}
+
+export function dfText(o) {
+  return o && Array.isArray(o.df) ? o.df.map((d) => (Number.isInteger(d) ? d : fmt.num(d, 2))).join(", ") : "";
+}
+
+export function sphericityText(o) {
+  if (!o || !o.sphericity) return "";
+  const s = o.sphericity;
+  const m = s.computable ? `Mauchly's W = ${fmt.num(s.W, 3)}, ${fmt.peq(s.p)}` : `Mauchly's test not computable (${s.reason})`;
+  return o.correction ? `${m}; Greenhouse-Geisser correction applied (ε = ${fmt.num(o.epsilon_gg, 3)})` : `${m}; sphericity holds, no correction`;
 }
 
 // ── omnibus ──────────────────────────────────────────────────────────────────
@@ -87,7 +103,7 @@ export function omnibusSentence(cmp, measureCode, opts = {}) {
   const sig = opts.holm ? o.significant_holm : o.significant;
   const p = opts.holm ? o.p_holm : o.p;
   const corr = opts.holm ? ` (Holm-corrected ${fmt.peq(p)}, family of ${o.holm_family_size})` : ` (${fmt.peq(p)})`;
-  const stat = `${o.test}: ${o.statistic_name} = ${fmt.num(o.statistic, 3)}${o.df ? `, df = ${o.df.join(", ")}` : ""}`;
+  const stat = `${o.test}: ${o.statistic_name} = ${fmt.num(o.statistic, 3)}${o.df ? `, df = ${dfText(o)}` : ""}${o.correction ? ` (${o.correction})` : ""}`;
   return sig
     ? `${capitalize(what)}: the four configurations are not all the same — ${stat}${corr}.`
     : `${capitalize(what)}: no difference between the four configurations was detected — ${stat}${corr}.`;
@@ -147,12 +163,18 @@ export function sp1Summary(stats) {
 export function sp2Summary(stats, definition) {
   const blk = stats && stats.SP2 && stats.SP2.by_definition && stats.SP2.by_definition[definition || stats.primary_compliance];
   if (!blk) return "";
+  if (blk.definition !== stats.primary_compliance) {
+    return `Compliance ${DEFINITION_PLAIN[blk.definition]} is reported for reference only; the hypothesis is tested ${DEFINITION_PLAIN[stats.primary_compliance]}.`;
+  }
   const per = blk.per_measure;
   const untestable = Object.keys(per).filter((m) => !per[m].omnibus.testable);
   const differ = blk.significant_measures || [];
   const tested = Object.keys(per).filter((m) => per[m].omnibus.testable);
   const bits = [];
-  if (untestable.length) bits.push(`${untestable.map((m) => MEASURE_PLAIN[m] || m).join(", ")} ${untestable.length > 1 ? "were" : "was"} the same for every configuration, so ${untestable.length > 1 ? "they" : "it"} cannot be tested.`);
+  const constant = untestable.filter((m) => /no variance/.test(per[m].omnibus.reason || ""));
+  const other = untestable.filter((m) => !constant.includes(m));
+  if (constant.length) bits.push(`${constant.map((m) => MEASURE_PLAIN[m] || m).join(", ")} ${constant.length > 1 ? "were" : "was"} the same for every configuration, so ${constant.length > 1 ? "they" : "it"} cannot be tested.`);
+  if (other.length) bits.push(`${other.map((m) => MEASURE_PLAIN[m] || m).join(", ")} could not be tested: ${per[other[0]].omnibus.reason}.`);
   if (tested.length) {
     bits.push(differ.length
       ? `After Holm correction across ${blk.holm_family_size} testable measure${blk.holm_family_size > 1 ? "s" : ""}, the configurations differ on ${differ.map((m) => MEASURE_PLAIN[m] || m).join(", ")}.`
@@ -160,29 +182,41 @@ export function sp2Summary(stats, definition) {
   }
   bits.push(blk.h0_rejected
     ? "Decision: H₀ (no difference in compliance) is rejected."
-    : "Decision: H₀ (no difference in compliance) is not rejected.");
+    : tested.length ? "Decision: H₀ (no difference in compliance) is not rejected."
+    : "Decision: H₀ cannot be tested with this study.");
   return bits.join(" ");
 }
 
 // ── SP3 ──────────────────────────────────────────────────────────────────────
+// Friedman within each BR class (the class's test cases as subjects), Holm
+// across time and memory within the class.
+export function sp3ClassSentence(stats, p, m) {
+  const cmp = p.friedman && p.friedman[m];
+  const o = cmp && cmp.omnibus;
+  if (!o) return "";
+  if (!o.testable) return `${p.br_class}: ${o.reason}.`;
+  const order = cmp.mean_rank ? Object.entries(cmp.mean_rank).sort((a, b) => a[1] - b[1]).map(([c]) => label(stats, c)) : [];
+  return o.significant_holm
+    ? `${p.br_class}: the methods differ on ${MEASURE_PLAIN[m]} (Friedman χ² = ${fmt.num(o.statistic, 2)}, Holm-corrected ${fmt.peq(o.p_holm)}); mean rank ${order.join(" < ")} (lower is better).`
+    : `${p.br_class}: no difference on ${MEASURE_PLAIN[m]} detected (Friedman χ² = ${fmt.num(o.statistic, 2)}, Holm-corrected ${fmt.peq(o.p_holm)}).`;
+}
+
 export function sp3Summary(stats) {
   const s3 = stats && stats.SP3;
   if (!s3) return "";
   if (!s3.available) return `Time and memory were not compared: ${s3.reason}.`;
-  const bits = [];
-  for (const m of ["ET", "PM"]) {
-    const cmp = s3.per_metric[m];
-    bits.push(omnibusSentence(cmp, m, { holm: true }));
-    const fr = s3.friedman && s3.friedman[m];
-    if (fr && fr.testable) {
-      const order = Object.entries(fr.mean_rank).sort((a, b) => a[1] - b[1]).map(([c]) => label(stats, c));
-      bits.push(fr.significant
-        ? `Across test cases (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)}) the ranking on ${MEASURE_PLAIN[m]} is consistent: ${order.join(" < ")} (lower is better).`
-        : `Across test cases the ranking on ${MEASURE_PLAIN[m]} is not consistent (Friedman, χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)}).`);
-    } else if (fr) {
-      bits.push(`Ranking across test cases on ${MEASURE_PLAIN[m]}: ${fr.reason}.`);
-    }
+  const prof = s3.profiles || [];
+  const testable = prof.filter((p) => p.testable);
+  if (!testable.length) {
+    return `Time and memory are compared within each heterogeneity class (Friedman, ≥ 2 test cases per class); no class in this study has enough test cases, so they are shown descriptively.`;
   }
+  const diff = (m) => testable.filter((p) => p.friedman[m].omnibus.significant_holm).map((p) => p.br_class);
+  const bits = [`Compared within ${testable.length} of ${prof.length} heterogeneity class${prof.length > 1 ? "es" : ""} (Friedman, Holm across time and memory).`];
+  for (const m of ["ET", "PM"]) {
+    const d = diff(m);
+    bits.push(d.length ? `The methods differ on ${MEASURE_PLAIN[m]} in ${d.join(", ")}.` : `No class shows a difference on ${MEASURE_PLAIN[m]}.`);
+  }
+  if (s3.note) bits.push(`${capitalize(s3.note)}.`);
   return bits.join(" ");
 }
 
@@ -221,8 +255,8 @@ export function outcomeBanner(stats) {
              config: cs.recommendation.configuration };
   }
   if (cs && !cs.available && /2 instances/.test(cs.reason || "")) {
-    return { kind: "info", title: "Overall ranking needs ≥ 2 test cases",
-             sub: `This study used ${stats.provenance.n_instances} test case. Container fill (SP1) and safety rules (SP2) are still compared below. ` + outcomeText(oc) };
+    return { kind: "info", title: "Statistical tests need ≥ 2 test cases",
+             sub: `This study used ${stats.provenance.n_instances} test case. The tests compare the methods within test cases, so with one test case the results below are descriptive: averages and spreads, no significance tests and no overall ranking.` };
   }
   if (cs && !cs.available) {
     return { kind: "info", title: "No overall ranking for this study", sub: `${cs.reason}. ` + outcomeText(oc) };
@@ -235,12 +269,14 @@ export function outcomeBanner(stats) {
 
 export function outcomeTitle(oc) {
   if (!oc) return "";
+  if (!oc.pattern) return "No outcome pattern";
   const names = { A: "Both hybrids come out ahead", B: "One hybrid comes out ahead", C: "No hybrid comes out ahead", D: "No single best method — a trade-off" };
   return `${names[oc.pattern] || ""} (Outcome ${oc.pattern})`;
 }
 
 export function outcomeText(oc) {
   if (!oc) return "";
+  if (!oc.pattern) return `Outcome pattern ${oc.description}.`;
   return `Outcome pattern ${oc.pattern}: ${oc.description}.`;
 }
 
