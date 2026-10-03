@@ -2,16 +2,18 @@
 
     python tools/test_recommend.py
 
-  1  Study B (serial: the cost basis is wall-clock, as in the thesis): every
-     load's composite from experiments/recommend.py equals the per-instance
-     composite stats.py stored in the study file (stats.composite.per_instance).
+  1  Study B with its CPU times removed (serial, so the cost basis falls back
+     to wall-clock, as in the thesis): every load's composite from
+     experiments/recommend.py equals the per-instance composite stats.py stored
+     in the study file (stats.composite.per_instance).
   2  For every load of Study B and of every comparison the app saved with CPU
      time: the composite equals an independent re-implementation of the
      Chapter 3 formula written here from the definition (not stats.py),
      with CPU time as the cost when the load recorded it.
   3  The tie flag equals an independent leave-one-repeat-code-out check.
   4  Representative runs follow the stated rule.
-  5  A parallel study without CPU time (Study A) gets no recommendation.
+  5  A parallel study (Study A) gets a recommendation only from CPU time;
+     without CPU time it gets none, with a reason.
 """
 import sys
 import json
@@ -67,13 +69,17 @@ def close(a, b):
     return all(abs(a[c] - b[c]) < 1e-5 for c in a) and set(a) == set(b)
 
 
+def without_cpu(study):
+    return dict(study, runs=[{k: v for k, v in r.items() if k != 'cpu_time_ms'} for r in study['runs']])
+
+
 studyB = json.loads((STUDIES / 'studyB_sample8_quick_s1-10_serial.json').read_text(encoding='utf-8'))
 recB = recommend.recommend(studyB)
 
-print("1  Study B: recommend.py composite = the composite stats.py stored")
+print("1  Study B (wall-clock basis): recommend.py composite = the composite stats.py stored")
 stored = {d['instance_id']: {c: v['CS'] for c, v in d['per_configuration'].items()}
           for d in studyB['stats']['composite']['per_instance']}
-for L in recB['loads']:
+for L in recommend.recommend(without_cpu(studyB))['loads']:
     got = {c: L['composite'][c]['CS'] for c in L['configurations']}
     check(f"instance {L['instance_id']} ({L['cost_basis']})", L['cost_basis'] == 'wall' and close(got, stored[L['instance_id']]),
           f"{got} vs {stored[L['instance_id']]}")
@@ -106,9 +112,13 @@ for name, study, rec in files:
                 check(f"{name} load {L['instance_id']} {c}: representative run", False, f"got seed {rep['seed']}, want {best['seed']}")
     print(f"     {name}: {len(rec['loads'])} load(s) checked")
 
-print("5  Study A (parallel, no CPU time)")
-recA = recommend.recommend(json.loads((STUDIES / 'studyA_i350_standard_s1-30_parallel.json').read_text(encoding='utf-8')))
-check('no recommendation, with a reason', not recA['loads'][0]['available'] and bool(recA['loads'][0]['reason']))
+print("5  Study A (parallel)")
+studyA = json.loads((STUDIES / 'studyA_i350_standard_s1-30_parallel.json').read_text(encoding='utf-8'))
+recA = recommend.recommend(studyA)
+if all(r.get('cpu_time_ms') is not None for r in studyA['runs']):
+    check('with CPU time: recommendation from CPU cost', recA['loads'][0]['available'] and recA['loads'][0]['cost_basis'] == 'cpu')
+recA0 = recommend.recommend(without_cpu(studyA))
+check('without CPU time: no recommendation, with a reason', not recA0['loads'][0]['available'] and bool(recA0['loads'][0]['reason']))
 
 print()
 print(f"{'FAIL' if FAILED else 'PASS'} - {len(FAILED)} failed")
