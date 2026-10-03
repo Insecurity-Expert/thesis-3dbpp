@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from preprocessing.loader import parse_wtpack
-from preprocessing.fragility import assign_fragility, FRAGILE_RATE_MIN, FRAGILE_RATE_MAX
+from preprocessing.fragility import assign_fragility
 from preprocessing.stop_assignment import assign_stops
 from preprocessing.pipeline import load_augmented_instance
 
@@ -116,11 +116,17 @@ class TestLoader:
 
 class TestFragility:
 
-    def test_fragile_rate_within_type_level_bounds(self, fresh_instance):
-        assign_fragility(fresh_instance["boxes"])
+    def test_fragile_rate_is_recorded_as_a_covariate(self, fresh_instance):
+        """Chapter 3 Step A3: the realized share is reported, not gated.
+
+        The 25% target is approached by the greedy type cut (checked below);
+        whatever share results must be strictly between 0 and 1 and must be
+        the value written to the validation report."""
+        report = assign_fragility(fresh_instance["boxes"])
         n = len(fresh_instance["boxes"])
         rate = sum(b["fragile"] for b in fresh_instance["boxes"]) / n
-        assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+        assert 0.0 < rate < 1.0
+        assert report["fragile_rate"] == rate
 
     def test_fragility_is_a_property_of_the_type(self, fresh_instance):
         """Boxes with identical LBS must never carry different flags."""
@@ -281,7 +287,7 @@ class TestPipeline:
         # Sample one instance from each wtpack file. Validation may reject an
         # instance (the documented contract is "reject and try the next"), so
         # a ValueError is a legitimate outcome; every accepted instance must
-        # satisfy the bounds, and at least one file must yield an instance.
+        # have a non-trivial fragile share, and at least one file must yield an instance.
         accepted = 0
         for instance_id in range(7):
             try:
@@ -292,5 +298,5 @@ class TestPipeline:
             assert len(inst["boxes"]) > 0
             n = len(inst["boxes"])
             rate = sum(b["fragile"] for b in inst["boxes"]) / n
-            assert FRAGILE_RATE_MIN <= rate <= FRAGILE_RATE_MAX
+            assert 0.0 < rate < 1.0
         assert accepted >= 1

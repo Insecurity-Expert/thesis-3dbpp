@@ -7,42 +7,54 @@ Input: a study file written by experiments/study.py (one row per run with the
 configuration, instance, seed, SU, placed, n_items, CSR and C3-C6 over placed
 boxes, M-3 execution time and M-4 peak memory).
 
-What is computed (every test reports its name, statistic, df, exact p and an
-effect size; nothing is ever reported as NaN - an untestable case says why):
+Design (Chapter 3, Statistical Treatment): REPEATED MEASURES. The unit of
+analysis is the mean of each measure over an instance's runs; the four
+configurations are treatments and every instance is a block. Nothing is ever
+reported as NaN - an untestable case says why.
 
 * Compliance BOTH ways for CSR and each of C3-C6: over placed boxes (as the
   evaluator reports it) and over ALL boxes, rate_placed x placed / n_items,
   i.e. an unplaced box counts as non-compliant. The manuscript's locked
-  definition is all boxes (PRIMARY_COMPLIANCE); both are reported everywhere.
-* Descriptives per configuration and measure: mean, median, sd, min, max, n.
-* SP1 (SU): Shapiro-Wilk per group -> one-way ANOVA + Tukey HSD + Cohen's d
-  when every group is normal, otherwise Kruskal-Wallis + Dunn-Bonferroni +
-  rank-biserial r. Two-tailed, alpha = 0.05.
-* SP2 (CSR, C3, C4, C5, C6): the same per measure, Holm-Bonferroni across the
-  five omnibus p-values; H0 is rejected iff at least one Holm-corrected omnibus
-  test is significant. The decision is output explicitly.
-* SP3 (ET, PM; serial timing only): omnibus per metric with Holm across the
-  two, Friedman with instances as blocks (>= 2 instances), per-BR-class
-  profiles.
+  definition is all boxes (PRIMARY_COMPLIANCE); formal tests use it, the
+  placed-box basis is descriptive.
+* Descriptives per configuration and measure over the run-level values:
+  mean, median, sd, min, max, n.
+* Normality: Shapiro-Wilk (alpha 0.05) on the within-instance differences of
+  every configuration pair. All normal -> repeated-measures ANOVA with
+  Mauchly's test and the Greenhouse-Geisser correction where sphericity is
+  violated, post-hoc paired t-tests, Cohen's d_z (ES-1), partial eta squared.
+  Otherwise -> Friedman, post-hoc Wilcoxon signed-rank, matched-pairs
+  rank-biserial r = (W+ - W-) / (W+ + W-) (ES-2, Kerby 2014), Kendall's W.
+  Post-hoc p-values are Holm-Bonferroni corrected within the measure.
+* SP1 (SU): the omnibus above, two-tailed, alpha = 0.05.
+* SP2 (CSR, C3, C4, C5, C6, all-box basis): the omnibus per measure,
+  Holm-Bonferroni across the testable omnibus p-values; H0 is rejected iff at
+  least one Holm-corrected omnibus test is significant.
+* SP3 (ET, PM; serial timing only): BR class is a stratification variable.
+  Within each class, Friedman on ET and on PM (instances as blocks), Holm
+  across the two metrics, Wilcoxon post-hocs; per-class descriptive profiles.
+  No Configuration x Class interaction is tested.
+* Robustness (M-5): sd of SU across an instance's runs, mean and max over
+  instances; the SP1 procedure is applied to it as a descriptive check.
 * Composite (serial timing, >= 2 instances): CS = 0.25 SU~ + 0.25 CSR~ +
   0.25 (1 - CC~) + 0.25 (1 - Rob~), ~ = min-max across the four configurations
-  within an instance, CC = (z_ET + z_PM) / 2, Rob = sd of SU across the runs
-  within the instance. Friedman on instances x 4, Nemenyi if significant. A
-  recommendation exists only when Friedman is significant.
-* Outperformance per pair per metric needs ALL of: a significant corrected
-  post-hoc, |d| >= 0.5 or |r| >= 0.3, and the direction favouring that
-  configuration. Significant but below threshold is "statistically
-  detectable but not practically meaningful".
+  within an instance, CC = (z_ET + z_PM) / 2. Friedman on instances x 4,
+  Nemenyi if significant. A recommendation exists only when Friedman is
+  significant.
+* Outperformance per pair per metric needs ALL of: a significant omnibus, a
+  significant Holm-corrected post-hoc, |d_z| >= 0.5 or |r| >= 0.3, and the
+  direction favouring that configuration. Significant but below threshold is
+  "statistically detectable but not practically meaningful".
 * Outcome pattern (Chapter 3): A both hybrids outperform both baselines on the
   primary metrics, B exactly one does, C neither does, D mixed / trade-off.
 
-Edge cases: a measure constant across ALL configurations is "not testable -
-no variance"; a group that is constant (or has n < 3) gets no Shapiro-Wilk
-and is treated as non-normal; one instance skips the SP3 Friedman and the
-composite ("requires >= 2 instances"); concurrent timing refuses SP3 and the
-composite altogether.
+Edge cases: fewer than 2 instances -> no repeated-measures test ("requires >=
+2 instances"); a measure identical across configurations in every instance ->
+"not testable - no variance"; a constant pairwise difference or fewer than 3
+instances -> Shapiro-Wilk not applicable, treated as non-normal; concurrent
+timing refuses SP3 and the composite altogether.
 
-scipy + scikit-posthocs only.
+scipy + pingouin + scikit-posthocs.
 """
 import sys
 import json
@@ -54,6 +66,10 @@ from itertools import combinations
 import numpy as np
 from scipy import stats as sps
 import scikit_posthocs as sph
+try:
+    import pingouin as pg
+except ImportError:          # pragma: no cover - required by Chapter 3
+    pg = None
 
 ALPHA = 0.05
 PRIMARY_COMPLIANCE = "all_boxes"           # the manuscript's locked definition
@@ -80,8 +96,8 @@ MEASURE_LABELS = {
 DECODER_ENFORCED = {"C4": "enforce_fragility", "C5": "enforce_support"}
 LOWER_IS_BETTER = {"ET", "PM"}
 
-D_THRESHOLD = 0.5       # Cohen's d practical threshold
-R_THRESHOLD = 0.3       # rank-biserial r practical threshold
+D_THRESHOLD = 0.5       # Cohen's d_z practical threshold (ES-1)
+R_THRESHOLD = 0.3       # matched-pairs rank-biserial r practical threshold (ES-2)
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
@@ -128,70 +144,184 @@ def holm(pvalues):
     return out, m
 
 
-# ─── the core: one measure, four groups ──────────────────────────────────────
-# ─── the core: one measure, four groups ──────────────────────────────────────
-def compare_rm(mat, configs, measure, lower_is_better=False, enforced_note=None):
+# ─── the core: one measure, four configurations, instances as blocks ─────────
+def describe(vals):
+    v = np.asarray(vals, float)
+    if v.size == 0:
+        return {"n": 0, "mean": None, "median": None, "sd": None, "min": None, "max": None}
+    return {"n": int(v.size), "mean": _f(v.mean()), "median": _f(np.median(v)),
+            "sd": _f(v.std(ddof=1)) if v.size > 1 else None, "min": _f(v.min()), "max": _f(v.max())}
+
+
+def shapiro_differences(mat, configs):
+    """Shapiro-Wilk on the within-instance differences of every pair."""
+    N = mat.shape[0]
+    out = {}
+    for i, j in combinations(range(len(configs)), 2):
+        key = f"{configs[i]}-{configs[j]}"
+        d = mat[:, i] - mat[:, j]
+        if N < 3:
+            out[key] = {"a": configs[i], "b": configs[j], "applicable": False, "normal": False,
+                        "reason": "fewer than 3 instances"}
+        elif np.ptp(d) == 0:
+            out[key] = {"a": configs[i], "b": configs[j], "applicable": False, "normal": False,
+                        "reason": "constant difference"}
+        else:
+            W, p = sps.shapiro(d)
+            out[key] = {"a": configs[i], "b": configs[j], "applicable": True, "W": _f(W), "p": _f(p),
+                        "normal": bool(p >= ALPHA)}
+    return out
+
+
+def rank_biserial(x, y):
+    """ES-2: (W+ - W-) / (W+ + W-) over the non-zero paired differences (Kerby, 2014)."""
+    d = np.asarray(x, float) - np.asarray(y, float)
+    d = d[d != 0]
+    if d.size == 0:
+        return 0.0
+    ranks = sps.rankdata(np.abs(d))
+    wp, wm = ranks[d > 0].sum(), ranks[d < 0].sum()
+    return float((wp - wm) / (wp + wm))
+
+
+def cohens_dz(x, y):
+    """ES-1: mean of the within-instance differences / their sd."""
+    d = np.asarray(x, float) - np.asarray(y, float)
+    sd = d.std(ddof=1) if d.size > 1 else 0.0
+    if sd == 0:
+        return 0.0
+    return float(d.mean() / sd)
+
+
+def _rm_anova(mat):
+    """Repeated-measures ANOVA with Mauchly and Greenhouse-Geisser (pingouin)."""
     N, k = mat.shape
-    result = {"measure": measure, "label": MEASURE_LABELS.get(measure, measure), "lower_is_better": lower_is_better}
+    import pandas as pd
+    long = pd.DataFrame({"subject": np.repeat(np.arange(N), k), "cfg": np.tile(np.arange(k), N),
+                         "y": mat.reshape(-1)})
+    t = pg.rm_anova(data=long, dv="y", within="cfg", subject="subject", correction=True, detailed=True)
+    row, err = t.iloc[0], t.iloc[1]
+    F = float(row["F"])
+    df1, df2 = int(row["DF"]), int(err["DF"])
+    p_unc = float(row["p_unc"])
+    # Chapter 3 reports partial eta squared: SS_effect / (SS_effect + SS_error)
+    np2 = float(row["SS"]) / (float(row["SS"]) + float(err["SS"]))
+    sphericity_ok = bool(row["sphericity"]) if row.get("sphericity") == row.get("sphericity") else True
+    p_gg = row.get("p_GG_corr")
+    p_gg = float(p_gg) if p_gg == p_gg and p_gg is not None else None
+    eps = row.get("eps")
+    eps = float(eps) if eps == eps and eps is not None else None
+    spher = {"W_spher": row.get("W_spher"), "p_spher": row.get("p_spher")}
+    p_used = p_unc if (sphericity_ok or p_gg is None) else p_gg
+    return {"F": F, "df": [df1, df2], "p": p_used, "p_uncorrected": p_unc, "partial_eta_sq": np2,
+            "sphericity": {"test": "Mauchly", "W": _f(spher.get("W_spher")), "p": _f(spher.get("p_spher")),
+                           "assumed": sphericity_ok, "greenhouse_geisser_epsilon": _f(eps),
+                           "corrected": not sphericity_ok and p_gg is not None,
+                           "df_corrected": ([_f(df1 * eps), _f(df2 * eps)] if (not sphericity_ok and eps) else None)}}
+
+
+def compare_rm(mat, configs, measure, lower_is_better=False, enforced_note=None, force_nonparametric=False):
+    """mat: instances x configurations of instance-level means.
+
+    Shapiro-Wilk on the pairwise within-instance differences picks the branch:
+    RM-ANOVA + paired t + d_z, or Friedman + Wilcoxon + matched-pairs r.
+    force_nonparametric selects the Friedman branch directly (SP3, Chapter 3)."""
+    N, k = mat.shape
+    result = {"measure": measure, "label": MEASURE_LABELS.get(measure, measure),
+              "lower_is_better": lower_is_better, "n_blocks": int(N),
+              "descriptives": {c: describe(mat[:, j]) for j, c in enumerate(configs)}}
     if N < 2:
-        result["omnibus"] = {"testable": False, "reason": "requires >= 2 instances", "significant": False, "p": None}
-        result["pairs"] = []
+        result.update(normality={}, all_normal=False, pairs=[],
+                      omnibus={"testable": False, "reason": "requires >= 2 instances (repeated-measures design: instances are the blocks)",
+                               "significant": False, "p": None})
         return result
     if np.all(np.ptp(mat, axis=1) == 0):
         reason = "not testable - no variance across configurations"
-        if enforced_note: reason += f"; {enforced_note}"
-        result["omnibus"] = {"testable": False, "reason": reason, "significant": False, "p": None}
-        result["pairs"] = []
+        if enforced_note:
+            reason += f"; {enforced_note}"
+        result.update(normality={}, all_normal=False, pairs=[],
+                      omnibus={"testable": False, "reason": reason, "significant": False, "p": None})
         return result
-    chi, p = sps.friedmanchisquare(*[mat[:, j] for j in range(k)])
-    W = chi / (N * (k - 1)) if N * (k - 1) != 0 else 0
-    result["omnibus"] = {"testable": True, "test": "Friedman", "statistic_name": "chi2",
-                         "statistic": _f(chi), "df": [k - 1], "p": _f(p),
-                         "significant": bool(p < ALPHA), "effect_size": "Kendall's W", "effect_value": _f(W)}
-    pairs, pvalues = [], []
-    pair_indices = list(combinations(range(k), 2))
-    for i_idx, j_idx in pair_indices:
-        diff = mat[:, i_idx] - mat[:, j_idx]
-        if np.all(diff == 0):
-            pvalues.append(1.0)
+
+    norm = shapiro_differences(mat, configs)
+    all_normal = bool(norm) and all(n["normal"] for n in norm.values())
+    parametric = all_normal and not force_nonparametric and pg is not None
+    result["normality"] = norm
+    result["normality_basis"] = "within-instance differences of each configuration pair"
+    result["all_normal"] = all_normal
+
+    omni = None
+    if parametric:
+        try:
+            r = _rm_anova(mat)
+            omni = {"testable": True, "test": "Repeated-measures ANOVA", "statistic_name": "F",
+                    "statistic": _f(r["F"]), "df": r["df"], "p": _f(r["p"]),
+                    "p_uncorrected": _f(r["p_uncorrected"]), "significant": bool(r["p"] < ALPHA),
+                    "effect_size": "partial eta squared", "effect_value": _f(r["partial_eta_sq"]),
+                    "sphericity": r["sphericity"]}
+        except Exception as e:                     # degenerate design -> rank-based route
+            parametric = False
+            result["parametric_fallback"] = f"repeated-measures ANOVA failed ({e}); Friedman used"
+    if not parametric:
+        chi, p = sps.friedmanchisquare(*[mat[:, j] for j in range(k)])
+        W = chi / (N * (k - 1))
+        omni = {"testable": True, "test": "Friedman", "statistic_name": "chi2",
+                "statistic": _f(chi), "df": [k - 1], "p": _f(p), "significant": bool(p < ALPHA),
+                "effect_size": "Kendall's W", "effect_value": _f(W)}
+        if force_nonparametric:
+            omni["route_note"] = "Friedman within the BR class (Chapter 3, SP3)"
+    result["omnibus"] = omni
+
+    eff_name = "Cohen's d_z" if parametric else "matched-pairs r"
+    threshold = D_THRESHOLD if parametric else R_THRESHOLD
+    pair_idx = list(combinations(range(k), 2))
+    raw = []
+    for i, j in pair_idx:
+        x, y = mat[:, i], mat[:, j]
+        if np.all(x - y == 0):
+            raw.append(1.0)
+            continue
+        if parametric:
+            raw.append(float(sps.ttest_rel(x, y).pvalue))
         else:
             try:
-                res = sps.wilcoxon(mat[:, i_idx], mat[:, j_idx], mode='approx')
-                pvalues.append(float(res.pvalue))
-            except Exception:
-                pvalues.append(1.0)
-    adj_p, _ = holm(pvalues)
-    for (i_idx, j_idx), p_val, p_adj in zip(pair_indices, pvalues, adj_p):
-        a, b = configs[i_idx], configs[j_idx]
-        ma, mb = mat[:, i_idx].mean(), mat[:, j_idx].mean()
-        if p_val == 1.0 or p_val == 0.0:
-            eff = 0.0
+                raw.append(float(sps.wilcoxon(x, y, zero_method="wilcox").pvalue))
+            except ValueError:
+                raw.append(1.0)
+    adj, _ = holm(raw)
+    pairs = []
+    for (i, j), p_raw, p_adj in zip(pair_idx, raw, adj):
+        a, b = configs[i], configs[j]
+        x, y = mat[:, i], mat[:, j]
+        eff = cohens_dz(x, y) if parametric else rank_biserial(x, y)
+        ma, mb = float(x.mean()), float(y.mean())
+        if ma == mb:
+            favours = None
+        elif lower_is_better:
+            favours = a if ma < mb else b
         else:
-            Z = abs(sps.norm.ppf(p_val / 2.0))
-            eff = Z / math.sqrt(N)
-        if ma == mb: favours = None
-        elif lower_is_better: favours = a if ma < mb else b
-        else: favours = a if ma > mb else b
-        significant = (p_adj is not None) and (p_adj < ALPHA)
-        practical = (eff >= R_THRESHOLD)
-        omni_sig = result["omnibus"]["significant"]
-        if not omni_sig or not significant:
+            favours = a if ma > mb else b
+        post_sig = p_adj is not None and p_adj < ALPHA
+        practical = abs(eff) >= threshold
+        if not omni["significant"] or not post_sig:
             verdict, winner = "no significant difference", None
         elif not practical:
             verdict, winner = "statistically detectable but not practically meaningful", None
         else:
             winner = favours
             verdict = f"{LABELS[winner]} outperforms {LABELS[b if winner == a else a]}"
-        pairs.append({"a": a, "b": b, "test": "Wilcoxon signed-rank", "p_raw": _f(p_val), "p": _f(p_adj),
-                      "significant": bool(significant and omni_sig), "posthoc_significant": bool(significant),
-                      "effect": {"name": "matched-pairs r", "value": _f(eff), "threshold": R_THRESHOLD,
-                                 "magnitude": magnitude("r", eff), "practical": bool(practical)},
-                      "mean_a": _f(ma), "mean_b": _f(mb), "favours": favours,
+        pairs.append({"a": a, "b": b, "test": "paired t-test" if parametric else "Wilcoxon signed-rank",
+                      "p_raw": _f(p_raw), "p": _f(p_adj), "correction": "Holm-Bonferroni",
+                      "significant": bool(post_sig and omni["significant"]), "posthoc_significant": bool(post_sig),
+                      "effect": {"name": eff_name, "value": _f(eff), "threshold": threshold,
+                                 "magnitude": magnitude("d" if parametric else "r", eff), "practical": bool(practical)},
+                      "mean_a": _f(ma), "mean_b": _f(mb), "mean_difference": _f(ma - mb), "favours": favours,
                       "outperforms": winner, "verdict": verdict})
-    result["posthoc_test"] = "Wilcoxon signed-rank"
-    result["effect_size"] = "matched-pairs r"
+    result["posthoc_test"] = "paired t-test" if parametric else "Wilcoxon signed-rank"
+    result["effect_size"] = eff_name
     result["pairs"] = pairs
     return result
+
 
 def outperforms(cmp, winner, loser):
     for pr in cmp.get("pairs", []):
@@ -254,16 +384,30 @@ def analyse(study):
                 mat[i_idx, j_idx] = np.mean(vals) if vals else 0.0
         return mat
 
-    # Robustness = mean of per-instance SU sd across runs.
+    # ── descriptives over run-level values (Stage 3) ────────────────────────
+    desc = {m: {c: describe([x[m] for x in rows if x["configuration"] == c]) for c in configs}
+            for m in ("SU", "placed", "ET", "PM")}
+    for m in COMPLIANCE_KEYS:
+        desc[m] = {d: {c: describe([x[f"{m}_{d}"] for x in rows if x["configuration"] == c]) for c in configs}
+                   for d in COMPLIANCE_DEFS}
+    out["descriptives"] = desc
+
+    # ── robustness (M-5): sd of SU across an instance's runs ────────────────
+    rob_mat = np.zeros((n_inst, len(configs)))
     out["robustness"] = {}
-    for c in configs:
+    for j_idx, c in enumerate(configs):
         sds = []
-        for inst in instances:
+        for i_idx, inst in enumerate(instances):
             vals = [x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]
-            if len(vals) > 1: sds.append(np.std(vals, ddof=1))
-        out["robustness"][c] = {"mean_sd": _f(np.mean(sds)) if sds else 0.0,
-                                "max_sd": _f(np.max(sds)) if sds else 0.0,
+            sd = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
+            sds.append(sd)
+            rob_mat[i_idx, j_idx] = sd
+        out["robustness"][c] = {"mean_sd": _f(np.mean(sds)) if sds else None,
+                                "sd_of_sd": _f(np.std(sds, ddof=1)) if len(sds) > 1 else None,
+                                "max_sd": _f(np.max(sds)) if sds else None,
                                 "per_instance": {str(inst): _f(sd) for inst, sd in zip(instances, sds)}}
+    out["robustness_check"] = compare_rm(rob_mat, configs, "Rob", lower_is_better=True)
+    out["robustness_check"]["note"] = "descriptive check (Table 4); no research question"
 
     # ── SP1 ──────────────────────────────────────────────────────────────────
     sp1 = compare_rm(get_mat("SU"), configs, "SU")
@@ -302,7 +446,7 @@ def analyse(study):
     sp2["decision"] = sp2["primary"]["decision"]
     out["SP2"] = sp2
 
-    # ── SP3 ──────────────────────────────────────────────────────────────────
+    # ── SP3: Friedman within each BR class, Holm across ET and PM ────────────
     if not timing_valid:
         out["SP3"] = {"available": False, "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"}
     else:
@@ -310,33 +454,39 @@ def analyse(study):
         for inst in study.get("instances", []):
             classes.setdefault(inst["br_class"], []).append(inst)
         prof = []
-        for cls in sorted(classes, key=lambda s: int(''.join(ch for ch in s if ch.isdigit()) or 0)):
+        for cls in sorted(classes, key=lambda s_: int(''.join(ch for ch in s_ if ch.isdigit()) or 0)):
             insts = classes[cls]
             ids = [i["instance_id"] for i in insts]
+            nb = [i.get("n_boxes") for i in insts if i.get("n_boxes") is not None]
             entry = {"br_class": cls, "n_types": insts[0].get("n_types"), "instances": ids,
-                     "n_boxes": [i.get("n_boxes") for i in insts],
-                     "mean_n_boxes": _f(np.mean([i.get("n_boxes") for i in insts if i.get("n_boxes") is not None])),
-                     "per_configuration": {}}
-            if len(ids) >= 2:
-                per = {}
-                for m in ("ET", "PM"):
-                    mat = np.zeros((len(ids), len(configs)))
-                    for i_idx, inst_id in enumerate(ids):
-                        for j_idx, c in enumerate(configs):
-                            vals = [x[m] for x in rows if x["configuration"] == c and x["instance_id"] == inst_id]
-                            mat[i_idx, j_idx] = np.mean(vals) if vals else 0.0
-                    per[m] = compare_rm(mat, configs, m, lower_is_better=True)
-                raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in ("ET", "PM")]
-                adj, fam = holm(raw)
-                for m, pa in zip(("ET", "PM"), adj):
-                    per[m]["omnibus"]["p_holm"] = _f(pa)
-                    per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
-                    per[m]["omnibus"]["holm_family_size"] = fam
-                entry["friedman"] = per
-            else:
-                entry["friedman"] = {"available": False, "reason": "requires >= 2 instances"}
+                     "n_instances": len(ids), "n_boxes": [i.get("n_boxes") for i in insts],
+                     "mean_n_boxes": _f(np.mean(nb)) if nb else None,
+                     "per_configuration": {c: {m: describe([x[m] for x in rows if x["configuration"] == c and x["instance_id"] in ids])
+                                               for m in ("ET", "PM")} for c in configs}}
+            per = {}
+            for m in ("ET", "PM"):
+                mat = np.zeros((len(ids), len(configs)))
+                for i_idx, inst_id in enumerate(ids):
+                    for j_idx, c in enumerate(configs):
+                        vals = [x[m] for x in rows if x["configuration"] == c and x["instance_id"] == inst_id]
+                        mat[i_idx, j_idx] = np.mean(vals) if vals else 0.0
+                per[m] = compare_rm(mat, configs, m, lower_is_better=True, force_nonparametric=True)
+            raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in ("ET", "PM")]
+            adj, fam = holm(raw)
+            for m, pa in zip(("ET", "PM"), adj):
+                per[m]["omnibus"]["p_holm"] = _f(pa)
+                per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
+                per[m]["omnibus"]["holm_family_size"] = fam
+                # post-hocs only read as significant when the Holm-corrected omnibus is
+                if not per[m]["omnibus"]["significant_holm"]:
+                    for pr in per[m]["pairs"]:
+                        pr["significant"], pr["outperforms"] = False, None
+                        pr["verdict"] = "no significant difference"
+            entry["tests"] = per
             prof.append(entry)
-        out["SP3"] = {"available": True, "profiles": prof}
+        out["SP3"] = {"available": True, "design": "Friedman within each BR class (instances as blocks), Holm across ET and PM; no Configuration x Class interaction is tested",
+                      "power_note": "each class rests on only a few instance-level aggregates; per-class results are exploratory",
+                      "profiles": prof}
 
     # ── composite ────────────────────────────────────────────────────────────
     if n_inst < 2:
@@ -493,9 +643,9 @@ def summary_lines(st):
     else:
         for p in s3["profiles"]:
             L.append(f"SP3 {p['br_class']}:")
-            if "friedman" in p and p["friedman"].get("available", True) and "ET" in p["friedman"]:
+            if "tests" in p:
                 for m in ("ET", "PM"):
-                    cmp = p["friedman"][m]
+                    cmp = p["tests"][m]
                     o = cmp["omnibus"]
                     L.append(f"   {m}: " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}" if o.get("testable") else o["reason"]))
     cs = st["composite"]

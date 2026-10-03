@@ -18,8 +18,10 @@ between the two views.
 Validation gates (an instance failing any is discarded and the next one from
 the SAME file is tried):
   * the LBS range checks in fragility._validate
-  * the fragile-rate bounds fragility.FRAGILE_RATE_MIN / MAX
   * n_boxes <= max_boxes
+
+The realized fragile share is recorded per instance as a descriptive
+covariate (Chapter 3, Step A3); it is not a gate.
 
 Usage
 -----
@@ -71,7 +73,7 @@ def _validate_instance(inst: Dict[str, Any], max_boxes: int) -> Tuple[bool, str,
         rep = assign_fragility(boxes)
     except ValueError as e:
         msg = str(e)
-        return False, ("fragile_rate" if "Fragile proportion" in msg else "lbs_range") + ": " + msg, {}
+        return False, "lbs_range: " + msg, {}
     return True, "", rep
 
 
