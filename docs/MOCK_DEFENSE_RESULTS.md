@@ -19,6 +19,7 @@ physics extents.
 | **parameters** | λ_w = λ_f = λ_b = λ_a = 0.20; `enforce_support` = `enforce_fragility` = on; R_max = 5; placement budget 20 M |
 | **slide runs** | pop 10 × max_iter 300, seeds 1–5 (mean ± sd over seeds; sd = population sd) |
 | **live demo** | pop 10 × max_iter 60, seed 42 — what the UI reproduces on stage; `tools/demo_check.py` reference |
+| **determinism** | `tools/test_reference_hashes.py`: the four configurations x seeds 1, 42 against `tools/determinism_reference.json` (recorded at 3f4392b, identical at bbed351). The earlier DGWO-only hash `aece641ca949cb2d` used a hash definition that PR #3's `test_determinism.py` no longer computes |
 | **baselines** | one decode of a fixed order through the same decoder, evaluator and flags; first allowed orientation per box; random = 30 seeded orders |
 | **validator** | `tools/validate_arrangement.py` — independent of `optimizer/`, run on every arrangement below |
 | **files** | `experiments/results/slide_i350_s{1..5}.json`, `quick_i350_s42.json`, `baselines_i350.json`, `summary_i350.json` (rebuilt by `experiments/summarize_results.py`) |
@@ -196,7 +197,7 @@ physics extents.
 | **parameters** | λ_w = λ_f = λ_b = λ_a = 0.20; `enforce_support` = `enforce_fragility` = on; R_max = 3; placement budget 20 M |
 | **slide runs** | pop 10 × max_iter 300, seeds 1–5 (mean ± sd over seeds; sd = population sd) |
 | **live demo** | pop 10 × max_iter 60, seed 42 — what the UI reproduces on stage; `tools/demo_check.py` reference |
-| **determinism** | `tools/test_reference_hashes.py`: the four configurations x seeds 1, 42 against `tools/determinism_reference.json` (recorded at 3f4392b, identical at bbed351). The earlier DGWO-only hash `aece641ca949cb2d` used a hash definition that PR #3's `test_determinism.py` no longer computes |
+| **determinism** | `tools/test_determinism.py` hash `aece641ca949cb2d` (was `afe1554817f5d94e` under the side-door geometry) |
 | **baselines** | one decode of a fixed order through the same decoder, evaluator and flags; first allowed orientation per box; random = 30 seeded orders |
 | **validator** | `tools/validate_arrangement.py` — independent of `optimizer/`, run on every arrangement below |
 | **files** | `experiments/results/slide_i350_s{1..5}.json`, `quick_i350_s42.json`, `baselines_i350.json`, `summary_i350.json` (rebuilt by `experiments/summarize_results.py`) |

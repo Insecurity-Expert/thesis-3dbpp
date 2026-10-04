@@ -43,57 +43,15 @@ test needs `PYTHON` pointing at an interpreter with numpy).
 5. The Results cards and Loading Guide still show recommend.py's per-load
    "Recommended" badge; that is item 7.
 
-**Also noted (not changed):** `docs/MOCK_DEFENSE_RESULTS.md` parameter table says
-R_max = 3 and stop_seed = run seed; the code has R_MAX = 5 and stop seed 42.
-
----|---|---|
-| 1 Determinism-reference test | `d739e68` | done |
-| 2 Commit recording + numba pin | `82d7f83` | done |
-| 3 sample30 cleanup | - | **stopped, needs your decision (below)** |
-| 4 Stats fixes | - | not started (the stop rule says wait) |
-| 5 Port wip assertion | - | not started |
-
-**Hash check:** `tools/test_reference_hashes.py` passes 8 / 8 after each commit.
-DGWO, MOGWO, SEQ and REP at seeds 1 and 42 are unchanged from bbed351 / 3f4392b.
-
-**Tests run** (Python 3.11.15, numba 0.68.0): test_reference_hashes (8 / 8),
-test_study_provenance (13 / 13), test_run_settings, test_recommend, all PASS.
-Before item 1 the full suite also passed: test_geometry 89, test_stats,
-test_custom_load 62, test_custom_load_aliases, test_determinism, pytest
-test_pipeline 31. The client Jest tests were not run (no `node_modules` here).
-
-**Why I stopped on item 3.** The old file `experiments/samples/sample30_seed42.json`
-is not only used by studies:
-
-- `server/index.js:19` serves it as the UI's wtpack instance dropdown (`/api/instances`).
-  The UI defaults to the list's first entry, which is **instance 350** (the demo,
-  Study A and `demo_check` instance; `docs/DEMO.md:61` documents that default).
-- **Instance 350 is not in the current sample** (`experiments/sample30_seed42.json`,
-  whose first entry is instance 413, BR1, 105 boxes).
-- `preprocessing/custom_load.py:570` reads `max_boxes` from it (200 in both files,
-  so repointing that one is harmless).
-- `data/README.md:47`, `docs/DEMO.md` (lines 13, 61, 150) and a comment in
-  `client/src/services/api.js:82` name the old path.
-
-Renaming the file therefore forces a choice about the dropdown, which goes beyond the agreed item:
-
-1. **Point the dropdown at the current sample and add instance 350 as a
-   separate "demo instance" entry at the top.** The demo default stays 350, and the
-   other 29 entries become the thesis sample. Recommended.
-2. Point the dropdown at the current sample only. The demo default becomes 413,
-   and 350 is not selectable from the dropdown.
-3. Keep the dropdown reading the renamed `_DEPRECATED` file (UI unchanged; only
-   study.py refuses it).
-
-The study.py part is unambiguous and ready: refuse a `--sample` whose file
-name contains `DEPRECATED` or whose JSON has `"deprecated": true`, with a test.
-Tell me which dropdown option to take and I'll finish item 3, then do 4 and 5.
-
-**Also noted (not changed):** `docs/MOCK_DEFENSE_RESULTS.md` parameter table says
-R_max = 3 and stop_seed = run seed; the code has R_MAX = 5 and stop seed 42.
+**Correction (follow-up commit):** my earlier note that `docs/MOCK_DEFENSE_RESULTS.md`
+says R_max = 3 / stop_seed = run seed was a misreading. Those rows are in the
+"Superseded — do not cite" section and correctly describe the older runs. The
+current parameter table already says R_max = 5 and stop_seed = 42, matching the
+code and the manuscript. My item 1 edit had changed the determinism row inside
+that superseded table; it is restored, and the new determinism row now sits in
+the current table.
 
 ---
-
 
 Baseline before any Phase 2 change: HEAD 3f4392b. Output of the four
 configurations on instance 350 (pop 10 x 20, seeds 1 and 42) is byte-identical
@@ -139,9 +97,8 @@ repeatability within one commit).
 - The 8 hashes equal those computed independently at bbed351 and 3f4392b before
   this item (`DGWO 5e73df02 / 28e5f3a0, MOGWO 5bcb2b85 / 3afc1b61,
   SEQ 3c5c044c / b150c53a, REP a965e2d5 / 681939bc`, seeds 1 / 42).
-- Noted, not changed (outside this item): the same table in
-  `docs/MOCK_DEFENSE_RESULTS.md` says R_max = 3 and `stop_seed` = run seed;
-  the code has R_MAX = 5 and a fixed stop seed 42.
+- (Corrected later: the row edited here was in the doc's superseded section; it
+  was restored and the new row moved to the current table. See the summary.)
 
 ---
 
