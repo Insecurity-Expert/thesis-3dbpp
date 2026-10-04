@@ -16,14 +16,39 @@ python -m preprocessing.sampling --n 30 --out experiments/sample30_seed42.json  
 The demo runs on the OR-Library wtpack data (`data/raw/`). The older BR JSON
 dataset and the HD-GWO code that read it have been removed.
 
+**Server secrets (set before starting the server on the demo machine).**
+
+| Variable | What it does | If not set |
+|---|---|---|
+| `JWT_SECRET` | signs sign-in sessions; use any long random string | a built-in development secret is used and the server prints a warning: anyone with the code could forge a session. Acceptable only on a closed demo laptop |
+| `STACKR_DEMO_PASSWORD` | password of the demo account (created at start if missing) | `stackr-demo` |
+| `STACKR_DEMO_EMAIL` | email of the demo account | `admin@gmail.com` |
+
+The demo account is created once; changing `STACKR_DEMO_PASSWORD` later does
+not change an existing account's password (use
+`node server/reset-password.js admin@gmail.com --password <new>`).
+
 ## 1. Start
 
 Two terminals:
 
+```powershell
+# Windows PowerShell (this terminal only)
+$env:JWT_SECRET = "<a long random string>"
+$env:STACKR_DEMO_PASSWORD = "<the demo password>"
+cd server; node index.js          # HTTP :3001, WebSocket :3002
+```
+
 ```bash
-cd server && node index.js        # HTTP :3001, WebSocket :3002
+# macOS / Linux
+JWT_SECRET='<a long random string>' STACKR_DEMO_PASSWORD='<the demo password>' node server/index.js
+```
+
+```bash
 cd client && npm start            # http://localhost:3000
 ```
+
+A random secret, e.g.: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
 On start the server spawns a throwaway REP run (pop 3 × 1 iter) to JIT-compile
 numba. Wait for this line in the server terminal:

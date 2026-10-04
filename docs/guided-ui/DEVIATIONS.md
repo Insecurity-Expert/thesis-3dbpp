@@ -1,5 +1,7 @@
 # Guided UI — differences from the prototype
 
+> **Updated after Phase 2 item 7 (2026-10-04).** The per-load recommendation (`experiments/recommend.py`, the "Recommended for this load" card and badge, `tools/test_recommend.py`) was removed. Results now compares the configurations without a ranking (hybrids by default, full comparison on request); each card opens its representative run from `experiments/representative.py` (closest to the median container fill, ties to the lowest seed); the Loading Guide selects no configuration by default. See `PHASE2_LOG.md`.
+
 Base design: `design/Updated_Prototype.html`. Changes asked for: `design/STACKR-Prototype-Instructions.pdf`
 plus the guided-UI prompt. Every visible difference between a prototype screen and the app is listed
 here with its reason:
@@ -29,7 +31,7 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 |---|---|---|---|
 | Hero title | "Fit more into every container" | "Plan how your boxes go into one truck" | (b) STACKR doesn't promise more than another tool; it plans one container |
 | Hero text | "works out the tightest way to arrange everything" | What STACKR does: arranges with four methods; shows positions, boxes not loaded, rule results; prints a plan | (a) + (b) "tightest" is not guaranteed |
-| Step cards | "Pick a packing method … pack fast … always safe", "See your winner" | "Add your boxes", "Check and run" (all four methods run), "See the results" (recommended solution and why, loading guide) | (a) one line per step; (b) no method picking, no promised winner |
+| Step cards | "Pick a packing method … pack fast … always safe", "See your winner" | "Add your boxes", "Check and run" (all four methods run), "See the results" (the configurations compared measure by measure, loading guide) | (a) one line per step; (b) no method picking, no promised winner |
 | "What you'll need" | Width/depth/height; "a standard 40-foot truck size filled in" | Length/width/height (cm), weight (kg), max load on top (kg), qty; optional stop 1–3 and handle-with-care; container L × W × H, with 587 × 233 × 220 cm filled in | (a) + (b) "40-foot" isn't the container; the converter's schema is L/W/H |
 | Saved-runs line | — | "You have N saved runs …" (only when there are any) | kept from the current app (real counts) |
 
@@ -37,7 +39,7 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 
 | Element | Prototype | App | Reason |
 |---|---|---|---|
-| Six steps' text | 40-foot truck; Quick/Safe/Balanced/Strict Pack; "gives you a winner"; "big winner banner" | Add your boxes · Check the settings · Meet the four methods (mechanism nicknames) · "Run STACKR runs all four methods" · Look at the results (a recommendation with a reason; may say two did about equally well) · "Loading Guide gives you a plan you can print" | (a) |
+| Six steps' text | 40-foot truck; Quick/Safe/Balanced/Strict Pack; "gives you a winner"; "big winner banner" | Add your boxes · Check the settings · Meet the four methods (mechanism nicknames) · "Run STACKR runs all four methods" · Look at the results (the hybrids side by side, the full comparison one click away; gaps under 2 percentage points or 2 boxes shown as level) · "Loading Guide gives you a plan you can print" | (a) |
 | "Don't show this again" tickbox | — | Added; stored on the account (`users.howto_hidden`) | (a) |
 | Opens automatically | — | Only on a new account's first login (stored as `users.howto_auto_shown`), unless ticked; otherwise from the top-bar help button and the Home banner | (a) |
 | Closes with | ✕ / button / Esc / outside click | Same | — |
@@ -82,8 +84,8 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 |---|---|---|---|
 | Review cards | Container / Your boxes / Method & rules / Test runs / Steadiness / Repeat code (invented values) | Your boxes (count, source) · Total volume and mass · Load volume as % of the container (warns above 90%) · Stops and fragile boxes · Truck weight limit · Time estimate (measured on this machine, or "no estimate yet") | (a) + (b) |
 | Custom-load label | — | Badge on the review card when it applies | (a) |
-| "Two ways to run this" callout | Quick Test "about a minute" / Full Comparison "shows you the winner" | "What Run STACKR does": all four methods × 5 repeat codes = 20 runs, up to 6 at a time; then the four solutions and the recommendation | (a) + (b) |
-| Run buttons | Quick Test (1 run) + Full Comparison (30 runs × 4) in the nav bar | **Run STACKR** (primary) in the nav bar. Quick Test (one method, one run, no recommendation) and the larger comparison sizes are in a collapsed Advanced | (a) |
+| "Two ways to run this" callout | Quick Test "about a minute" / Full Comparison "shows you the winner" | "What Run STACKR does": all four methods × 5 repeat codes = 20 runs, up to 6 at a time; then the comparison of the configurations | (a) + (b) |
+| Run buttons | Quick Test (1 run) + Full Comparison (30 runs × 4) in the nav bar | **Run STACKR** (primary) in the nav bar. Quick Test (one method, one run, labelled "Preview: one run, one seed") and the larger comparison sizes are in a collapsed Advanced | (a) |
 | Quick Test settings | Method radio in Step 2 | Advanced: method, preset, pack size (3–60), iterations (1–2000); a run with non-preset settings is labelled "custom settings" in History; λ not editable | (a) + (c) |
 | Optimizer-ready indicator | — | "Optimizer ready / Warming up…" beside Run STACKR | (b) real readiness, so the first run doesn't look like a hang |
 | Nav-bar hint | "The four safety rules are always on. Only rotation can be changed." | "All four safety rules are checked in every run." | (b) rotation can't be changed |
@@ -106,16 +108,16 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 | Element | Prototype | App | Reason |
 |---|---|---|---|
 | Comparison picker | — | A select above the card (which saved comparison, and which load when a comparison has several) | (b) Results must say which runs it shows |
-| Winner card | "🏆 Winner — best method for your load", invented score, "Rules followed 0.994", "Time taken 96.8s", invented advice | **"Recommended for this load"**: the top method of Chapter 3's composite on this load's runs (stats.py), its nickname, Overall score /5, container full, rules followed (all boxes), CPU time — averages over the load's runs; 2–3 sentences generated from the criteria | (a) + (b) |
+| Winner card | "🏆 Winner — best method for your load", invented score, "Rules followed 0.994", "Time taken 96.8s", invented advice | Removed. Results opens on Sequential and Repair-Based side by side; "View full comparison (4 configurations)" adds DGWO and MOGWO. Fixed order, no ranking; per measure "level" or highest / lowest; "by design" labels | (a) + (b) |
 | Tie wording | — | "Two methods did about equally well" ("Several…" when more than one other method comes out on top) when leaving one repeat code out changes the top method | (a) + (b) |
 | Not-the-thesis line | — | "This compares the four methods on this load; it is not the thesis's statistical conclusion." + link to Technical details | (a) |
-| No recommendation | — | A parallel comparison without CPU time (e.g. Study A) says why it can't name one; the four cards still show | (b) |
+| No recommendation | — | Not applicable any more: nothing is recommended for any comparison | (b) |
 | Things to know | Button + pop-up with "shared cloud machine", "Only 2–3 delivery stops" | Same button and pop-up, using the shared `ThingsToKnow` component: stop count from the data, the recorded machine and mode, CPU-time note | (b) |
 | Overall-score breakdown card, safety-rules table, "How each method performed" | On the main page, invented numbers | Under "Show all numbers" (how it was decided, the Chapter 3 tables) | (c) |
 | Four methods side by side | Table rows with "See guide →" | **Four solution cards** in the prototype's card style: container fill, rule-following (all boxes) and rule score (loaded boxes) with tooltips, boxes not loaded, time; View Solution → View Arrangement → Export Guide | (a) |
 | Card values | Averages | The method's representative run (highest all-box rule-following, then fill, then lowest repeat code), labelled "Its best run (repeat code N) of 5" | (a) the arrangement and guide come from that run |
 | "Show extra technical numbers" toggle | Reference numbers | "Show all numbers": how it was decided (formula, per-method criteria, CPU-time note, tie check, representative-run rule, λ and enforcement read-only), every run (with the worker's untimed warm-up CPU), the Trade-offs chart, the thesis statistics with the outcome badge ("needs ≥ 2 test cases" for one load), SP1–SP3 (Compare, moved), the Quick Test result | (c) |
-| Trade-offs chart | Pop-up from invented `paretoPoints` | In Technical details: one dot per real run (x = fill, y = all-box rule-following), best-of-both runs circled, "Best-of-both runs: N out of M", hover tooltip, table view | (a) + (b) + (c) |
+| Trade-offs chart | Pop-up from invented `paretoPoints` | In Technical details: one dot per real run (x = fill, y = all-box rule-following), runs of the same configuration that no other of its runs exceeds on both circled ("not exceeded on both: N out of M"; within one configuration, configurations are not compared), hover tooltip, table view | (a) + (b) + (c) |
 | "How each method improves over time" | Pop-up with chart | Removed, everywhere (Results, 3D viewer's live view, Quick Test); convergence data is still saved | (a) |
 
 ## 3D Viewer (reached by View Arrangement)
@@ -131,8 +133,8 @@ Status: **Parts A–F** (every screen in the mapping). The beginner walkthrough,
 | Element | Prototype | App | Reason |
 |---|---|---|---|
 | Help banner + Print button | "This is your packing plan…", "Print this plan" | Same banner; "Export Guide (print / PDF)" (the "Save as PDF" toast, then the print view) and "Download page 1 (CSV)" | (a) |
-| Method selector | Four entries with invented fill %, "★ Winner" | The four methods with their representative run's real fill, "· recommended" on the recommended one | (a) + (b) |
-| "This is the winner's plan" banner | Invented praise | Removed. Page 1 names the recommended solution with its method and repeat code; if another method is chosen it says so | (a) |
+| Method selector | Four entries with invented fill %, "★ Winner" | The four configurations in the fixed order with their representative run's real fill; none selected by default | (a) + (b) |
+| "This is the winner's plan" banner | Invented praise | Removed. Page 1 names the chosen configuration's representative run (repeat code) and the rule that picked it | (a) |
 | Single saved run | — | Collapsed "Advanced: a single saved run instead" | (c) |
 | Page 1 table | 6 example rows; Size W×D×H; "Where to put it" invented ("rear left corner", "no more than 1 layer"); Unload Last/2nd/First | Every box, in the support-checked loading order, in two side-by-side columns, with only: step, box ID, stop, placement from real support contacts ("Place on the floor" / "Place on top of Box 017 and Box 022", plus "Keep reachable — unloaded at stop 1"), fragile yes/no | (a) + (b) |
 | Unloading order | — | Grouped by stop, stop 1 first: "Before unloading stop 1, first move: Box 031, 044, 052 (stop 2); … (stop 3)." — the C6 blockers listed once per stop — then the stop's boxes in unloading order (nearest the door and topmost first). Boxes not loaded follow as one short paragraph (ID, size, weight, stop, "arrange separate transport") | (a) |

@@ -1,7 +1,9 @@
-// Trade-offs: one dot per real run of a method on this load. x = container
-// fill (%), y = rule-following over all boxes (%). Runs no other run beats on
-// both at once are circled ("best of both"). Hover a dot for its numbers; the
-// same data is available as a table.
+// Trade-offs: one dot per real run of ONE configuration on this load. x =
+// container fill (%), y = rule-following over all boxes (%). Runs that no other
+// run of the same configuration exceeds on both at once are circled ("not
+// exceeded on both"). It compares runs within one configuration, never
+// configurations with each other. Hover a dot for its numbers; the same data
+// is available as a table.
 import React, { useMemo, useState } from "react";
 import { tradeoffPoints, nonDominated } from "../viewer/tradeoffs";
 
@@ -15,7 +17,7 @@ function ticks(lo, hi, n = 5) {
 export default function TradeoffsChart({ runs, methodName }) {
   const [hover, setHover] = useState(null);
   const pts = useMemo(() => tradeoffPoints(runs), [runs]);
-  const best = useMemo(() => new Set(nonDominated(pts).map((p) => p.key)), [pts]);
+  const edge = useMemo(() => new Set(nonDominated(pts).map((p) => p.key)), [pts]);
   if (!pts.length) return <div className="field-hint">No runs for this method.</div>;
   const pad = (lo, hi) => { const d = Math.max(hi - lo, 1); return [Math.max(0, lo - d * 0.15), Math.min(100, hi + d * 0.15)]; };
   const [x0, x1] = pad(Math.min(...pts.map((p) => p.x)), Math.max(...pts.map((p) => p.x)));
@@ -27,7 +29,7 @@ export default function TradeoffsChart({ runs, methodName }) {
     <div>
       <div style={{ position: "relative", maxWidth: W }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} role="img"
-          aria-label={`Trade-offs for ${methodName}: ${pts.length} runs, ${best.size} best-of-both`}>
+          aria-label={`Trade-offs within ${methodName}: ${pts.length} runs, ${edge.size} not exceeded on both by another run of ${methodName}`}>
           {ticks(y0, y1).map((t) => (
             <g key={`y${t}`}>
               <line x1={M.l} x2={W - M.r} y1={sy(t)} y2={sy(t)} stroke="var(--border)" strokeWidth="1" />
@@ -43,7 +45,7 @@ export default function TradeoffsChart({ runs, methodName }) {
           {pts.map((p) => (
             <g key={p.key} onMouseEnter={() => setHover(p)} onMouseLeave={() => setHover(null)} style={{ cursor: "default" }}>
               <circle cx={sx(p.x)} cy={sy(p.y)} r="12" fill="transparent" />
-              {best.has(p.key) && <circle cx={sx(p.x)} cy={sy(p.y)} r="9" fill="none" stroke="var(--primary-hover)" strokeWidth="2" />}
+              {edge.has(p.key) && <circle cx={sx(p.x)} cy={sy(p.y)} r="9" fill="none" stroke="var(--primary-hover)" strokeWidth="2" />}
               <circle cx={sx(p.x)} cy={sy(p.y)} r="4.5" fill="var(--primary)" stroke="var(--bg-card)" strokeWidth="2" />
             </g>
           ))}
@@ -51,23 +53,23 @@ export default function TradeoffsChart({ runs, methodName }) {
         {hover && (
           <div style={{ position: "absolute", left: `${(sx(hover.x) / W) * 100}%`, top: `${(sy(hover.y) / H) * 100}%`, transform: "translate(12px, -110%)",
                         background: "var(--bg-card)", border: "1px solid var(--border-strong)", borderRadius: 8, padding: "6px 10px", fontSize: 12, boxShadow: "var(--shadow-2)", pointerEvents: "none", whiteSpace: "nowrap" }}>
-            <b>Repeat code {hover.seed}</b>{best.has(hover.key) ? " · best of both" : ""}<br />
+            <b>Repeat code {hover.seed}</b>{edge.has(hover.key) ? " · not exceeded on both" : ""}<br />
             Container fill {f1(hover.x)}% · rule-following {f1(hover.y)}%
           </div>
         )}
       </div>
       <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", fontSize: 12.5, marginTop: 6 }}>
-        <b>Best-of-both runs: {best.size} out of {pts.length}</b>
+        <b>Runs of {methodName} not exceeded on both: {edge.size} out of {pts.length}</b>
         <span style={{ color: "var(--text-dim)", display: "inline-flex", alignItems: "center", gap: 6 }}>
           <svg width="22" height="22" aria-hidden><circle cx="11" cy="11" r="8" fill="none" stroke="var(--primary-hover)" strokeWidth="2" /><circle cx="11" cy="11" r="4" fill="var(--primary)" /></svg>
-          circled = no other run of {methodName} is better on both at once
+          circled = no other run of {methodName} has both a higher container fill and higher rule-following. Runs of one configuration only; configurations are not compared here
         </span>
       </div>
       <details className="collapsible" style={{ marginTop: 8 }}>
         <summary>Show as a table</summary>
         <table className="data-table" style={{ marginTop: 6, maxWidth: 520 }}>
-          <thead><tr><th>Repeat code</th><th>Container fill</th><th>Rule-following (all boxes)</th><th>Best of both</th></tr></thead>
-          <tbody>{pts.map((p) => <tr key={p.key}><td>{p.seed}</td><td>{f1(p.x)}%</td><td>{f1(p.y)}%</td><td>{best.has(p.key) ? "yes" : ""}</td></tr>)}</tbody>
+          <thead><tr><th>Repeat code</th><th>Container fill</th><th>Rule-following (all boxes)</th><th>Not exceeded on both</th></tr></thead>
+          <tbody>{pts.map((p) => <tr key={p.key}><td>{p.seed}</td><td>{f1(p.x)}%</td><td>{f1(p.y)}%</td><td>{edge.has(p.key) ? "yes" : ""}</td></tr>)}</tbody>
         </table>
       </details>
     </div>

@@ -4,7 +4,8 @@
 
 **Status: items 1-7 done plus follow-ups, each a separate commit, all pushed
 to `origin/ccr-404428c3-7wury8` only. No PR, no merge. Stopped before item 8
-(greedy table, race lanes, docs for #1), as instructed.**
+(greedy table, race lanes, docs for #1), as instructed. Item 8a = review follow-ups
+asked for after the branch review.**
 
 | Item | Commit | Result |
 |---|---|---|
@@ -18,6 +19,8 @@ to `origin/ccr-404428c3-7wury8` only. No PR, no merge. Stopped before item 8
 | 4b SP3 pair verdicts Holm-gated | `6e8b20f` | done; no Study B verdict changed |
 | 6 Auth | `8263673` | done |
 | 7 Results and Loading Guide | `366058c` | done |
+| 8a Review follow-ups: server defects 1 and 2, JWT warning | `1ae40c9` | done |
+| 8a Docs: DEMO.md secrets, guided-ui, trade-offs wording | B | done |
 
 **Hash check:** `tools/test_reference_hashes.py` passes **8 / 8 after every
 commit**. DGWO, MOGWO, SEQ and REP at seeds 1 and 42 on instance 350 are
@@ -428,3 +431,57 @@ Study A has no SP3 (parallel timing), so its file is unchanged.
   - Repair-Based's 100 % loaded-box compliance and Sequential's split budget carry "by design".
   - Loading Guide opens with "— choose a configuration —", lists all four, and shows the prompt; choosing Repair-Based builds its plan with the representative-run callout.
   - Screenshots checked for layout.
+
+---
+
+## Item 8a - Review follow-ups: two server defects, JWT warning, doc and wording clean-up
+
+From the branch review (defects 1 and 2), plus the requested warning and docs.
+
+### A. Diff
+
+**Commit A (`1ae40c9`): server fixes**
+
+| File | Change | + / - |
+|---|---|---|
+| `server/customLoads.js` | **Defect 1.** The database insert after the converter finishes runs in a child-process callback, outside Express's error handling. On an unreadable database it threw and stopped the server; the request was never answered. It is now wrapped: the client gets a 500 with the reason, and the converted file is removed so no load file is left without its record | +10 / -2 |
+| `server/errors.js` | new `jsonErrors` middleware. It keeps the status an error carries (400 malformed body, 413 oversized), uses 500 otherwise, and always answers in JSON | +13 / 0 |
+| `server/index.js` | **Defect 2:** uses `jsonErrors` instead of the always-500 handler from item 6. **Startup warning** when `JWT_SECRET` is not set (three lines naming the risk and docs/DEMO.md); the server still starts | +10 / -7 |
+| `server/auth.js` | exports `usingDefaultSecret`; the secret itself is unchanged | +3 / -1 |
+| `tools/test_server_errors.js` | new (8 checks): malformed JSON → 400 as JSON; a database error in a route → JSON 500; a custom-load save on an unreadable database is answered 500, no exception escapes to the process, no orphan file, and the server answers afterwards. Runs the real converter (needs `python` on PATH, as the server does) | +96 / 0 |
+
+**Commit B: docs and wording**
+
+| File | Change | + / - |
+|---|---|---|
+| `docs/DEMO.md` | setup: table of `JWT_SECRET`, `STACKR_DEMO_PASSWORD`, `STACKR_DEMO_EMAIL` (what each does and what happens if unset); start commands that set them (PowerShell and bash); how to make a random secret; the demo password is set only when the account is created | +26 / -1 |
+| `docs/guided-ui/ACCEPTANCE.md`, `DEVIATIONS.md`, `PART0.md` | dated note at the top (recommend.py, its card / badge and test removed; what replaced them). Rows describing the app updated (acceptance check 4 now names `test_representative.py` / `comparison.test.js`; check 5 the Guide's no-default; winner card, method selector, Page 1 banner, How-to and Dashboard text). Rows that only quote the old prototype are kept as history. ACCEPTANCE row 6's numbers were stale (3 of 30) and now match the current Study A (4 of 30: seeds 3, 20, 23, 26) | +20 / -14 |
+| `client/src/components/TradeoffsChart.jsx`, `viewer/tradeoffs.js`, `viewer/tradeoffs.test.js`, `ResultsPanel.jsx` | "best of both" → "not exceeded on both", with "Runs of {configuration} not exceeded on both: N out of M" and "circled = no other run of {configuration} has both a higher container fill and higher rule-following. Runs of one configuration only; configurations are not compared here". Card title "Trade-offs within {configuration}". Logic unchanged | +21 / -19 |
+| `README.md` | test line; JWT_SECRET note | +3 / -1 |
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer / studies / statistics / SP3 timing | none: server, client wording and docs only | - | - | reference hashes 8 / 8 |
+| Manuscript | none | - | - | - |
+| Server behaviour | errors that carry a 4xx status (malformed or oversized body) now answer with that status instead of 500. That was the behaviour before item 6, now in JSON | intended | low | test |
+| Custom-load save failure | the converted file is deleted when its record cannot be saved; the user resubmits after the database is restored | low | low | test |
+| JWT | unchanged default secret; only a warning. A server reachable by others without `JWT_SECRET` still accepts forged sessions | low (demo laptop) | medium | DEMO.md setup now sets it |
+| UI | trade-offs wording only | - | - | Jest 19 / 19, build clean |
+| Reversibility | `git revert` of each commit | - | - | - |
+
+### C. Verification
+
+- **Defect 1 reproduced, then fixed.** Against the previous `customLoads.js`, `tools/test_server_errors.js` fails 3 checks:
+  - the request was never answered (60 s timeout);
+  - the database error escaped to the process (in a real server, an exit);
+  - the converted file was left behind.
+
+  With the fix: **8 / 8 PASS**.
+- **Defect 2:** with the old handler a malformed JSON body returned 500 (Express's default returns 400). Now 400, checked in the test.
+- **Startup warning:** shown when `JWT_SECRET` is unset; absent when it is set (server started both ways).
+- Full suite:
+  - test_reference_hashes **8 / 8**; test_representative, test_stats, test_geometry 92, test_sample_guard, test_study_provenance, test_run_settings, test_custom_load, test_custom_load_aliases, test_determinism, pytest 31;
+  - `node tools/test_auth.js` 37, `node tools/test_server_errors.js` 8: all PASS;
+  - Jest **19 / 19**; client build compiled with no warnings.

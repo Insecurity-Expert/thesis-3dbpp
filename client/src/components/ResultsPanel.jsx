@@ -301,8 +301,8 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
             <div className="card">
               <div className="card-head">
                 <div>
-                  <div className="card-title">Trade-offs — {nameOf(tradeMethod)}</div>
-                  <div className="card-desc">Each dot is one run on this load. Further right = fuller container; higher = more boxes following the rules.</div>
+                  <div className="card-title">Trade-offs within {nameOf(tradeMethod)}</div>
+                  <div className="card-desc">Each dot is one run of this configuration on this load. Further right = fuller container; higher = more boxes following the rules. Pick a configuration to see its runs; configurations are not compared on this chart.</div>
                 </div>
                 <div className="tabs-inline">
                   {all.map((c) => <button key={c} type="button" className={tradeMethod === c ? "active" : ""} onClick={() => setTradeMethod(c)}>{nameOf(c)}</button>)}
