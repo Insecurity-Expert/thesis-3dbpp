@@ -49,3 +49,53 @@ repeatability within one commit).
 - Noted, not changed (outside this item): the same table in
   `docs/MOCK_DEFENSE_RESULTS.md` says R_max = 3 and `stop_seed` = run seed;
   the code has R_MAX = 5 and a fixed stop seed 42.
+
+---
+
+## Item 2 - Commit recording (start / end / dirty) and numba pin
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `experiments/study.py` | `git_state()` (commit + dirty flag + changed files, tracked files only) and `library_versions()`; provenance taken **before the first run**, end state after the last run; the study file gains `git` {commit_start, dirty_start, dirty_files_start, commit_end, dirty_end, dirty_files_end, changed_during_run, dirty_rule} and `versions` {python, numba, numpy, scipy}; `commit` keeps its name and now holds the START commit (stats.py, the server and the UI read it unchanged); console warnings when dirty at start or changed during the run. `run_task` (the timed part) is untouched | +48 / -5 |
+| `requirements.txt` | `numba>=0.62.0` -> `numba==0.68.0` (the version in `experiments/results/environment.txt` for the stored studies and the version the reference hashes were recorded with) | +5 / -3 |
+| `tools/test_study_provenance.py` | new: `git_state` on a scratch repo (clean / untracked-only / edited tracked file) and a one-run study checking every new field | +88 / 0 |
+| `README.md`, `docs/STUDIES.md` | one line each | +3 / -2 |
+
+Key hunk (study.py):
+
+```python
++    git_start = git_state()
++    if git_start['dirty']:
++        log(f"WARNING: working tree has uncommitted changes to tracked files: ...")
+ ...
++    git_end = git_state()
++    changed_during_run = (git_end['commit'] != git_start['commit']
++                          or git_end['dirty_files'] != git_start['dirty_files'])
+ ...
+-        'commit': git_commit(),
++        'commit': git_start['commit'],                 # at the START of the study
++        'git': {...}, 'versions': library_versions(),
+```
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer behaviour | none: no optimizer file touched | - | - | reference hashes 8 / 8 after the change |
+| Study validity | none: existing study files keep their `commit` (recorded at the end, as before); only new files carry `git` / `versions` | - | - | readers tolerate the missing keys (they are not read anywhere yet) |
+| numba pin | the old laptop has numba 0.62.1 (`environment.txt`); `pip install -r requirements.txt` will now upgrade it, and a defense-day machine on another version would not match the pin | medium | low-medium | run `python tools/test_reference_hashes.py` after installing on each machine; 0.68.0 is what produced every stored number. numba 0.68 supports the laptop's Python 3.12 |
+| Manuscript | none (provenance only). If Chapter 3 lists the software environment, it should name numba 0.68.0 | - | low | - |
+| Statistics | none | - | - | - |
+| Timing (SP3) | `git status` and the version import run once before and once after all runs, in the parent process, outside every timed region (M-3 / M-4 are measured inside the worker) | - | - | - |
+| Dirty rule | untracked files are not counted, so an untracked new optimizer module would not set the flag | low | low | stated in the file (`dirty_rule`); the final study should run from a tagged, clean checkout |
+| UI and tests | none changed; the Commit shown in Technical details is now the start commit for new studies | - | - | - |
+| Reversibility | `git revert` | - | - | - |
+
+### C. Verification
+
+- `tools/test_study_provenance.py`: **PASS, 12 / 12**.
+- `tools/test_run_settings.py` (runs study.py end to end): PASS.
+- `tools/test_reference_hashes.py`: **PASS, 8 / 8** (no hash change).
+- `tools/test_recommend.py`: PASS.

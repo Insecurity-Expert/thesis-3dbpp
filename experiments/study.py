@@ -112,13 +112,35 @@ def _hide_worker_windows():
         multiprocessing.set_executable(str(pythonw))
 
 
-def git_commit():
+def _git(args, cwd):
+    return subprocess.check_output(['git', *args], cwd=cwd, stderr=subprocess.DEVNULL,
+                                   creationflags=_NO_WINDOW).decode()
+
+
+def git_commit(cwd=_ROOT):
     try:
-        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=_ROOT,
-                                       stderr=subprocess.DEVNULL,
-                                       creationflags=_NO_WINDOW).decode().strip()
+        return _git(['rev-parse', '--short', 'HEAD'], cwd).strip()
     except Exception:
         return None
+
+
+def git_state(cwd=_ROOT):
+    """Commit and working-tree state. dirty = a TRACKED file differs from the
+    commit (untracked files, e.g. study outputs, are not counted); None when
+    git is unavailable."""
+    commit = git_commit(cwd)
+    try:
+        changed = [ln[3:] for ln in _git(['status', '--porcelain', '--untracked-files=no'], cwd).splitlines() if ln.strip()]
+    except Exception:
+        return {'commit': commit, 'dirty': None, 'dirty_files': None}
+    return {'commit': commit, 'dirty': bool(changed), 'dirty_files': changed[:20]}
+
+
+def library_versions():
+    """Versions that can change results (numba compiles the hot loops)."""
+    import numpy, scipy, numba
+    return {'python': platform.python_version(), 'numba': numba.__version__,
+            'numpy': numpy.__version__, 'scipy': scipy.__version__}
 
 
 def load_custom_load(custom_id, raw_dir=None):
@@ -330,6 +352,13 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     if mode == 'parallel':
         tasks.sort(key=lambda t: order.get(t['configuration'], 9))
 
+    # Provenance is taken BEFORE the first run: the code that ran is the code
+    # at the start. The end state is recorded too, so a commit or edit made
+    # while the study was running is visible in the file.
+    git_start = git_state()
+    if git_start['dirty']:
+        log(f"WARNING: working tree has uncommitted changes to tracked files: {', '.join(git_start['dirty_files'])}")
+
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     progress_path = out.with_name(out.name + '.progress.json')
@@ -378,12 +407,26 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
                              configs.index(r['configuration'])))
     bad = [r for r in runs if not r['validation']['agree']]
 
+    git_end = git_state()
+    changed_during_run = (git_end['commit'] != git_start['commit']
+                          or git_end['dirty_files'] != git_start['dirty_files'])
+    if changed_during_run:
+        log(f"WARNING: the repository changed while the study ran "
+            f"(start {git_start['commit']}, end {git_end['commit']})")
+
     study = {
         'stackr_study': 1,
         'name': name,
         'size': size,
         'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
-        'commit': git_commit(),
+        'commit': git_start['commit'],                 # at the START of the study
+        'git': {'commit_start': git_start['commit'], 'dirty_start': git_start['dirty'],
+                'dirty_files_start': git_start['dirty_files'],
+                'commit_end': git_end['commit'], 'dirty_end': git_end['dirty'],
+                'dirty_files_end': git_end['dirty_files'],
+                'changed_during_run': changed_during_run,
+                'dirty_rule': 'tracked files only (git status --porcelain --untracked-files=no)'},
+        'versions': library_versions(),
         'machine': {'platform': platform.platform(), 'processor': platform.processor(),
                     'cpu_count': os.cpu_count(), 'python': platform.python_version()},
         'mode': mode,
