@@ -37,7 +37,8 @@ effect size; nothing is ever reported as NaN - an untestable case says why):
   placed) and are reported descriptively. The decision is output explicitly.
 * SP3 (ET, PM; serial timing only): Friedman within each BR class (the class's
   instances as subjects, >= 2 needed), Holm across ET and PM within the class;
-  per-class descriptives for the profile chart.
+  a pair's verdict needs the class's Holm-corrected Friedman result for that
+  measure to be significant; per-class descriptives for the profile chart.
 * Composite (serial timing, >= 2 instances): CS = 0.25 SU~ + 0.25 CSR~ +
   0.25 (1 - CC~) + 0.25 (1 - Rob~), ~ = min-max across the four configurations
   within an instance, CC = (z_ET + z_PM) / 2, Rob = sd of SU across the runs
@@ -594,6 +595,9 @@ def analyse(study):
                 per[m]["omnibus"]["p_holm"] = _f(pa)
                 per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
                 per[m]["omnibus"]["holm_family_size"] = fam
+                # Pair verdicts are gated on the Holm-corrected per-class result
+                # (Holm across ET and PM within the class; Chapter 3 Table 3a).
+                apply_verdicts(per[m], per[m]["omnibus"]["significant_holm"], "Holm-corrected omnibus test")
             entry["friedman"] = per
             entry["testable"] = fam > 0
             prof.append(entry)

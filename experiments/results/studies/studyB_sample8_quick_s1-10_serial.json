@@ -220451,7 +220451,7 @@
          "favours": "DGWO",
          "higher": "MOGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220475,7 +220475,7 @@
          "favours": "DGWO",
          "higher": "SEQ",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220499,7 +220499,7 @@
          "favours": "DGWO",
          "higher": "REP",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220523,7 +220523,7 @@
          "favours": "MOGWO",
          "higher": "SEQ",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220547,7 +220547,7 @@
          "favours": "MOGWO",
          "higher": "REP",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220571,7 +220571,7 @@
          "favours": "SEQ",
          "higher": "REP",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         }
@@ -220730,7 +220730,7 @@
          "favours": "MOGWO",
          "higher": "DGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220754,7 +220754,7 @@
          "favours": "SEQ",
          "higher": "DGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220778,7 +220778,7 @@
          "favours": "REP",
          "higher": "DGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220802,7 +220802,7 @@
          "favours": "SEQ",
          "higher": "MOGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220826,7 +220826,7 @@
          "favours": "REP",
          "higher": "MOGWO",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         },
@@ -220850,7 +220850,7 @@
          "favours": "REP",
          "higher": "SEQ",
          "significant": false,
-         "omnibus_gate": "omnibus test",
+         "omnibus_gate": "Holm-corrected omnibus test",
          "outperforms": null,
          "verdict": "no significant difference"
         }

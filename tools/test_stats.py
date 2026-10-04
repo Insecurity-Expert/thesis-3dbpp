@@ -190,6 +190,11 @@ def main():
           "mean rank: DGWO fastest (1), REP slowest (4)")
     check(br1['per_configuration']['REP']['ET']['mean'] > br1['per_configuration']['DGWO']['ET']['mean'],
           "per-class descriptives for the profile chart")
+    sp3_pairs = [(p, m, pr) for p in s3['profiles'] for m in ('ET', 'PM') for pr in p['friedman'][m].get('pairs', [])]
+    check(sp3_pairs and all(pr['omnibus_gate'] == 'Holm-corrected omnibus test' for _, _, pr in sp3_pairs),
+          "SP3 pairs record the Holm gate")
+    check(all(not pr['significant'] or p['friedman'][m]['omnibus']['significant_holm'] for p, m, pr in sp3_pairs),
+          "every significant SP3 pair has a significant Holm-corrected per-class result")
     br4 = next(p for p in s3['profiles'] if p['br_class'] == 'BR4')
     check(br4['testable'] is False and '2 instances' in br4['friedman']['ET']['omnibus']['reason'],
           "a class with one instance is not testable")

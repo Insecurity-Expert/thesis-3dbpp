@@ -281,3 +281,35 @@ removal into the unpacked list) with equal or stricter assertions.
 - `tools/test_geometry.py`: **PASS, 92 / 92** (the 3 new checks pass on the current repair code).
 - `tools/test_reference_hashes.py`: **PASS 8 / 8**.
 - `origin/wip/align-with-manuscript` is still at 1bcefe9 (not deleted).
+
+---
+
+## Item 4b - SP3 pair verdicts gated on the Holm-corrected per-class result
+
+Asked for after item 4 (Chapter 3 Table 3a).
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `experiments/stats.py` | after Holm across ET and PM within each BR class, `apply_verdicts(per[m], significant_holm, "Holm-corrected omnibus test")`, as SP2 does; docstring updated | +5 / -2 |
+| `tools/test_stats.py` | section 7: every SP3 pair records the Holm gate, and every significant SP3 pair has a significant Holm-corrected per-class result (the gate logic itself is already unit-tested in 12a) | +5 / 0 |
+| `experiments/results/studies/studyB_…json` | `stats` re-attached (analysis only) | verdict / gate text in SP3 pairs |
+
+Study A has no SP3 (parallel timing), so its file is unchanged.
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer behaviour | none | - | - | reference hashes 8 / 8 |
+| Study validity | Study B: only BR4 has 2 instances. Its ET and PM Friedman tests are not significant raw or after Holm, so **no SP3 verdict changed**. Everything outside `stats.SP3` is unchanged | - | - | field-by-field comparison |
+| Manuscript | matches Table 3a as you described it; no edit needed beyond what item 4 lists | - | - | - |
+| Statistics | more conservative SP3 pair verdicts (they need the Holm-corrected class result) | - | low | - |
+| Timing / UI | none; the UI already reads `omnibus_gate` for the explanatory text | - | - | - |
+| Reversibility | `git revert`, then rerun `stats.py` on Study B | - | - | - |
+
+### C. Verification
+
+- `tools/test_stats.py` PASS (2 new checks). `tools/test_reference_hashes.py` **8 / 8**. `tools/test_recommend.py` PASS.
+- Study B before vs after: runs identical; every stats block except SP3 identical; no SP3 pair changed `significant` or `outperforms`.
