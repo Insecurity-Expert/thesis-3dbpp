@@ -44,7 +44,9 @@ deterministically, when an instance is loaded:
   (`preprocessing/stop_assignment.py`).
 
 The instances used for experiments are listed with full provenance in
-`experiments/samples/sample30_seed42.json` (`preprocessing/sampling.py`).
+`experiments/sample30_seed42.json` (`preprocessing/sampling.py`). The older
+`experiments/samples/sample30_seed42_DEPRECATED.json` was drawn by the previous
+sampling rule and is refused by `experiments/study.py`.
 Instance ids are 0..699, round-robin over the files:
 `file = (id % 7) + 1`, `index = id // 7`.
 

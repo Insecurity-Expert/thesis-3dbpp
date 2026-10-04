@@ -78,6 +78,19 @@ SIZES = {
 }
 
 
+def load_sample(path):
+    """Read a sample provenance file, refusing a deprecated one: its file name
+    contains DEPRECATED, or its JSON has "deprecated": true."""
+    path = Path(path)
+    if 'DEPRECATED' in path.name.upper():
+        raise ValueError(f"refusing deprecated sample file {path.name}: use experiments/sample30_seed42.json")
+    doc = json.loads(path.read_text(encoding='utf-8'))
+    if doc.get('deprecated') is True:
+        raise ValueError(f"refusing sample file {path.name}: it is marked deprecated "
+                         f"({doc.get('deprecated_reason', 'no reason given')})")
+    return doc
+
+
 def parse_seeds(spec):
     """'1-10' -> [1..10]; '1,4,9' -> [1,4,9]; both may be mixed."""
     out = []
@@ -325,7 +338,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
               configs=CONFIGS, raw_dir=None, run_stats=True, log=print):
     raw_dir = raw_dir or str(_ROOT / 'data' / 'raw')
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
-    sample = json.loads(Path(sample_path).read_text(encoding='utf-8')) if sample_path else None
+    sample = load_sample(sample_path) if sample_path else None
 
     custom_doc = None
     if custom_load:
@@ -539,7 +552,10 @@ def main():
         p.error('pass exactly one of --instance, --sample, --custom-load (or --size)')
 
     if sample:
-        prov = json.loads(Path(sample).read_text(encoding='utf-8'))
+        try:
+            prov = load_sample(sample)
+        except ValueError as e:
+            p.error(str(e))
         instance_ids = [c['instance_id'] for c in prov['selected']]
         if a.n_instances:
             instance_ids = instance_ids[:a.n_instances]

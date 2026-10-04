@@ -567,7 +567,7 @@ def ready_made_samples(raw_dir: Optional[str] = None) -> Dict[str, Any]:
     from preprocessing.sampling import resolve_instance_id
     raw = Path(raw_dir or _ROOT / 'data' / 'raw')
     cap = None
-    prov = _ROOT / 'experiments' / 'samples' / 'sample30_seed42.json'
+    prov = _ROOT / 'experiments' / 'sample30_seed42.json'
     if prov.exists():
         cap = json.loads(prov.read_text(encoding='utf-8')).get('max_boxes')
     rows = []

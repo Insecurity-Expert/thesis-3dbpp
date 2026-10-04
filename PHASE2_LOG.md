@@ -151,3 +151,52 @@ Key hunk (study.py):
 - `tools/test_run_settings.py` (runs study.py end to end): PASS.
 - `tools/test_reference_hashes.py`: **PASS, 8 / 8** (no hash change).
 - `tools/test_recommend.py`: PASS.
+
+---
+
+## Item 3 - sample30 cleanup (option 1)
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `experiments/samples/sample30_seed42.json` -> `sample30_seed42_DEPRECATED.json` | `git mv`; two keys added at the top: `"deprecated": true` and a `deprecated_reason`. The rest of the content is unchanged | +2 / 0 |
+| `experiments/samples/demo_instance_350.json` | new: the instance-350 entry copied from the old sample, with a `purpose` note (not in the 30-instance study sample) | +22 / 0 |
+| `server/index.js` | `/api/instances` reads `experiments/sample30_seed42.json`, puts instance 350 first labelled "Demo instance (not in the 30-instance study sample) — BR1 — 3 box types — instance 350 (129 boxes, 26% fragile)", and adds `demo`, `in_study_sample` and `study_sample_count` fields. The UI already selects the first entry, so 350 stays the default and the client needs no change | +19 / -5 |
+| `experiments/study.py` | `load_sample()` refuses a file whose name contains DEPRECATED (case-insensitive) or whose JSON has `"deprecated": true`. Used by `run_study` and by the CLI, where the error is reported through `argparse` (exit 2) before any run | +18 / -2 |
+| `preprocessing/custom_load.py` | `ready_made_samples` reads `max_boxes` from the thesis sample (200 in both files) | +1 / -1 |
+| `tools/test_sample_guard.py` | new test (11 checks) | +92 / 0 |
+| `README.md`, `data/README.md`, `docs/DEMO.md`, `client/src/services/api.js` (comment only) | paths updated. DEMO.md also states the numba pin from item 2 | +11 / -7 |
+
+Key hunk (study.py):
+
+```python
++def load_sample(path):
++    path = Path(path)
++    if 'DEPRECATED' in path.name.upper():
++        raise ValueError(f"refusing deprecated sample file {path.name}: use experiments/sample30_seed42.json")
++    doc = json.loads(path.read_text(encoding='utf-8'))
++    if doc.get('deprecated') is True:
++        raise ValueError(...)
++    return doc
+```
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer behaviour | none: no optimizer file touched | - | - | reference hashes 8 / 8 |
+| Study validity | Study A (instance 350) and Study B (sample8) don't use this file. `--size thesis` already pointed at the kept file. Nothing to rerun | - | - | the test confirms the kept file equals a fresh `sampling.py` draw |
+| Manuscript | none: the thesis sample is the one the current Chapter 3 sampling rule produces | - | - | - |
+| Statistics | none | - | - | - |
+| Timing (SP3) | none | - | - | - |
+| UI | the dropdown now has 31 entries: the demo 350, then the 29 + 1 thesis-sample instances. Previously it had 30, from the old sample. 12 thesis instances are new to the dropdown and 12 old ones are gone (except 350, kept as the demo). Saved runs on removed instances still open from history | medium (visible change) | low | the label states the demo entry is not in the study sample, and `/api/instances` marks it `demo: true` |
+| Old file elsewhere | anything else that reads `experiments/samples/sample30_seed42.json` by path now gets a file-not-found error | low | low | grep finds no other reader after this change |
+| Tests | Jest is not run here. No client code changed apart from one comment | - | - | - |
+| Reversibility | `git revert` (the rename reverts too) | - | - | - |
+
+### C. Verification
+
+- `tools/test_sample_guard.py`: **PASS, 11 / 11**. The guard refuses the deprecated file, a `*DEPRECATED*` name with valid content, and a `"deprecated": true` flag under any name. The CLI exits non-zero without writing a study file. The thesis sample equals a fresh `sampling.py` draw (same ids, same order). Demo 350 is outside it and matches the pipeline (129 boxes, 3 types, 33 fragile).
+- Live server check (scratch database): `/api/instances` returns 31 entries. The first is 350 with the demo label, `demo: true`, `in_study_sample: false`. 350 appears once, and `study_sample_count` is 30.
+- `tools/test_reference_hashes.py` **PASS 8 / 8**. test_custom_load, test_custom_load_aliases, test_study_provenance and test_run_settings: PASS. `ready_made_samples()` runs (4 samples).

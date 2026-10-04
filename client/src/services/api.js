@@ -79,7 +79,7 @@ export const authApi = {
 // Instances API (OR-Library & Custom instances)
 // ─────────────────────────────────────────────────────────────────────────────
 export const instancesApi = {
-  // Sampled wtpack instances with provenance (experiments/samples/sample30_seed42.json)
+  // Demo instance 350 first, then the 30-instance study sample (experiments/sample30_seed42.json)
   async getWtpack() {
     return request("/api/instances?dataset=wtpack");
   },

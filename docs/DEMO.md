@@ -7,10 +7,10 @@ wtpack instance with the 3D viewer.
 ## 0. One-time setup
 
 ```bash
-pip install -r requirements.txt          # numba >= 0.62 is required (JIT for the optimizer)
+pip install -r requirements.txt          # numba 0.68.0 is pinned (JIT for the optimizer)
 cd server && npm install && cd ..
 cd client && npm install && cd ..
-python -m preprocessing.sampling --n 30 --out experiments/samples/sample30_seed42.json   # already committed
+python -m preprocessing.sampling --n 30 --out experiments/sample30_seed42.json   # already committed (the thesis sample)
 ```
 
 The demo runs on the OR-Library wtpack data (`data/raw/`). The older BR JSON
@@ -57,8 +57,9 @@ If it says *Warming up…* wait; if *Server offline*, the API is not on :3001.
 ## 3. Select the instance and preset
 
 Logistics tab → **Option B** is preselected → dataset toggle **OR-Library
-wtpack (thesis)** is preselected → the dropdown is populated from
-`experiments/samples/sample30_seed42.json` and defaults to
+wtpack (thesis)** is preselected → the dropdown lists the demo instance 350
+(`experiments/samples/demo_instance_350.json`, labelled "Demo instance (not in the
+30-instance study sample)") followed by `experiments/sample30_seed42.json`, and defaults to
 
 > BR1 — instance 350 — 129 boxes — 26% fragile
 
@@ -147,7 +148,7 @@ removed.
 | symptom | cause | fix |
 |---|---|---|
 | badge stuck on *Warming up…* | warm-up Python run failed | server terminal shows the last stderr lines; usually a missing `numba` |
-| dropdown says *No sampled instances* | sample JSON missing | `python -m preprocessing.sampling --n 30 --out experiments/samples/sample30_seed42.json` |
+| dropdown says *No sampled instances* | sample JSON missing | `python -m preprocessing.sampling --n 30 --out experiments/sample30_seed42.json` |
 | run ends, viewer says *No Active Run Data* | `instance_complete` line was not valid JSON | `main_optimizer.py` now sanitises NaN/Infinity; if it recurs, run the same CLI command by hand and check the last stdout line |
 | `Optimizer process exited with code 1` | Python traceback | it is printed in the server terminal |
 | everything is slow | laptop on battery / thermal throttling | plug in; the JIT is cached so speed is CPU-bound only |

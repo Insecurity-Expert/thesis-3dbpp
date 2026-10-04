@@ -16,7 +16,11 @@ const PORT    = 3001;
 const WS_PORT = 3002;
 
 const RAW_DIR   = path.join(__dirname, "..", "data", "raw");
-const SAMPLE    = path.join(__dirname, "..", "experiments", "samples", "sample30_seed42.json");
+// The thesis study sample (30 instances; preprocessing/sampling.py) and the
+// demo instance 350, which is listed first and is not part of that sample.
+const SAMPLE    = path.join(__dirname, "..", "experiments", "sample30_seed42.json");
+const DEMO_INSTANCE = path.join(__dirname, "..", "experiments", "samples", "demo_instance_350.json");
+const DEMO_LABEL = "Demo instance (not in the 30-instance study sample)";
 const OPTIMIZER = path.join(__dirname, "..", "optimizer", "main_optimizer.py");
 
 // Strategy names as the UI sends them -> main_optimizer.py codes.
@@ -260,7 +264,8 @@ app.get("/api/instances", (req, res) => {
       return res.status(404).json({ error: "sample file not found: " + SAMPLE });
     }
     const prov = JSON.parse(fs.readFileSync(SAMPLE, "utf8"));
-    const instances = prov.selected.map((c) => ({
+    const demo = fs.existsSync(DEMO_INSTANCE) ? JSON.parse(fs.readFileSync(DEMO_INSTANCE, "utf8")).instance : null;
+    const entry = (c, isDemo) => ({
       instance_id:   c.instance_id,
       br_class:      c.br_class,
       file:          c.file,
@@ -271,10 +276,19 @@ app.get("/api/instances", (req, res) => {
       container:     c.container,
       // Labelled by heterogeneity (the BR class = number of box TYPES); the
       // instance's actual box count is secondary and never the class label.
-      label: c.br_class + " \u2014 " + c.n_types + " box types \u2014 instance " + c.instance_id +
+      label: (isDemo ? DEMO_LABEL + " \u2014 " : "") +
+             c.br_class + " \u2014 " + c.n_types + " box types \u2014 instance " + c.instance_id +
              " (" + c.n_boxes + " boxes, " + Math.round(c.fragile_rate * 100) + "% fragile)",
-    }));
-    return res.json({ dataset: "wtpack", seed: prov.seed, count: instances.length, instances });
+      demo:          isDemo,
+      in_study_sample: !isDemo,
+    });
+    // The demo instance comes first, so it is the UI's default selection.
+    const instances = [
+      ...(demo ? [entry(demo, true)] : []),
+      ...prov.selected.filter((c) => !demo || c.instance_id !== demo.instance_id).map((c) => entry(c, false)),
+    ];
+    return res.json({ dataset: "wtpack", seed: prov.seed, count: instances.length,
+                      study_sample_count: prov.selected.length, instances });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
