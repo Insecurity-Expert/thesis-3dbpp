@@ -1,6 +1,58 @@
 # Phase 2 log
 
-<!-- SUMMARY (filled in when items 1-5 are done) -->
+## Summary (read this first)
+
+**Status: stopped at item 3 (ambiguity). Items 1 and 2 are committed. Items 3, 4 and 5 are not started. Nothing pushed, no branch deleted.**
+
+| Item | Commit | Result |
+|---|---|---|
+| 1 Determinism-reference test | `d739e68` | done |
+| 2 Commit recording + numba pin | `82d7f83` | done |
+| 3 sample30 cleanup | - | **stopped, needs your decision (below)** |
+| 4 Stats fixes | - | not started (the stop rule says wait) |
+| 5 Port wip assertion | - | not started |
+
+**Hash check:** `tools/test_reference_hashes.py` passes 8 / 8 after each commit.
+DGWO, MOGWO, SEQ and REP at seeds 1 and 42 are unchanged from bbed351 / 3f4392b.
+
+**Tests run** (Python 3.11.15, numba 0.68.0): test_reference_hashes (8 / 8),
+test_study_provenance (13 / 13), test_run_settings, test_recommend, all PASS.
+Before item 1 the full suite also passed: test_geometry 89, test_stats,
+test_custom_load 62, test_custom_load_aliases, test_determinism, pytest
+test_pipeline 31. The client Jest tests were not run (no `node_modules` here).
+
+**Why I stopped on item 3.** The old file `experiments/samples/sample30_seed42.json`
+is not only used by studies:
+
+- `server/index.js:19` serves it as the UI's wtpack instance dropdown (`/api/instances`).
+  The UI defaults to the list's first entry, which is **instance 350** (the demo,
+  Study A and `demo_check` instance; `docs/DEMO.md:61` documents that default).
+- **Instance 350 is not in the current sample** (`experiments/sample30_seed42.json`,
+  whose first entry is instance 413, BR1, 105 boxes).
+- `preprocessing/custom_load.py:570` reads `max_boxes` from it (200 in both files,
+  so repointing that one is harmless).
+- `data/README.md:47`, `docs/DEMO.md` (lines 13, 61, 150) and a comment in
+  `client/src/services/api.js:82` name the old path.
+
+Renaming the file therefore forces a choice about the dropdown, which goes beyond the agreed item:
+
+1. **Point the dropdown at the current sample and add instance 350 as a
+   separate "demo instance" entry at the top.** The demo default stays 350, and the
+   other 29 entries become the thesis sample. Recommended.
+2. Point the dropdown at the current sample only. The demo default becomes 413,
+   and 350 is not selectable from the dropdown.
+3. Keep the dropdown reading the renamed `_DEPRECATED` file (UI unchanged; only
+   study.py refuses it).
+
+The study.py part is unambiguous and ready: refuse a `--sample` whose file
+name contains `DEPRECATED` or whose JSON has `"deprecated": true`, with a test.
+Tell me which dropdown option to take and I'll finish item 3, then do 4 and 5.
+
+**Also noted (not changed):** `docs/MOCK_DEFENSE_RESULTS.md` parameter table says
+R_max = 3 and stop_seed = run seed; the code has R_MAX = 5 and stop seed 42.
+
+---
+
 
 Baseline before any Phase 2 change: HEAD 3f4392b. Output of the four
 configurations on instance 350 (pop 10 x 20, seeds 1 and 42) is byte-identical
@@ -60,7 +112,7 @@ repeatability within one commit).
 |---|---|---|
 | `experiments/study.py` | `git_state()` (commit + dirty flag + changed files, tracked files only) and `library_versions()`; provenance taken **before the first run**, end state after the last run; the study file gains `git` {commit_start, dirty_start, dirty_files_start, commit_end, dirty_end, dirty_files_end, changed_during_run, dirty_rule} and `versions` {python, numba, numpy, scipy}; `commit` keeps its name and now holds the START commit (stats.py, the server and the UI read it unchanged); console warnings when dirty at start or changed during the run. `run_task` (the timed part) is untouched | +48 / -5 |
 | `requirements.txt` | `numba>=0.62.0` -> `numba==0.68.0` (the version in `experiments/results/environment.txt` for the stored studies and the version the reference hashes were recorded with) | +5 / -3 |
-| `tools/test_study_provenance.py` | new: `git_state` on a scratch repo (clean / untracked-only / edited tracked file) and a one-run study checking every new field | +88 / 0 |
+| `tools/test_study_provenance.py` | new: `git_state` on a scratch repo (clean / untracked-only / edited tracked file) and a one-run study checking every new field | +84 / 0 |
 | `README.md`, `docs/STUDIES.md` | one line each | +3 / -2 |
 
 Key hunk (study.py):
@@ -95,7 +147,7 @@ Key hunk (study.py):
 
 ### C. Verification
 
-- `tools/test_study_provenance.py`: **PASS, 12 / 12**.
+- `tools/test_study_provenance.py`: **PASS, 13 / 13**.
 - `tools/test_run_settings.py` (runs study.py end to end): PASS.
 - `tools/test_reference_hashes.py`: **PASS, 8 / 8** (no hash change).
 - `tools/test_recommend.py`: PASS.
