@@ -2,54 +2,70 @@
 
 ## Summary (read this first)
 
-**Status: items 1-5 done, each a separate commit, all pushed to
-`origin/ccr-404428c3-7wury8` only. No stop condition was hit after item 3's
-decision. No PR, no merge, no branch deleted. Items 6+ (auth, Results / Loading
-Guide, greedy, race lanes) not started.**
+**Status: items 1-7 done plus follow-ups, each a separate commit, all pushed
+to `origin/ccr-404428c3-7wury8` only. No PR, no merge. Stopped before item 8
+(greedy table, race lanes, docs for #1), as instructed.**
 
 | Item | Commit | Result |
 |---|---|---|
 | 1 Determinism-reference test | `d739e68` | done |
 | 2 Commit recording (start / end / dirty) + numba pin 0.68.0 | `82d7f83` | done |
-| - log: stopped at item 3 for a decision | `67a2827` | your answer: option 1 |
+| - log: stopped at item 3 for a decision | `67a2827` | answered: option 1 |
 | 3 sample30 cleanup (option 1) | `21aacf0` | done |
-| 4 Stats fixes + neutral presentation | `bd0bcbc` | done; Study A / B stats blocks re-attached (analysis only) |
-| 5 Port the wip assertion | `ec0f7da` | done; it was a *weaker* existing check, now strengthened; branch kept |
+| 4 Stats fixes + neutral presentation | `bd0bcbc` | done; Study A / B stats re-attached (analysis only) |
+| 5 Port the wip assertion | `ec0f7da` | done (an existing weaker check, strengthened) |
+| docs / log fix | `d4f96be` | superseded MOCK_DEFENSE table restored; log cleaned (see correction below) |
+| 4b SP3 pair verdicts Holm-gated | `6e8b20f` | done; no Study B verdict changed |
+| 6 Auth | `8263673` | done |
+| 7 Results and Loading Guide | `366058c` | done |
 
 **Hash check:** `tools/test_reference_hashes.py` passes **8 / 8 after every
 commit**. DGWO, MOGWO, SEQ and REP at seeds 1 and 42 on instance 350 are
 byte-identical to bbed351 / 3f4392b. No optimizer file was touched and no
 study was rerun.
 
-**Tests (final state)** (Python 3.11.15, numba 0.68.0): test_reference_hashes
-8 / 8, test_geometry 92, test_stats (with the new SP2 / Holm-gate / neutral-text
-checks), test_recommend, test_sample_guard 11, test_study_provenance 13,
-test_run_settings, test_custom_load 62, test_custom_load_aliases,
-test_determinism, pytest test_pipeline 31: **all PASS**. Client:
-`react-scripts build` compiles with no warnings; **Jest 12 / 12** (the guide
-test needs `PYTHON` pointing at an interpreter with numpy).
+**Tests (final state)** (Python 3.11.15, numba 0.68.0, Node 22):
+test_reference_hashes 8 / 8, test_representative 17, test_stats, test_geometry
+92, test_sample_guard 11, test_study_provenance 13, test_run_settings,
+test_custom_load 62, test_custom_load_aliases, test_determinism, pytest
+test_pipeline 31, `node tools/test_auth.js` 37: **all PASS**. Client:
+`react-scripts build` compiles with no warnings; **Jest 19 / 19** (the guide
+test needs `PYTHON` pointing at an interpreter with numpy). Browser
+walkthroughs of the auth pages, Results and the Loading Guide (Playwright) are
+described under items 6 and 7.
 
-**Needs you:**
-1. **Manuscript (Chapter 3, Statistical Treatment, SP2).** State the family as
-   {CSR, C3, C6}, C4 / C5 reported descriptively, and that SP2 pairwise
-   conclusions require the Holm-corrected omnibus test. Study B's SP2 decision
-   is now "rejected (CSR, C3)", with the same Holm p-values as before.
-2. **SP3 pair verdicts** are still gated on the raw per-class Friedman result,
-   not the Holm (ET, PM) result. Say if you want them gated like SP2.
-3. **numba pin:** after `pip install -r requirements.txt` on the laptop (0.62.1
-   → 0.68.0), run `python tools/test_reference_hashes.py` there.
-4. `wip/align-with-manuscript` can now be deleted (its content is superseded or
-   ported) once you say so.
-5. The Results cards and Loading Guide still show recommend.py's per-load
-   "Recommended" badge; that is item 7.
+**Not done / needs you:**
+1. **`wip/align-with-manuscript` was NOT deleted.** This session's git proxy
+   only accepts pushes to `ccr-404428c3-7wury8`; every delete attempt was cut
+   off ("remote end hung up"), and the GitHub tools have no delete-branch call.
+   Delete it from GitHub's Branches page or with
+   `git push origin --delete wip/align-with-manuscript`. There is no local copy
+   in this container.
+2. **Manuscript, Chapter 3 SP2:** the family is {CSR, C3, C6}, C4 / C5 are
+   descriptive, and SP2 (and now SP3) pair conclusions require the
+   Holm-corrected omnibus result.
+3. **Laptop:** after `pip install -r requirements.txt` (numba 0.62.1 → 0.68.0),
+   run `python tools/test_reference_hashes.py`; and `cd server && npm install`
+   before `node tools/test_auth.js`.
+4. **Defense machine:** set `STACKR_DEMO_PASSWORD` if the default
+   `stackr-demo` should not be used. Existing accounts have no recovery
+   question; reset them with `node server/reset-password.js <email>` if needed.
+5. **Representative run:** it is now the median-SU run, not the best. With an
+   even number of runs it is always the lower-seed of the two middle runs.
 
-**Correction (follow-up commit):** my earlier note that `docs/MOCK_DEFENSE_RESULTS.md`
-says R_max = 3 / stop_seed = run seed was a misreading. Those rows are in the
+**Correction:** my earlier note that `docs/MOCK_DEFENSE_RESULTS.md` says
+R_max = 3 / stop_seed = run seed was a misreading. Those rows are in the
 "Superseded — do not cite" section and correctly describe the older runs. The
 current parameter table already says R_max = 5 and stop_seed = 42, matching the
 code and the manuscript. My item 1 edit had changed the determinism row inside
 that superseded table; it is restored, and the new determinism row now sits in
 the current table.
+
+**C3–C6 ↔ M-2a–d (checked in code):** C3 = M-2a load-bearing (`C3_weight`,
+LBS × contact area), C4 = M-2b fragility (nothing above a fragile box),
+C5 = M-2c static stability (≥ 80 % base support; the code's key is named
+`C5_balance_pct`, but the check is support, not balance), C6 = M-2d stop order.
+`thesis_metrics.py:155` lists them in that order as M-2a..M-2d.
 
 ---
 
