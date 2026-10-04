@@ -14,7 +14,7 @@ Guide, greedy, race lanes) not started.**
 | - log: stopped at item 3 for a decision | `67a2827` | your answer: option 1 |
 | 3 sample30 cleanup (option 1) | `21aacf0` | done |
 | 4 Stats fixes + neutral presentation | `bd0bcbc` | done; Study A / B stats blocks re-attached (analysis only) |
-| 5 Port the wip assertion | this commit | done; it was a *weaker* existing check, now strengthened; branch kept |
+| 5 Port the wip assertion | `ec0f7da` | done; it was a *weaker* existing check, now strengthened; branch kept |
 
 **Hash check:** `tools/test_reference_hashes.py` passes **8 / 8 after every
 commit**. DGWO, MOGWO, SEQ and REP at seeds 1 and 42 on instance 350 are
