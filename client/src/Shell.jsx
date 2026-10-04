@@ -1005,8 +1005,8 @@ export default function Shell() {
           }
           quickTest={finalResult ? (
             <div>
-              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result (one method, one run)</div>
-              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. No recommendation is made from a single run.</div>
+              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>Preview: one run, one seed</span></div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. One run of one configuration, so nothing is compared or concluded from it.</div>
               <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} strategy={strategy} stats={stats} axisUtil={axisUtil}
                 maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>

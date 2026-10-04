@@ -75,7 +75,7 @@ export default function ThingsToKnow({ result = null, studies = [], bare = false
             ))}
           </ul>
         )}
-        Run STACKR comparisons also record each run's CPU time, which is much less affected by runs sharing the machine; the recommendation uses it. Times from the demo study and from Quick Test runs use other settings and conditions, so they are not comparable with study times, and no time here carries over to a different computer.
+        Run STACKR comparisons also record each run's CPU time, which is much less affected by runs sharing the machine; the Results cards show it. Times from the demo study and from Quick Test runs use other settings and conditions, so they are not comparable with study times, and no time here carries over to a different computer.
       </Item>
 
       <Item n={5} title="These results are preliminary">

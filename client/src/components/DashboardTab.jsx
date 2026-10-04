@@ -51,7 +51,7 @@ export default function DashboardTab({ onStart, onHelp, runHistory = [], studies
       <div className="grid grid-3" style={{ marginBottom: 20 }}>
         <Step n={1} title="Add your boxes" desc="Upload a CSV file, type them in, or try a sample." onClick={onStart} />
         <Step n={2} title="Check and run" desc="Confirm the container and settings, then Run STACKR: all four methods pack your load." onClick={onStart} />
-        <Step n={3} title="See the results" desc="Compare the four solutions, see which one is recommended and why, and print a loading guide." onClick={onStart} />
+        <Step n={3} title="See the results" desc="Compare the configurations measure by measure and print a loading guide for any of them." onClick={onStart} />
       </div>
 
       <div className="card" style={{ padding: 20 }}>

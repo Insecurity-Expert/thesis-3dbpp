@@ -31,8 +31,8 @@ The sidebar groups the pages:
 |---|---|---|
 | Home | `components/DashboardTab.jsx` | the "New here?" banner, three step cards, what you need, and counts of your own runs and studies |
 | Start analysis | `components/LogisticsTab.jsx` | the three-step wizard (below) |
-| Results | `components/ResultsPanel.jsx` (study) / `components/ResultsTab.jsx` (single run) | the recommended solution for the load and four solution cards; "Things to know"; the trade-offs chart; technical numbers behind "Show all numbers" |
-| Loading Guide | `components/GuideTab.jsx`, `components/GuideViews.jsx` | a printable loading and unloading guide built from one stored solution: summary, step order, top views per layer, the view from the rear door, and a box-details appendix |
+| Results | `components/ResultsPanel.jsx` (study) / `components/ResultsTab.jsx` (single run) | the two hybrids (Sequential, Repair-Based) side by side by default, and "View full comparison (4 configurations)" for all four; fixed order, no ranking; per measure "level" (gap under 2 pp / 2 boxes) or highest / lowest (`viewer/comparison.js`); "by design" labels; each card = averages over the load's runs, opening its representative run (closest to the median container fill, `experiments/representative.py`); single runs are labelled "Preview: one run, one seed"; "Things to know"; the trade-offs chart; technical numbers behind "Show all numbers" |
+| Loading Guide | `components/GuideTab.jsx`, `components/GuideViews.jsx` | a printable loading and unloading guide built from one stored solution (the chosen configuration's representative run; all four selectable, none selected by default): summary, step order, top views per layer, the view from the rear door, and a box-details appendix |
 
 **Advanced tools**
 

@@ -367,3 +367,48 @@ Study A has no SP3 (parallel timing), so its file is unchanged.
   - its Forgot password shows the admin-reset message.
   - Screenshots checked for layout.
 - `tools/test_reference_hashes.py` **8 / 8**; `tools/test_run_settings.py` PASS; client build OK; Jest 12 / 12.
+
+---
+
+## Item 7 - Results and Loading Guide: neutral comparison, hybrid default view, no default in the Guide
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `experiments/recommend.py`, `tools/test_recommend.py` | **deleted** (the per-load "Recommended" composite) | 0 / -265 |
+| `experiments/representative.py` | new neutral helper: for each load and configuration, the **representative run** = the run whose SU is closest to that configuration's median SU on the load, ties to the lowest seed (distances compared to 1e-9), plus the means over the load's runs (SU, all-box and loaded-box compliance, boxes loaded, CPU / wall time, memory). Nothing ranked | +91 / 0 |
+| `tools/test_representative.py` | new (17 checks): the median rule (odd / even counts, ties); on Study A and B the choice equals an independent re-implementation, `run_index` is right, and the means equal a direct computation; no ranking keys; fixed order | +85 / 0 |
+| `server/studies.js` | `GET /api/studies/:id/representatives` (calls representative.py) replaces `/recommendation`; the study list no longer carries `recommendation` | +10 / -10 |
+| `client/src/viewer/comparison.js` | new: fixed order; `MEASURES` with the display thresholds (2 pp for fill and both compliance measures, 2 boxes for boxes loaded); `positions` (level / highest / lowest / between), `profiles`, `pairText`, `byDesign` (Repair-Based's 100 % loaded-box compliance; Sequential's split budget from `seq_budget_split`), `baselineNote` | +100 / 0 |
+| `client/src/viewer/comparison.test.js` | new (7 tests, on Study A's means plus constructed cases) | +62 / 0 |
+| `client/src/components/ResultsPanel.jsx` | rewritten top half. Removed: the winner card, `whySentences`, "How the recommendation was decided", the Recommended badge and highlight. **Default view:** Sequential and Repair-Based cards plus a measure-by-measure table ("level" or "X higher by …"), and one neutral line when a baseline is higher than both hybrids by at least the threshold. **"View full comparison (4 configurations)"**: four cards in fixed order, a measures table with highest / lowest / level, and per-configuration "Highest on / Lowest on / Level on" profiles. Cards show means over the load's runs; Details shows the representative run; "by design" badges. Technical details keep the run table, trade-offs chart and statistics | +169 / -156 |
+| `client/src/components/GuideTab.jsx` | uses the representatives; **no configuration selected by default** (prompt until one is chosen; "Export Guide" on a card still preselects that card's configuration); all four listed in the fixed order with no "recommended"; the callout states the representative-run rule; the composite-score line is removed; a single saved run is labelled "Preview: one run, one seed" | +26 / -21 |
+| `Shell.jsx`, `ResultsTab.jsx`, `VisualizationTab.jsx`, `LogisticsTab.jsx` | "Preview: one run, one seed" on single-run views | +5 / -5 |
+| `HowToModal.jsx`, `DashboardTab.jsx`, `ThingsToKnow.jsx` | wording without "recommended" | +3 / -3 |
+| `client/src/services/api.js`, `client/src/viewer/guidePlan.test.js` | `representatives()`; the guide acceptance test uses Sequential's representative run on instance 350 (Repair-Based has no C6 blockers, which the test needs) | +11 / -11 |
+| `PAGES.md`, `docs/DEMO.md`, `README.md` | describe the new Results / Guide behaviour and the test | +5 / -4 |
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer / studies / statistics / SP3 timing | none: presentation only; stats.py and the stored study files untouched | - | - | reference hashes 8 / 8 |
+| Manuscript | if Chapter 4/5 or the tool description mention "Recommended for this load", that text must go (group decision) | possible | low | - |
+| Representative run changed | was "highest all-box compliance, then highest SU, then lowest seed" (a best run); now the median-SU run, so the 3D view and Guide show a typical run, with lower numbers than before. **With an even number of runs (10 here, 30 in the thesis study) the two middle runs are always equidistant from the median, so the representative is always the lower-seed of the two middle runs** | certain | low | stated in the rule text shown in the UI; tested |
+| "Level" thresholds | display rule only; with four configurations, "highest" / "lowest" mean within 2 pp (2 boxes) of the top / bottom value, so more than one configuration can carry a label and some carry none ("between") | - | low | the rule is printed under the table |
+| Baseline line | appears only when a baseline beats BOTH hybrids by at least the threshold; none of Study B's 8 loads triggers it, so its live rendering was not seen | - | low | unit-tested text; the code path is a plain conditional |
+| Things not changed | the Technical-details trade-offs chart still circles "best of both" runs; that compares runs **within** one configuration, not configurations. `docs/guided-ui/*` (historical design notes) still describe recommend.py | - | low | flagging only |
+| UI / tests | Results, Loading Guide, Quick Test / 3D viewer labels | - | - | build compiles with no warnings; Jest **19 / 19**; browser walkthrough below |
+| Reversibility | `git revert` (restores recommend.py and its route) | - | - | - |
+
+### C. Verification
+
+- `tools/test_representative.py` **PASS 17 / 17**; Jest **19 / 19** (new comparison tests 7 / 7; the guide acceptance test passes on Sequential's representative run).
+- Full suite: test_reference_hashes **8 / 8**, test_stats, test_geometry 92, test_sample_guard, test_study_provenance, test_run_settings, test_custom_load, test_custom_load_aliases, test_determinism, pytest 31, test_auth 37: all PASS. Client build: compiled, no warnings.
+- **Browser walkthrough** (real server + dev client, demo account, Study B imported):
+  - Results opens on "Hybrid configurations: Sequential and Repair-Based" with 2 cards and no recommend / winner text.
+  - "View full comparison (4 configurations)" shows DGWO, MOGWO, Sequential, Repair-Based in that order, with highest / lowest / level and the profiles.
+  - Repair-Based's 100 % loaded-box compliance and Sequential's split budget carry "by design".
+  - Loading Guide opens with "— choose a configuration —", lists all four, and shows the prompt; choosing Repair-Based builds its plan with the representative-run callout.
+  - Screenshots checked for layout.

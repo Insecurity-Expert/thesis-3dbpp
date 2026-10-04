@@ -12,7 +12,7 @@
 //   POST   /api/studies/import        { file }   (basename inside the studies dir)
 //   GET    /api/studies/:id           the study file (stats attached; arrangements stripped)
 //   GET    /api/studies/:id/progress  { status, done, total, per_configuration, elapsed_s, ... }
-//   GET    /api/studies/:id/recommendation   per-load composite, tie check, representative runs
+//   GET    /api/studies/:id/representatives  per load: each configuration's representative run and means
 //   GET    /api/studies/:id/runs/:idx/view  one run's arrangement for the 3-D viewer, rebuilt by
 //          optimizer/arrangement_view.py (per-box C3-C6); refused if SU/CSR do not reproduce
 //   POST   /api/studies/:id/stop          stop a running study (parent + workers); not kept
@@ -33,7 +33,7 @@ const { calibratedArgs } = require("./runSettings");
 // One run's arrangement for the viewer and the Loading Guide: arrangement_view.py's
 // verified payload plus the sizes of the boxes not loaded (experiments/run_view.py).
 const VIEW_PY = path.join(ROOT, "experiments", "run_view.py");
-const RECOMMEND_PY = path.join(ROOT, "experiments", "recommend.py");
+const REPRESENTATIVE_PY = path.join(ROOT, "experiments", "representative.py");
 const STUDIES_DIR = path.join(ROOT, "experiments", "results", "studies");
 const SAMPLE8 = path.join(ROOT, "experiments", "samples", "sample8_seed42.json");
 const SAMPLE30 = path.join(ROOT, "experiments", "sample30_seed42.json");
@@ -167,7 +167,6 @@ function light(row, study) {
     study_created_at: study ? study.created_at || null : null,
     has_stats: !!st,
     outcome: st ? st.outcome && st.outcome.pattern : null,
-    recommendation: st && st.composite && st.composite.recommendation ? st.composite.recommendation.configuration : null,
   };
 }
 
@@ -299,20 +298,21 @@ router.get("/:id/progress", authRequired, (req, res) => {
   res.json({ id: row.id, status: row.status, ...syncStatus(row) });
 });
 
-// GET /api/studies/:id/recommendation — per load: Chapter 3's composite over
-// that load's runs (experiments/recommend.py -> stats.composite_scores), the
-// tie check and each method's representative run. Cached per file version.
+// GET /api/studies/:id/representatives — per load: each configuration's
+// representative run (closest to its median container fill, ties to the
+// lowest repeat code) and its means over the load's runs
+// (experiments/representative.py). Nothing is ranked. Cached per file version.
 const recCache = new Map();
-router.get("/:id/recommendation", authRequired, (req, res) => {
+router.get("/:id/representatives", authRequired, (req, res) => {
   const row = db.prepare("SELECT * FROM studies WHERE id = ? AND user_id = ?").get(Number(req.params.id), req.user.id);
   if (!row) return res.status(404).json({ error: "Study not found" });
   if (!row.file || !fs.existsSync(row.file)) return res.status(404).json({ error: "the study file is missing on disk" });
   const key = row.file + "|" + fs.statSync(row.file).mtimeMs;
   if (recCache.has(key)) return res.json(recCache.get(key));
-  require("child_process").execFile("python", [RECOMMEND_PY, row.file], { cwd: ROOT, windowsHide: true, maxBuffer: 16 << 20 }, (e, stdout, stderr) => {
-    if (e) return res.status(500).json({ error: "could not compute the recommendation: " + (String(stderr).trim().split(/\r?\n/).pop() || e.message) });
+  require("child_process").execFile("python", [REPRESENTATIVE_PY, row.file], { cwd: ROOT, windowsHide: true, maxBuffer: 16 << 20 }, (e, stdout, stderr) => {
+    if (e) return res.status(500).json({ error: "could not read the comparison: " + (String(stderr).trim().split(/\r?\n/).pop() || e.message) });
     try { const doc = JSON.parse(stdout); recCache.set(key, doc); res.json(doc); }
-    catch { res.status(500).json({ error: "the recommendation output is not JSON" }); }
+    catch { res.status(500).json({ error: "the comparison output is not JSON" }); }
   });
 });
 

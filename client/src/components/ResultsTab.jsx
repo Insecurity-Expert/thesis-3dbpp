@@ -62,7 +62,7 @@ export default function ResultsTab({
         </div>
         {finalResult && (
           <span className="badge badge-primary" style={{ padding: "6px 14px", fontSize: "12px", textTransform: "none" }}>
-            {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy}
+            {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy} · Preview: one run, one seed
           </span>
         )}
       </div>

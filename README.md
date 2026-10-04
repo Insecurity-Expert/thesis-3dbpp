@@ -118,6 +118,7 @@ python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42
 python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions
 python tools/test_sample_guard.py       # study.py refuses deprecated samples; the demo instance is outside the study sample
 node tools/test_auth.js                 # emails, demo seed, forgot password, admin reset, database guard (needs server/npm install)
+python tools/test_representative.py     # representative run = closest to the median container fill, ties to the lowest seed
 python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (31 tests)
 python tools/test_stats.py          # the Chapter 3 statistics (repeated measures) against hand-checked values
 python tools/compare_validators.py experiments/results/slide_i350_s1.json   # independent validator vs the optimizer's evaluator

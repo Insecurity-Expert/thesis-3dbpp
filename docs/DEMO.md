@@ -178,7 +178,7 @@ every Results / Compare screen shows an empty state.
 
 For the live session: run the **Demo** study (shows live progress per
 configuration; one test case, so its results are descriptive); open the
-imported **Study B** for the statistical tests (SP1, SP2), the composite
-ranking and the recommendation. SP3 needs at least two test cases per
+imported **Study B** for the statistical tests (SP1, SP2) and the
+supplementary composite ranking. SP3 needs at least two test cases per
 heterogeneity class, which `sample8` has only for BR4. Timing in a parallel
 study is flagged *concurrent — not valid for SP3* and is not tested.
