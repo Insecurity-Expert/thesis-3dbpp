@@ -102,6 +102,7 @@ The demo runbook is [docs/DEMO.md](docs/DEMO.md).
 python tools/demo_check.py          # DGWO Quick seed 42 on instance 350 reproduces the stored reference exactly
 python tools/test_geometry.py       # 89 geometry / constraint / decoder / repair checks, compiled == reference
 python tools/test_determinism.py    # same seed -> same hash, different seed -> different hash
+python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
 python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (31 tests)
 python tools/test_stats.py          # the Chapter 3 statistics (repeated measures) against hand-checked values
 python tools/compare_validators.py experiments/results/slide_i350_s1.json   # independent validator vs the optimizer's evaluator

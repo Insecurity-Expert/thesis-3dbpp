@@ -1,7 +1,85 @@
 {
-  "what": "sha256 of test_determinism.run(): StandaloneDGWO pop 10 x 20 on wtpack instance 350, seed 42 (placed, su, csr, placements)",
+ "what": "four configurations x two seeds on instance 350; see tools/test_reference_hashes.py",
+ "hash_definition": "sha256 of json.dumps({\"p\": placements, \"o\": orientations, \"su\": su, \"csr\": csr}, sort_keys=True), keys as strings, placements as [x, y, z, dx, dy, dz]",
+ "settings": {
   "instance_id": 350,
-  "seed": 42,
-  "sha256": "aece641ca949cb2d5c316a39db2c2ed87cd15103a8fa934116400bba6dd6b77b",
-  "since": "eee6b70 (rear-door container); was afe1554817f5d94e under the side-door geometry"
+  "stop_seed": 42,
+  "stop_count": 3,
+  "pop_size": 10,
+  "max_iter": 20,
+  "lambda": 0.2,
+  "enforce_support": true,
+  "enforce_fragility": true
+ },
+ "recorded_with": {
+  "numba": "0.68.0",
+  "python": "3.11.15",
+  "platform": "Linux-6.18.44-fc-v64-x86_64-with-glibc2.39"
+ },
+ "cases": [
+  {
+   "configuration": "DGWO",
+   "seed": 1,
+   "sha256": "5e73df025be162d9d416dec99fdc4151ab78bc4937c29b3d3c14ba00a6b53abb",
+   "placed": 77,
+   "su_pct": 60.2014,
+   "csr_pct": 36.3636
+  },
+  {
+   "configuration": "DGWO",
+   "seed": 42,
+   "sha256": "28e5f3a0ce5062cf1af1155f7d445130d0ca4006efff2fe3e61e0c47a6f74fe7",
+   "placed": 85,
+   "su_pct": 63.6829,
+   "csr_pct": 38.8235
+  },
+  {
+   "configuration": "MOGWO",
+   "seed": 1,
+   "sha256": "5bcb2b85ac41511030d017710cc3e5017f817fc26297754855d3fcd55940a5ee",
+   "placed": 77,
+   "su_pct": 60.2876,
+   "csr_pct": 49.3506
+  },
+  {
+   "configuration": "MOGWO",
+   "seed": 42,
+   "sha256": "3afc1b612e1b9ce531846ebfa9867991b70d21ef775b3a55813541b84a584198",
+   "placed": 82,
+   "su_pct": 62.9008,
+   "csr_pct": 31.7073
+  },
+  {
+   "configuration": "SEQ",
+   "seed": 1,
+   "sha256": "3c5c044cfdf76b7572fdd868fc1af5fed926a94725df00de0906ceb1deb87f79",
+   "placed": 81,
+   "su_pct": 59.6319,
+   "csr_pct": 30.8642
+  },
+  {
+   "configuration": "SEQ",
+   "seed": 42,
+   "sha256": "b150c53ac089fda849acfedcf66f135d0763a87ff8f308840f0a84fce07137ba",
+   "placed": 84,
+   "su_pct": 64.6894,
+   "csr_pct": 41.6667
+  },
+  {
+   "configuration": "REP",
+   "seed": 1,
+   "sha256": "a965e2d526c5878767047c46815d8d9e0b40b2755f68dfbe6a96552f1442c3ab",
+   "placed": 30,
+   "su_pct": 20.4717,
+   "csr_pct": 100.0
+  },
+  {
+   "configuration": "REP",
+   "seed": 42,
+   "sha256": "681939bc1420c5f010cbdda6631db57ad31188d2a940258f5d6ddf5dbff09b40",
+   "placed": 38,
+   "su_pct": 24.9899,
+   "csr_pct": 100.0
+  }
+ ]
 }
