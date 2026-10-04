@@ -68,8 +68,16 @@ router.post("/custom-load", authRequired, express.json({ limit: "5mb" }), (req, 
     if (!doc) return res.status(500).json({ errors: [{ row: null, column: null, message: "converter failed: " + (err.trim().split(/\r?\n/).slice(-2).join(" | ") || `exit ${code}`) }] });
     if (!doc.ok) return res.status(422).json({ errors: doc.errors, notes: doc.notes || [] });
     const s = doc.summary;
-    db.prepare("INSERT INTO custom_loads (id, user_id, name, source, n_boxes, file, summary)")
-      .run(id, req.user.id, s.name, s.source, s.totals.boxes, file, JSON.stringify(s));
+    // This runs in a child-process callback, outside Express's error handling:
+    // a database error here (e.g. an unreadable db file, see db.js) must be
+    // answered, not thrown, or it would stop the whole server.
+    try {
+      db.prepare("INSERT INTO custom_loads (id, user_id, name, source, n_boxes, file, summary)")
+        .run(id, req.user.id, s.name, s.source, s.totals.boxes, file, JSON.stringify(s));
+    } catch (e) {
+      try { fs.unlinkSync(file); } catch { /* converted file not kept without its record */ }
+      return res.status(500).json({ errors: [{ row: null, column: null, message: "could not save the load: " + e.message }] });
+    }
     res.json({ id, summary: s });
   });
   child.stdin.end(JSON.stringify(request));

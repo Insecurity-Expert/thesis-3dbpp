@@ -7,6 +7,8 @@ const accounts = require("./accounts");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-me";
+// index.js warns at startup when the built-in development secret is in use.
+const usingDefaultSecret = !process.env.JWT_SECRET;
 const COOKIE = "stackr_token";
 
 function sign(user) {
@@ -213,4 +215,4 @@ function userFromCookieHeader(header) {
   try { return jwt.verify(decodeURIComponent(m.slice(COOKIE.length + 1)), JWT_SECRET); } catch { return null; }
 }
 
-module.exports = { router, authRequired, userFromCookieHeader };
+module.exports = { router, authRequired, userFromCookieHeader, usingDefaultSecret };

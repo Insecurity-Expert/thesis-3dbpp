@@ -6,8 +6,9 @@ const { spawn } = require("child_process");
 const readline  = require("readline");
 const WebSocket = require("ws");
 const cookieParser = require("cookie-parser");
-const { router: authRouter, userFromCookieHeader } = require("./auth");
+const { router: authRouter, userFromCookieHeader, usingDefaultSecret } = require("./auth");
 const accounts  = require("./accounts");
+const { jsonErrors } = require("./errors");
 const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
 const { CAL, calibratedArgs } = require("./runSettings");
@@ -295,12 +296,9 @@ app.get("/api/instances", (req, res) => {
   }
 });
 
-// A request that hits a database error (e.g. an unreadable db file, see
-// db.js) answers with the message as JSON instead of an HTML stack trace.
-app.use((err, req, res, next) => {   // eslint-disable-line no-unused-vars
-  console.error("request failed:", err.message);
-  res.status(500).json({ error: err.message });
-});
+// Errors answer as JSON with their own status (400 for a malformed body,
+// 500 for e.g. an unreadable database), never an HTML stack trace.
+app.use(jsonErrors);
 
 // Accounts: normalise stored emails once, and make sure the demo account
 // exists (server/accounts.js). A database that cannot be read is reported and
@@ -318,5 +316,10 @@ app.listen(PORT, () => {
   console.log(`✅  WebSocket →  ws://localhost:${WS_PORT}`);
   console.log(`    wtpack    →  ${RAW_DIR}`);
   console.log(`    sample    →  ${SAMPLE}\n`);
+  if (usingDefaultSecret) {
+    console.warn("\u26A0\uFE0F  JWT_SECRET is not set: sign-in tokens use a built-in development secret that anyone with");
+    console.warn("    this code can use to forge a session. Fine on a closed demo laptop; set JWT_SECRET to any long");
+    console.warn("    random string before the server is reachable by others (see docs/DEMO.md).\n");
+  }
   warmOptimizer();
 });
