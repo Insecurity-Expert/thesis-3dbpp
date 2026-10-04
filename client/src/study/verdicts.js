@@ -110,20 +110,28 @@ export function omnibusSentence(cmp, measureCode, opts = {}) {
 }
 
 // ── pairwise ─────────────────────────────────────────────────────────────────
+// The configuration with the higher mean (older stats files lack `higher`).
+function higherOf(pair) {
+  if (pair.higher !== undefined) return pair.higher;
+  if (pair.mean_a === pair.mean_b) return null;
+  return pair.mean_a > pair.mean_b ? pair.a : pair.b;
+}
+
+// Neutral wording: a pair that meets Chapter 3's three conditions reads
+// "X significantly higher than Y" (X = higher mean), never "outperforms".
 export function pairVerdict(stats, pair) {
-  const a = label(stats, pair.a), b = label(stats, pair.b);
   if (pair.outperforms) {
-    const w = label(stats, pair.outperforms);
-    const l = pair.outperforms === pair.a ? b : a;
-    return { kind: "outperforms", text: `${w} outperforms ${l}`, winner: pair.outperforms };
+    const hi = higherOf(pair);
+    const lo = hi === pair.a ? pair.b : pair.a;
+    return { kind: "significant", text: `${label(stats, hi)} significantly higher than ${label(stats, lo)}` };
   }
   if (pair.significant && !pair.effect.practical) {
-    return { kind: "detectable", text: "statistically detectable but not practically meaningful", winner: null };
+    return { kind: "detectable", text: "statistically detectable but not practically meaningful" };
   }
   if (!pair.significant && pair.posthoc_significant) {
-    return { kind: "none", text: "no significant difference (omnibus test not significant)", winner: null };
+    return { kind: "none", text: `no significant difference (${pair.omnibus_gate || "omnibus test"} not significant)` };
   }
-  return { kind: "none", text: "no significant difference", winner: null };
+  return { kind: "none", text: "no significant difference" };
 }
 
 export function effectPlain(effect) {
@@ -131,11 +139,17 @@ export function effectPlain(effect) {
   return `${effect.magnitude} (${effect.name} = ${fmt.num(effect.value, 2)})`;
 }
 
+// |effect| for sentences that name the higher configuration first.
+function effectAbs(effect) {
+  if (!effect || effect.value === null || effect.value === undefined) return "—";
+  return `|${effect.name}| = ${fmt.num(Math.abs(effect.value), 2)}, ${effect.magnitude}`;
+}
+
 export function pairSentence(stats, pair, measureCode) {
   const v = pairVerdict(stats, pair);
   const what = MEASURE_PLAIN[measureCode] || measureCode;
-  if (v.kind === "outperforms") {
-    return `${v.text} on ${what}: corrected ${fmt.peq(pair.p)}, ${effectPlain(pair.effect)} effect.`;
+  if (v.kind === "significant") {
+    return `${v.text} on ${what} (${effectAbs(pair.effect)}; corrected ${fmt.peq(pair.p)}).`;
   }
   if (v.kind === "detectable") {
     return `${label(stats, pair.a)} vs ${label(stats, pair.b)} on ${what}: the difference is real (${fmt.peq(pair.p)}) but too small to matter in practice (${effectPlain(pair.effect)}, below the threshold of ${pair.effect.threshold}).`;
@@ -149,11 +163,11 @@ export function sp1Summary(stats) {
   if (!cmp) return "";
   const o = cmp.omnibus;
   if (!o.testable) return `Container fill could not be tested: ${o.reason}.`;
-  if (!o.significant) return `No configuration filled the container significantly better than another (${o.test}, ${fmt.peq(o.p)}).`;
+  if (!o.significant) return `No significant difference in container fill between the configurations (${o.test}, ${fmt.peq(o.p)}).`;
   const wins = cmp.pairs.filter((p) => p.outperforms);
   const detect = cmp.pairs.filter((p) => p.significant && !p.outperforms);
   const bits = [`The configurations differ on container fill (${o.test}, ${fmt.peq(o.p)}).`];
-  if (wins.length) bits.push(wins.map((p) => pairVerdict(stats, p).text).join("; ") + ".");
+  if (wins.length) bits.push(wins.map((p) => `${pairVerdict(stats, p).text} (${effectAbs(p.effect)})`).join("; ") + ".");
   if (detect.length) bits.push(`${detect.length} pair${detect.length > 1 ? "s" : ""} differ${detect.length > 1 ? "" : "s"} detectably but not meaningfully.`);
   if (!wins.length && !detect.length) bits.push("No pair reached a significant post-hoc difference.");
   return bits.join(" ");
@@ -167,7 +181,8 @@ export function sp2Summary(stats, definition) {
     return `Compliance ${DEFINITION_PLAIN[blk.definition]} is reported for reference only; the hypothesis is tested ${DEFINITION_PLAIN[stats.primary_compliance]}.`;
   }
   const per = blk.per_measure;
-  const untestable = Object.keys(per).filter((m) => !per[m].omnibus.testable);
+  const descriptive = Object.keys(per).filter((m) => per[m].descriptive_only);
+  const untestable = Object.keys(per).filter((m) => !per[m].omnibus.testable && !per[m].descriptive_only);
   const differ = blk.significant_measures || [];
   const tested = Object.keys(per).filter((m) => per[m].omnibus.testable);
   const bits = [];
@@ -175,6 +190,7 @@ export function sp2Summary(stats, definition) {
   const other = untestable.filter((m) => !constant.includes(m));
   if (constant.length) bits.push(`${constant.map((m) => MEASURE_PLAIN[m] || m).join(", ")} ${constant.length > 1 ? "were" : "was"} the same for every configuration, so ${constant.length > 1 ? "they" : "it"} cannot be tested.`);
   if (other.length) bits.push(`${other.map((m) => MEASURE_PLAIN[m] || m).join(", ")} could not be tested: ${per[other[0]].omnibus.reason}.`);
+  if (descriptive.length) bits.push(`${descriptive.map((m) => MEASURE_PLAIN[m] || m).join(" and ")} ${descriptive.length > 1 ? "are" : "is"} reported descriptively, outside the Holm family: ${per[descriptive[0]].omnibus.reason}.`);
   if (tested.length) {
     bits.push(differ.length
       ? `After Holm correction across ${blk.holm_family_size} testable measure${blk.holm_family_size > 1 ? "s" : ""}, the configurations differ on ${differ.map((m) => MEASURE_PLAIN[m] || m).join(", ")}.`
@@ -197,7 +213,7 @@ export function sp3ClassSentence(stats, p, m) {
   if (!o.testable) return `${p.br_class}: ${o.reason}.`;
   const order = cmp.mean_rank ? Object.entries(cmp.mean_rank).sort((a, b) => a[1] - b[1]).map(([c]) => label(stats, c)) : [];
   return o.significant_holm
-    ? `${p.br_class}: the methods differ on ${MEASURE_PLAIN[m]} (Friedman χ² = ${fmt.num(o.statistic, 2)}, Holm-corrected ${fmt.peq(o.p_holm)}); mean rank ${order.join(" < ")} (lower is better).`
+    ? `${p.br_class}: the methods differ on ${MEASURE_PLAIN[m]} (Friedman χ² = ${fmt.num(o.statistic, 2)}, Holm-corrected ${fmt.peq(o.p_holm)}); mean rank ${order.join(" < ")} (rank 1 = lowest).`
     : `${p.br_class}: no difference on ${MEASURE_PLAIN[m]} detected (Friedman χ² = ${fmt.num(o.statistic, 2)}, Holm-corrected ${fmt.peq(o.p_holm)}).`;
 }
 
@@ -220,49 +236,49 @@ export function sp3Summary(stats) {
   return bits.join(" ");
 }
 
-// ── composite / recommendation ───────────────────────────────────────────────
+// ── supplementary composite ranking (Chapter 3) ──────────────────────────────
+export const COMPOSITE_TITLE = "Supplementary composite ranking (Chapter 3)";
+
 export function compositeSummary(stats) {
   const cs = stats && stats.composite;
   if (!cs) return "";
-  if (!cs.available) return `No overall ranking: ${cs.reason}.`;
+  if (!cs.available) return `No composite ranking: ${cs.reason}.`;
   const fr = cs.friedman;
-  const ranking = cs.ranking.map((c, i) => `${i + 1}. ${label(stats, c)} (${fmt.num(cs.mean_cs[c] * 5, 2)} / 5)`).join(", ");
-  if (!fr.testable) return `Overall scores: ${ranking}. The ranking could not be tested: ${fr.reason}.`;
+  const scores = CONFIG_ORDER.filter((c) => cs.mean_cs[c] !== undefined)
+    .map((c) => `${label(stats, c)} ${fmt.num(cs.mean_cs[c] * 5, 2)} / 5`).join(", ");
+  if (!fr.testable) return `Mean composite scores: ${scores}. The ranking could not be tested: ${fr.reason}.`;
   if (!fr.significant) {
-    return `Overall scores: ${ranking}. The Friedman test does not separate them (χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases), so no configuration is recommended — the differences are within what chance could produce.`;
+    return `Mean composite scores: ${scores}. Friedman χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases: no configuration distinguished.`;
   }
-  const rec = cs.recommendation;
-  const ties = ((fr.posthoc && fr.posthoc.pairs) || [])
-    .filter((p) => !p.significant && (p.a === rec.configuration || p.b === rec.configuration))
-    .map((p) => label(stats, p.a === rec.configuration ? p.b : p.a));
-  const beats = ((fr.posthoc && fr.posthoc.pairs) || [])
-    .filter((p) => p.significant && p.favours === rec.configuration)
-    .map((p) => label(stats, p.a === rec.configuration ? p.b : p.a));
-  let s = `Overall scores: ${ranking}. The ranking is reliable (Friedman χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases). Recommended: ${label(stats, rec.configuration)} with the best mean score, ${fmt.num(rec.mean_cs * 5, 2)} / 5.`;
-  if (beats.length) s += ` Nemenyi separates it from ${beats.join(" and ")}.`;
-  if (ties.length) s += ` It is statistically tied with ${ties.join(" and ")}.`;
+  const top = cs.recommendation;
+  const sep = ((fr.posthoc && fr.posthoc.pairs) || [])
+    .filter((p) => p.significant && (p.a === top.configuration || p.b === top.configuration))
+    .map((p) => label(stats, p.a === top.configuration ? p.b : p.a));
+  const notSep = ((fr.posthoc && fr.posthoc.pairs) || [])
+    .filter((p) => !p.significant && (p.a === top.configuration || p.b === top.configuration))
+    .map((p) => label(stats, p.a === top.configuration ? p.b : p.a));
+  let s = `Mean composite scores: ${scores}. Friedman χ² = ${fmt.num(fr.statistic, 2)}, ${fmt.peq(fr.p)} over ${fr.blocks} test cases (significant). Highest mean composite score: ${label(stats, top.configuration)}, ${fmt.num(top.mean_cs * 5, 2)} / 5.`;
+  if (sep.length) s += ` Nemenyi separates it from ${sep.join(" and ")}.`;
+  if (notSep.length) s += ` Nemenyi does not separate it from ${notSep.join(" and ")}.`;
   return s;
 }
 
 // ── outcome banner ───────────────────────────────────────────────────────────
+// The banner states the Chapter 3 outcome pattern; the composite ranking is a
+// supplementary line, never a recommendation.
 export function outcomeBanner(stats) {
   if (!stats) return null;
   const cs = stats.composite;
   const oc = stats.outcome;
-  if (cs && cs.available && cs.friedman && cs.friedman.significant && cs.recommendation) {
-    return { kind: "winner", title: `Recommended: ${label(stats, cs.recommendation.configuration)}`,
-             sub: `Best mean overall score across ${cs.n_instances} test cases; the ranking passed the Friedman test (${fmt.peq(cs.friedman.p)}).`,
-             config: cs.recommendation.configuration };
-  }
   if (cs && !cs.available && /2 instances/.test(cs.reason || "")) {
     return { kind: "info", title: "Statistical tests need ≥ 2 test cases",
-             sub: `This study used ${stats.provenance.n_instances} test case. The tests compare the methods within test cases, so with one test case the results below are descriptive: averages and spreads, no significance tests and no overall ranking.` };
+             sub: `This study used ${stats.provenance.n_instances} test case. The tests compare the methods within test cases, so with one test case the results below are descriptive: averages and spreads, no significance tests and no composite ranking.` };
   }
   if (cs && !cs.available) {
-    return { kind: "info", title: "No overall ranking for this study", sub: `${cs.reason}. ` + outcomeText(oc) };
+    return { kind: "info", title: "No composite ranking for this study", sub: `${cs.reason}. ` + outcomeText(oc) };
   }
   if (cs && cs.available) {
-    return { kind: "pattern", title: outcomeTitle(oc), sub: `${outcomeText(oc)} The overall ranking did not pass the Friedman test (${fmt.peq(cs.friedman.p)}), so no single configuration is recommended.` };
+    return { kind: "pattern", title: outcomeTitle(oc), sub: `${outcomeText(oc)} ${COMPOSITE_TITLE}: ${compositeSummary(stats)}` };
   }
   return { kind: "pattern", title: outcomeTitle(oc), sub: outcomeText(oc) };
 }
@@ -270,8 +286,7 @@ export function outcomeBanner(stats) {
 export function outcomeTitle(oc) {
   if (!oc) return "";
   if (!oc.pattern) return "No outcome pattern";
-  const names = { A: "Both hybrids come out ahead", B: "One hybrid comes out ahead", C: "No hybrid comes out ahead", D: "No single best method — a trade-off" };
-  return `${names[oc.pattern] || ""} (Outcome ${oc.pattern})`;
+  return `Outcome pattern ${oc.pattern} (Chapter 3)`;
 }
 
 export function outcomeText(oc) {

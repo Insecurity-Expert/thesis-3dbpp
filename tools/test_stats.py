@@ -23,7 +23,7 @@ sys.path.insert(0, str(_ROOT / 'experiments'))
 
 import numpy as np
 from stats import (analyse, holm, rm_anova, mauchly, gg_epsilon, rank_biserial_paired, d_z,
-                   PRIMARY_COMPLIANCE, CONFIGS)
+                   apply_verdicts, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
 
 FAILS = []
 
@@ -94,8 +94,9 @@ def main():
     check(pair['effect']['value'] is not None and abs(pair['effect']['value']) >= 0.5, "d_z above the practical threshold")
     check(st['SP2']['h0_rejected'], f"SP2 H0 rejected: {st['SP2']['decision']}")
     c4 = st['SP2']['primary']['per_measure']['C4']
-    check(c4['omnibus']['testable'] is False and 'no variance' in c4['omnibus']['reason'] and 'decoder' in c4['omnibus']['reason'],
-          f"C4 constant across all -> {c4['omnibus']['reason']}")
+    check(c4.get('descriptive_only') and c4['omnibus']['testable'] is False
+          and c4['omnibus']['reason'] == 'decoder-enforced; all-box value = share placed',
+          f"C4 descriptive, not tested -> {c4['omnibus']['reason']}")
     check(st['SP2']['primary']['holm_family_size'] == 1, "untestable measures excluded from the Holm family (only CSR varies)")
     check(not no_nan(st), "no NaN / inf in the output")
     for p in sp1['pairs']:
@@ -225,12 +226,15 @@ def main():
     fr = cs['friedman']
     check(fr['testable'] and abs(fr['statistic'] - 6.0) < 1e-6 and not fr['significant'],
           f"Friedman chi2={fr['statistic']} (hand: 6.0, 2 identical blocks) -> not significant")
-    check(cs['recommendation'] is None and cs['recommendation_note'], "no recommendation when Friedman is not significant")
+    check(cs['recommendation'] is None and cs['recommendation_note'].startswith('no configuration distinguished'),
+          "no configuration distinguished when Friedman is not significant")
+    check(cs['title'] == 'Supplementary composite ranking (Chapter 3)' and cs['distinguished'] is False, "composite labelled supplementary")
     st8 = analyse(make_study(lambda c, i, s: {'su': toy_su[c][s - 1], 'csr': toy_csr[c], 'et': toy_et[c], 'pm': 5.0},
                              list(range(1, 9)), [1, 2]))
     fr8 = st8['composite']['friedman']
     check(fr8['significant'] and abs(fr8['statistic'] - 24.0) < 1e-6, f"8 blocks: chi2={fr8['statistic']} significant")
-    check(st8['composite']['recommendation']['configuration'] == 'DGWO', "recommendation = best mean CS")
+    check(st8['composite']['recommendation']['configuration'] == 'DGWO' and st8['composite']['distinguished'],
+          "top of the ranking = best mean CS, reported when Friedman is significant")
     check(fr8['posthoc']['test'] == 'Nemenyi', "Nemenyi post-hoc after a significant Friedman")
 
     # ── 10. concurrent timing refuses SP3 and the composite ──────────────────
@@ -246,6 +250,40 @@ def main():
     adj, m = holm([0.01, 0.04, 0.03, None, 0.20])
     check(m == 4, "None excluded from the family")
     check([round(x, 4) if x is not None else None for x in adj] == [0.04, 0.09, 0.09, None, 0.2], f"adjusted = {adj}")
+
+    # ── 12a. SP2 family of 3, C4 / C5 descriptive, Holm-gated verdicts ───────
+    print("12a. SP2 family and Holm gating")
+    st = analyse(make_study(lambda c, i, s: {'su': 50 + inst_eff[i] + rng.normal(0, 1),
+                                             'csr': {'DGWO': 40, 'MOGWO': 50, 'SEQ': 60, 'REP': 90}[c] + inst_eff[i] + rng.normal(0, 1),
+                                             'c3': {'DGWO': 70, 'MOGWO': 75, 'SEQ': 80, 'REP': 95}[c] + rng.normal(0, 1),
+                                             'c6': {'DGWO': 50, 'MOGWO': 55, 'SEQ': 52, 'REP': 98}[c] + rng.normal(0, 1),
+                                             'placed': {'DGWO': 90, 'MOGWO': 88, 'SEQ': 91, 'REP': 40}[c] + (i % 3), 'n': 100},
+                            instances, seeds))
+    prim = st['SP2']['primary']
+    check(tuple(st['SP2']['holm_family']) == SP2_FAMILY == ('CSR', 'C3', 'C6'), f"SP2 family = {st['SP2']['holm_family']}")
+    check(prim['holm_family_size'] == 3, f"Holm family size 3 when CSR, C3, C6 all vary (got {prim['holm_family_size']})")
+    for m in ('C4', 'C5'):
+        pm = prim['per_measure'][m]
+        check(pm['descriptive_only'] and pm['equals_share_placed'] and 'holm_family_size' not in pm['omnibus'],
+              f"{m}: descriptive, equal to the share placed, outside the family")
+        check(set(prim['significant_measures']) <= set(SP2_FAMILY), "only family members can reject H0")
+    gated = all(not pr['significant'] or prim['per_measure'][m]['omnibus']['significant_holm']
+                for m in SP2_FAMILY for pr in prim['per_measure'][m]['pairs'])
+    check(gated, "every significant SP2 pair has a significant Holm-corrected omnibus test")
+    check(all(pr['omnibus_gate'] == 'Holm-corrected omnibus test' for m in SP2_FAMILY for pr in prim['per_measure'][m]['pairs']),
+          "SP2 pairs record the Holm gate")
+    # apply_verdicts on a fabricated comparison: post-hoc significant and
+    # practical, but the gating omnibus result is not significant.
+    fake = {'measure': 'CSR', 'pairs': [{'a': 'DGWO', 'b': 'REP', 'posthoc_significant': True, 'favours': 'REP', 'higher': 'REP',
+                                         'effect': {'name': 'd_z', 'value': -1.2, 'magnitude': 'large', 'practical': True}}]}
+    apply_verdicts(fake, False, 'Holm-corrected omnibus test')
+    fp = fake['pairs'][0]
+    check(fp['significant'] is False and fp['outperforms'] is None and 'Holm-corrected omnibus test not significant' in fp['verdict'],
+          f"gate not passed -> no verdict ({fp['verdict']})")
+    apply_verdicts(fake, True, 'Holm-corrected omnibus test')
+    check(fp['outperforms'] == 'REP' and fp['verdict'] == 'Repair-based significantly higher than DGWO on constraint satisfaction rate (|d_z| = 1.20, large)',
+          f"gate passed -> neutral verdict text ({fp['verdict']})")
+    check(all('outperforms' not in pr['verdict'] for pr in st['SP1']['comparison']['pairs']), "no 'outperforms' in verdict text")
 
     # ── 12. outcome patterns ─────────────────────────────────────────────────
     print("12. outcome patterns")

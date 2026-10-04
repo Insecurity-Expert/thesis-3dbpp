@@ -29,21 +29,26 @@ effect size; nothing is ever reported as NaN - an untestable case says why):
   signed-rank and the matched-pairs rank-biserial r = (W+ - W-) / (W+ + W-).
   Post-hoc p-values Holm-corrected across the six pairs. Two-tailed,
   alpha = 0.05.
-* SP2 (CSR, C3, C4, C5, C6 over all boxes): the same per measure,
-  Holm-Bonferroni across the testable omnibus p-values; H0 is rejected iff at
-  least one Holm-corrected omnibus test is significant. The decision is output
-  explicitly.
+* SP2 (CSR, C3, C6 over all boxes): the same per measure, Holm-Bonferroni
+  across the testable omnibus p-values (family of 3); H0 is rejected iff at
+  least one Holm-corrected omnibus test is significant, and a pair's verdict
+  needs its measure's Holm-corrected omnibus test to be significant. C4 and C5
+  are enforced by the decoder (over all boxes each equals the share of boxes
+  placed) and are reported descriptively. The decision is output explicitly.
 * SP3 (ET, PM; serial timing only): Friedman within each BR class (the class's
   instances as subjects, >= 2 needed), Holm across ET and PM within the class;
   per-class descriptives for the profile chart.
 * Composite (serial timing, >= 2 instances): CS = 0.25 SU~ + 0.25 CSR~ +
   0.25 (1 - CC~) + 0.25 (1 - Rob~), ~ = min-max across the four configurations
   within an instance, CC = (z_ET + z_PM) / 2, Rob = sd of SU across the runs
-  within the instance. Friedman on instances x 4, Nemenyi if significant. A
-  recommendation exists only when Friedman is significant.
+  within the instance. Friedman on instances x 4, Nemenyi if significant.
+  Supplementary: the top of the ranking is reported only when Friedman is
+  significant; otherwise no configuration is distinguished.
 * Outperformance per pair per metric needs ALL of: a significant omnibus test,
   a significant Holm-corrected post-hoc, |d_z| >= 0.5 or |r| >= 0.3, and the
-  direction favouring that configuration. Significant but below threshold is
+  direction favouring that configuration. Its verdict text is neutral: "X
+  significantly higher than Y on <measure> (<effect size>)", X being the
+  configuration with the higher mean. Significant but below threshold is
   "statistically detectable but not practically meaningful".
 * Outcome pattern (Chapter 3): A both hybrids outperform both baselines on the
   primary metrics, B exactly one does, C neither does, D mixed / trade-off;
@@ -90,6 +95,12 @@ MEASURE_LABELS = {
 }
 # Measures the decoder enforces at placement time: a constant 100 % is by construction.
 DECODER_ENFORCED = {"C4": "enforce_fragility", "C5": "enforce_support"}
+# SP2 hypothesis family (Holm). C4 and C5 are enforced by the decoder, so over
+# all boxes each equals the share of boxes placed: they are reported
+# descriptively and are not separate tests.
+SP2_FAMILY = ("CSR", "C3", "C6")
+SP2_DESCRIPTIVE = ("C4", "C5")
+COMPOSITE_LABEL = "Supplementary composite ranking (Chapter 3)"
 LOWER_IS_BETTER = {"ET", "PM"}
 
 D_THRESHOLD = 0.5       # Cohen's d practical threshold
@@ -348,7 +359,6 @@ def compare_rm(mat, configs, measure, lower_is_better=False, enforced_note=None,
 
     test = "paired t-test" if parametric else "Wilcoxon signed-rank"
     eff_name, thr, kind = ("d_z", D_THRESHOLD, "d") if parametric else ("matched-pairs rank-biserial r", R_THRESHOLD, "r")
-    omni_sig = result["omnibus"]["significant"]
     pairs = []
     for (i, j), (p_raw, stat, eff), p_adj in zip(pair_idx, raw, adj):
         a, b = configs[i], configs[j]
@@ -358,23 +368,46 @@ def compare_rm(mat, configs, measure, lower_is_better=False, enforced_note=None,
         else: favours = a if ma > mb else b
         significant = p_adj is not None and p_adj < ALPHA
         practical = eff is not None and abs(eff) >= thr
-        if not omni_sig or not significant:
-            verdict, winner = "no significant difference", None
-        elif not practical:
-            verdict, winner = "statistically detectable but not practically meaningful", None
-        else:
-            winner = favours
-            verdict = f"{LABELS[winner]} outperforms {LABELS[b if winner == a else a]}"
         pairs.append({"a": a, "b": b, "test": test, "statistic": stat, "p_raw": _f(p_raw), "p": _f(p_adj),
-                      "significant": bool(significant and omni_sig), "posthoc_significant": bool(significant),
+                      "posthoc_significant": bool(significant),
                       "effect": {"name": eff_name, "value": _f(eff), "threshold": thr,
                                  "magnitude": magnitude(kind, eff), "practical": bool(practical)},
                       "mean_a": _f(ma), "mean_b": _f(mb), "favours": favours,
-                      "outperforms": winner, "verdict": verdict})
+                      "higher": None if ma == mb else (a if ma > mb else b)})
     result["posthoc_test"] = f"{test} (Holm)"
     result["effect_size"] = eff_name
     result["pairs"] = pairs
+    apply_verdicts(result, result["omnibus"]["significant"], "omnibus test")
     return result
+
+
+def apply_verdicts(cmp, omnibus_significant, gate):
+    """Set each pair's verdict. A pair is significant only when the gating
+    omnibus result is (the raw omnibus test, or for SP2 its Holm-corrected
+    result) and its Holm-corrected post-hoc test is. Outperformance (Chapter 3)
+    also needs the practical-effect threshold; the field `outperforms` names the
+    configuration the direction favours. The verdict TEXT is neutral: the
+    configuration with the higher mean is named first."""
+    label = MEASURE_LABELS.get(cmp["measure"], cmp["measure"]).split(" (")[0]   # name without its unit
+    for pr in cmp.get("pairs", []):
+        significant = bool(omnibus_significant and pr["posthoc_significant"])
+        eff = pr["effect"]
+        pr["significant"] = significant
+        pr["omnibus_gate"] = gate
+        if not significant:
+            pr["outperforms"] = None
+            pr["verdict"] = ("no significant difference" if omnibus_significant or not pr["posthoc_significant"]
+                             else f"no significant difference ({gate} not significant)")
+        elif not eff["practical"]:
+            pr["outperforms"] = None
+            pr["verdict"] = "statistically detectable but not practically meaningful"
+        else:
+            pr["outperforms"] = pr["favours"]
+            hi = pr["higher"]
+            lo = pr["b"] if hi == pr["a"] else pr["a"]
+            # |effect|: its sign follows the (a, b) order, the text names the higher one first
+            pr["verdict"] = (f"{LABELS[hi]} significantly higher than {LABELS[lo]} on {label} "
+                             f"(|{eff['name']}| = {abs(eff['value']):.2f}, {eff['magnitude']})")
 
 
 def outperforms(cmp, winner, loser):
@@ -465,17 +498,29 @@ def analyse(study):
     # ── SP2 ──────────────────────────────────────────────────────────────────
     # The hypothesis is tested on the manuscript's definition (all boxes); the
     # over-placed-boxes figures are reported descriptively.
-    sp2 = {"measures": list(COMPLIANCE_KEYS), "by_definition": {}}
+    sp2 = {"measures": list(COMPLIANCE_KEYS), "holm_family": list(SP2_FAMILY),
+           "descriptive_measures": list(SP2_DESCRIPTIVE), "by_definition": {}}
     for d in COMPLIANCE_DEFS:
         per = {}
         for m in COMPLIANCE_KEYS:
             key = f"{m}_{d}"
-            if d == PRIMARY_COMPLIANCE:
-                note = None
-                if m in DECODER_ENFORCED and study.get(DECODER_ENFORCED[m], True):
-                    note = f"enforced by the decoder ({DECODER_ENFORCED[m]}=true)"
-                per[m] = compare_rm(get_mat(key), configs, m, enforced_note=note,
+            if d == PRIMARY_COMPLIANCE and m in SP2_FAMILY:
+                per[m] = compare_rm(get_mat(key), configs, m,
                                     run_groups=group_values(rows, key, configs))
+            elif d == PRIMARY_COMPLIANCE:
+                enforced = study.get(DECODER_ENFORCED[m], True)
+                share = [abs(x[key] - (x["placed"] / x["n_items"] if x["n_items"] else 0.0) * 100.0) for x in rows]
+                reason = ("decoder-enforced; all-box value = share placed" if enforced else
+                          f"not in the SP2 Holm family (Chapter 3); decode-time enforcement "
+                          f"({DECODER_ENFORCED[m]}) was off in this study")
+                per[m] = {"measure": m, "label": MEASURE_LABELS.get(m, m), "descriptive_only": True,
+                          "decoder_enforced": bool(enforced),
+                          "equals_share_placed": bool(share) and max(share) < 1e-6,
+                          "descriptives": {c: descriptives(v) for c, v in group_values(rows, key, configs).items()},
+                          "normality": {"basis": "within-instance differences", "pairs": [], "all_normal": False},
+                          "all_normal": False, "pairs": [],
+                          "omnibus": {"testable": False, "significant": False, "p": None, "p_holm": None,
+                                      "significant_holm": False, "reason": reason}}
             else:
                 per[m] = {"measure": m, "label": MEASURE_LABELS.get(m, m), "descriptive_only": True,
                           "descriptives": {c: descriptives(v) for c, v in group_values(rows, key, configs).items()},
@@ -485,14 +530,16 @@ def analyse(study):
                                       "significant_holm": False,
                                       "reason": "descriptive only - the hypothesis is tested on compliance over all boxes"}}
         if d == PRIMARY_COMPLIANCE:
-            raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in COMPLIANCE_KEYS]
+            raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in SP2_FAMILY]
             adj, fam = holm(raw)
-            for m, pa in zip(COMPLIANCE_KEYS, adj):
+            for m, pa in zip(SP2_FAMILY, adj):
                 per[m]["omnibus"]["p_holm"] = _f(pa)
                 per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
                 per[m]["omnibus"]["holm_family_size"] = fam
-            rejected = [m for m in COMPLIANCE_KEYS if per[m]["omnibus"]["significant_holm"]]
-            untestable_all = all(not per[m]["omnibus"]["testable"] for m in COMPLIANCE_KEYS)
+                # Pair verdicts are gated on the Holm-corrected omnibus result.
+                apply_verdicts(per[m], per[m]["omnibus"]["significant_holm"], "Holm-corrected omnibus test")
+            rejected = [m for m in SP2_FAMILY if per[m]["omnibus"]["significant_holm"]]
+            untestable_all = all(not per[m]["omnibus"]["testable"] for m in SP2_FAMILY)
             if rejected:
                 decision = "H0 rejected: at least one Holm-corrected omnibus test is significant (" + ", ".join(rejected) + ")"
             elif fam:
@@ -643,15 +690,18 @@ def composite(rows, configs, instances):
     sd_cs = {c: _f(mat[:, j].std(ddof=1)) if mat.shape[0] > 1 else None for j, c in enumerate(configs)}
     comp = {c: {k: _f(np.mean([d["per_configuration"][c][k] for d in details])) for k in ("SU_n", "CSR_n", "CC_n", "Rob_n")} for c in configs}
     ranking = sorted(configs, key=lambda c: -mean_cs[c])
+    # Key name kept for stored files and readers; it holds the top of the
+    # ranking, reported only when the Friedman test is significant.
     rec = None
     if fr.get("significant"):
         rec = {"configuration": ranking[0], "label": LABELS[ranking[0]], "mean_cs": mean_cs[ranking[0]],
-               "basis": "Friedman on the composite score is significant; the recommendation is the best mean CS"}
-    return {"available": True, "formula": "CS = 0.25*SU~ + 0.25*CSR~ + 0.25*(1-CC~) + 0.25*(1-Rob~); ~ = min-max across the four configurations within an instance; CC = (z_ET + z_PM)/2; Rob = sd of SU across runs within the instance",
+               "basis": "Friedman on the composite score is significant; this configuration has the highest mean composite score"}
+    return {"available": True, "title": COMPOSITE_LABEL, "supplementary": True,
+            "distinguished": rec is not None, "formula": "CS = 0.25*SU~ + 0.25*CSR~ + 0.25*(1-CC~) + 0.25*(1-Rob~); ~ = min-max across the four configurations within an instance; CC = (z_ET + z_PM)/2; Rob = sd of SU across runs within the instance",
             "csr_definition": PRIMARY_COMPLIANCE, "n_instances": len(instances),
             "mean_cs": mean_cs, "sd_cs": sd_cs, "components": comp, "ranking": ranking,
             "per_instance": details, "friedman": fr, "recommendation": rec,
-            "recommendation_note": None if rec else "no recommendation: the Friedman test on the composite score is not significant, so the ranking is not distinguishable from chance"}
+            "recommendation_note": None if rec else "no configuration distinguished: the Friedman test on the composite score is not significant"}
 def outcome_pattern(sp1, sp2_csr, configs):
     """Chapter 3 outcome pattern over the primary metrics: SU (SP1) and CSR over all boxes (SP2)."""
     metrics = {"SU": sp1, "CSR": sp2_csr}
@@ -730,7 +780,8 @@ def summary_lines(st):
     else:
         fr = cs["friedman"]
         L.append(f"composite: mean CS {cs['mean_cs']}; Friedman " + (f"chi2={fr['statistic']} p={fr['p']} sig={fr['significant']}" if fr.get("testable") else fr["reason"]))
-        L.append(f"   recommendation: {cs['recommendation'] or cs['recommendation_note']}")
+        top = cs['recommendation']
+        L.append(f"   {COMPOSITE_LABEL}: " + (f"highest mean composite score {top['label']} ({top['mean_cs']})" if top else cs['recommendation_note']))
     L.append(f"outcome pattern: {st['outcome']['pattern'] or '-'} - {st['outcome']['description']}")
     return L
 def main():

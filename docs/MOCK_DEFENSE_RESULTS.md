@@ -119,17 +119,18 @@ placed** (PASS).
 | | result |
 |---|---|
 | **SP1 (SU)** | repeated-measures ANOVA (Greenhouse-Geisser, ε = 0.5): F = 1276.96, p = 6.93e-13 — significant |
-| SP1 outperforms | Sequential outperforms DGWO; DGWO outperforms Repair-based; Sequential outperforms MOGWO; MOGWO outperforms Repair-based; Sequential outperforms Repair-based |
-| **SP2 (compliance over all boxes)** | H0 rejected: at least one Holm-corrected omnibus test is significant (CSR, C3, C4, C5) |
-| SP2 CSR | Friedman: Holm p = 0.0128; Repair-based outperforms Sequential |
+| SP1 pairs meeting the Chapter 3 conditions | Sequential significantly higher than DGWO; DGWO significantly higher than Repair-based; Sequential significantly higher than MOGWO; MOGWO significantly higher than Repair-based; Sequential significantly higher than Repair-based |
+| **SP2 (compliance over all boxes; family CSR, C3, C6)** | H0 rejected: at least one Holm-corrected omnibus test is significant (CSR, C3) |
+| SP2 CSR | Friedman: Holm p = 0.0128; Repair-based significantly higher than Sequential |
 | SP2 C6 | Holm p = 0.1357 — not significant |
 | **SP3** | Friedman within BR class: only BR4 has 2 instances in `sample8`; not significant there (Holm p = 0.289) |
-| **Composite** | mean CS MOGWO 3.36/5, DGWO 2.77/5, SEQ 2.58/5, REP 1.91/5; Friedman χ² = 8.85, p = 0.0314 → recommendation **MOGWO** |
+| **Composite** | mean CS MOGWO 3.36/5, DGWO 2.77/5, SEQ 2.58/5, REP 1.91/5; Friedman χ² = 8.85, p = 0.0314 (significant); supplementary — highest mean composite score MOGWO |
 | **Outcome pattern** | **D** — mixed results across metrics - a trade-off profile |
 
 C4 and C5 over all boxes equal the share of boxes placed (the decoder keeps
-both at 100 % of placed boxes), so their significant SP2 results say how many
-boxes each method loaded.
+both at 100 % of placed boxes), so they are reported descriptively and are not
+in the SP2 Holm family (Phase 2 item 4; before it, the family of 5 counted that
+one result twice).
 
 ## What PR #3 changed (pre-PR #3 → now, slide table and live demo)
 

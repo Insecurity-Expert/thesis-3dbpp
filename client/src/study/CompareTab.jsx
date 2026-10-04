@@ -1,12 +1,12 @@
-// client/src/study/CompareTab.jsx — "Want to know which method is actually
-// better?" Four sub-tabs (SP1 / SP2 / SP3 / composite) over a study's stats
+// client/src/study/CompareTab.jsx — "Do the configurations differ?" Four
+// sub-tabs (SP1 / SP2 / SP3 / supplementary composite) over a study's stats
 // block, plus a side-by-side view of saved single runs.
 import React, { useState, useMemo } from "react";
 import CustomLoadBanner, { customLoadOf, CustomLoadBadge, CUSTOM_LOAD_LABEL } from "../components/CustomLoadBanner";
 import { Section, Empty, DescriptivesTable, NormalityTable, OmnibusCard, PairsTable, ConfoundNote, cell, ConfigName } from "./StatsTables";
 import { ProvenanceStrip } from "./StudyResults";
 import LineChart from "./LineChart";
-import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, compositeSummary, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 
 const { th, td } = cell;
 
@@ -14,7 +14,7 @@ function SP1({ stats }) {
   const cmp = stats.SP1.comparison;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Section title="Result" desc="Is any method actually better at filling the container?">
+      <Section title="Result" desc="Do the configurations differ in how full the container gets?">
         <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-main)" }}>{sp1Summary(stats)}</p>
         <div style={{ marginTop: 10 }}><ConfoundNote stats={stats} /></div>
       </Section>
@@ -128,7 +128,7 @@ function SP3({ stats }) {
       <Section title="Do the methods differ within each class?" desc="Friedman test within each heterogeneity class (its test cases as subjects; at least 2 needed), Holm-corrected across time and memory.">
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Class</th><th style={th}>Test cases</th><th style={th}>Measure</th><th style={th}>Friedman χ²</th><th style={th}>Raw p</th><th style={th}>Holm-corrected p</th><th style={th}>Mean rank (1 = best)</th><th style={th}>Result</th></tr></thead>
+            <thead><tr><th style={th}>Class</th><th style={th}>Test cases</th><th style={th}>Measure</th><th style={th}>Friedman χ²</th><th style={th}>Raw p</th><th style={th}>Holm-corrected p</th><th style={th}>Mean rank (1 = lowest)</th><th style={th}>Result</th></tr></thead>
             <tbody>
               {prof.map((p) => ["ET", "PM"].map((m, mi) => {
                 const cmp = p.friedman[m];
@@ -167,23 +167,23 @@ function SP3({ stats }) {
 
 function Overall({ stats }) {
   const cs = stats.composite;
-  if (!cs.available) return <Empty title="No overall ranking for this study" text={`${cs.reason}.`} />;
+  if (!cs.available) return <Empty title="No composite ranking for this study" text={`${cs.reason}.`} />;
   const fr = cs.friedman;
   const configs = stats.configurations;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Section title="What we recommend" desc="Based on all the numbers — a recommendation exists only when the ranking passes the Friedman test.">
+      <Section title={COMPOSITE_TITLE} desc="Supplementary to SP1–SP3. When the Friedman test on the composite score is not significant, no configuration is distinguished.">
         <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-main)" }}>{compositeSummary(stats)}</p>
       </Section>
-      <Section title="Overall ranking" desc="Mean composite score (0–5) and mean rank across test cases. Lower rank = better.">
+      <Section title="Composite scores" desc="Mean composite score (0–5) and mean Friedman rank across test cases (rank 1 = highest score), in the fixed configuration order.">
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={th}>Method</th><th style={th}>Container full</th><th style={th}>Rules followed</th><th style={th}>Speed & memory</th><th style={th}>Consistency</th><th style={th}>Overall (0–5)</th><th style={th}>± sd</th><th style={th}>Mean rank</th></tr></thead>
             <tbody>
-              {cs.ranking.map((c) => {
+              {CONFIG_ORDER.filter((c) => cs.components[c]).map((c) => {
                 const k = cs.components[c];
                 return (
-                  <tr key={c} style={{ background: cs.recommendation && cs.recommendation.configuration === c ? "var(--primary-light)" : "transparent" }}>
+                  <tr key={c}>
                     <td style={{ ...td, fontWeight: 700 }}><ConfigName stats={stats} code={c} /></td>
                     <td style={td}>{fmt.num(k.SU_n * 5, 2)}</td><td style={td}>{fmt.num(k.CSR_n * 5, 2)}</td><td style={td}>{fmt.num((1 - k.CC_n) * 5, 2)}</td><td style={td}>{fmt.num((1 - k.Rob_n) * 5, 2)}</td>
                     <td style={{ ...td, fontWeight: 800 }}>{fmt.num(cs.mean_cs[c] * 5, 2)}</td>
@@ -217,11 +217,11 @@ function Overall({ stats }) {
           </table>
         </div>
       </Section>
-      <Section title="Are the rankings real?" desc="Friedman test on the composite score (test cases × 4 methods).">
+      <Section title="Friedman test on the composite score" desc="Test cases × 4 configurations.">
         {fr.testable ? (
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             <div className="stat-chip"><div className="stat-chip-label">Friedman χ²</div><div className="stat-chip-value" style={{ fontSize: 22 }}>{fmt.num(fr.statistic, 2)}</div><div className="stat-chip-sub">df = {fr.df.join(", ")} · {fr.blocks} test cases</div></div>
-            <div className="stat-chip"><div className="stat-chip-label">p</div><div className="stat-chip-value" style={{ fontSize: 22, color: fr.significant ? "var(--green)" : "var(--text-muted)" }}>{fmt.p(fr.p)}</div><div className="stat-chip-sub">{fr.significant ? "Yes — the rankings are real" : "No — not distinguishable from chance"}</div></div>
+            <div className="stat-chip"><div className="stat-chip-label">p</div><div className="stat-chip-value" style={{ fontSize: 22, color: fr.significant ? "var(--green)" : "var(--text-muted)" }}>{fmt.p(fr.p)}</div><div className="stat-chip-sub">{fr.significant ? "Significant" : "Not significant — no configuration distinguished"}</div></div>
           </div>
         ) : <p style={{ fontSize: 13, color: "var(--text-dim)" }}>{fr.reason}</p>}
         {fr.posthoc && (
@@ -292,7 +292,7 @@ const SUBTABS = [
   { id: "sp1", label: "Container full" },
   { id: "sp2", label: "Safety rules" },
   { id: "sp3", label: "Time & memory" },
-  { id: "overall", label: "Overall" },
+  { id: "overall", label: "Composite (supplementary)" },
   { id: "saved", label: "Saved runs side by side" },
 ];
 
@@ -303,8 +303,8 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h3 className="font-display" style={{ fontSize: 20, fontWeight: 600 }}>Want to know which method is actually better?</h3>
-          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>These tables show whether the differences are real or just luck. If you're new to this, start with "Overall".</span>
+          <h3 className="font-display" style={{ fontSize: 20, fontWeight: 600 }}>Do the configurations differ?</h3>
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>These tables show whether the differences are real or just luck. The composite ranking is supplementary to SP1–SP3.</span>
         </div>
         <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
       </div>

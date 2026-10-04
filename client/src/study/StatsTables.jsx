@@ -154,7 +154,7 @@ export function PairsTable({ stats, cmp, measureCode, valueFmt }) {
                   <td style={td}>{fmt.p(p.p)}</td>
                   <td style={{ ...td, color: p.significant ? "var(--green)" : "var(--text-dim)" }}>{p.significant ? "Yes" : "No"}</td>
                   <td style={td}>{effectPlain(p.effect)}{p.effect.practical ? "" : " — below threshold"}</td>
-                  <td style={{ ...td, fontWeight: 700, color: v.kind === "outperforms" ? "var(--primary)" : v.kind === "detectable" ? "var(--amber)" : "var(--text-dim)" }}>{v.text}</td>
+                  <td style={{ ...td, fontWeight: 700, color: v.kind === "significant" ? "var(--primary)" : v.kind === "detectable" ? "var(--amber)" : "var(--text-dim)" }}>{v.text}</td>
                 </tr>
               );
             })}
@@ -165,7 +165,7 @@ export function PairsTable({ stats, cmp, measureCode, valueFmt }) {
         {cmp.pairs.map((p) => <li key={p.a + p.b}>{pairSentence(stats, p, measureCode)}</li>)}
       </ul>
       <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>
-        A configuration "outperforms" another only when all three hold: the Holm-corrected post-hoc test is significant, the effect size reaches the threshold ({cmp.effect_size === "d_z" ? "|d_z| ≥ 0.5" : "|r| ≥ 0.3"}), and the direction favours it. "Statistically detectable but not practically meaningful" means the first holds and the second does not.
+        "X significantly higher than Y" (X has the higher mean) is shown only when Chapter 3's conditions all hold: the {cmp.pairs.length && cmp.pairs[0].omnibus_gate === "Holm-corrected omnibus test" ? "Holm-corrected omnibus test" : "omnibus test"} is significant, the Holm-corrected post-hoc test is significant, and the effect size reaches the threshold ({cmp.effect_size === "d_z" ? "|d_z| ≥ 0.5" : "|r| ≥ 0.3"}). "Statistically detectable but not practically meaningful" means the tests are significant and the effect size is below the threshold.
       </p>
     </div>
   );

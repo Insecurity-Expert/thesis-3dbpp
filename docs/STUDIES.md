@@ -11,7 +11,7 @@ treatment) can.
 | file | role |
 |---|---|
 | `experiments/study.py` | runs configurations × seeds × instances, one **fresh process per run** (numba warmed untimed; M-3 = wall-clock of `run()`, M-4 = process peak working set via psutil — `tracemalloc` is not used because it slows the optimizer ~4×), validates every arrangement with `tools/validate_arrangement.py`, writes one study file and its `.progress.json`, then calls `stats.py`. Each file records the git commit at the **start** (`commit`), the end commit, whether tracked files were modified at either point (`git.dirty_start` / `git.dirty_end`, warned on the console) and the numba / numpy / scipy / python versions (`versions`) |
-| `experiments/stats.py` | Chapter 3 statistics, repeated measures with instances as subjects: descriptives; SP1 and SP2 via Shapiro–Wilk on within-instance differences → RM-ANOVA (Mauchly, Greenhouse–Geisser, paired t, d_z) or Friedman (Wilcoxon, rank-biserial r); SP2 Holm across the testable measures with an explicit H₀ decision; SP3 Friedman within each BR class, Holm across ET and PM (serial studies only); composite score + Friedman/Nemenyi; outperformance (three conditions); outcome pattern A–D. Compliance over all boxes (`PRIMARY_COMPLIANCE = "all_boxes"`) is tested; over placed boxes is descriptive |
+| `experiments/stats.py` | Chapter 3 statistics, repeated measures with instances as subjects: descriptives; SP1 and SP2 via Shapiro–Wilk on within-instance differences → RM-ANOVA (Mauchly, Greenhouse–Geisser, paired t, d_z) or Friedman (Wilcoxon, rank-biserial r); SP2 on CSR, C3 and C6 with Holm across the testable ones (family of 3) and an explicit H₀ decision, C4 / C5 descriptive; SP3 Friedman within each BR class, Holm across ET and PM (serial studies only); supplementary composite ranking + Friedman/Nemenyi; outperformance (three conditions, reported in neutral wording); outcome pattern A–D. Compliance over all boxes (`PRIMARY_COMPLIANCE = "all_boxes"`) is tested; over placed boxes is descriptive |
 | `tools/test_stats.py` | acceptance checks for `stats.py` |
 | `server/studies.js` | `POST/GET /api/studies`, `/progress`, `/import`, `/available`, `/sizes` — detached jobs (not tied to the WebSocket), user-scoped, mirrored in the `db.js` mock |
 | `client/src/study/` | launcher + locked test settings, study Results view, Compare tab (SP1 / SP2 / SP3 / Overall / saved runs side by side); **every sentence is generated in `verdicts.js` from the stats block** |
@@ -60,18 +60,24 @@ imported automatically: a fresh database shows empty states everywhere.
   class needed), Holm-corrected across ET and PM. With `sample8` only BR4 has
   two instances; the 30-instance sample (4–5 per class) is what SP3 is
   designed for.
-* **Winner banner** only when the composite Friedman test is significant.
-  Otherwise the banner states the outcome pattern, or "Statistical tests need
-  ≥ 2 test cases" for a single-instance study.
-* **Outperforms** = significant omnibus AND significant Holm-corrected post-hoc
-  AND |d_z| ≥ 0.5 (or |r| ≥ 0.3) AND direction. Significant but below threshold = "statistically detectable
-  but not practically meaningful".
-* A measure constant across all configurations is *not testable — no
-  variance* and is excluded from the Holm family. Note that C4 and C5 are
-  100 % of placed boxes by construction (the decoder enforces them), so over
-  all boxes they equal the share of boxes placed: their SP2 tests measure how
-  many boxes each method loaded, not how well it protected fragile boxes or
-  kept boxes supported.
+* **Banner** states the Chapter 3 outcome pattern ("Statistical tests need
+  ≥ 2 test cases" for a single-instance study). The composite ranking is a
+  supplementary line: "Supplementary composite ranking (Chapter 3)", with the
+  highest mean composite score named only when its Friedman test is
+  significant, otherwise "no configuration distinguished". No configuration is
+  highlighted or recommended.
+* **Outperforms** (Chapter 3, computed unchanged) = significant omnibus AND
+  significant Holm-corrected post-hoc AND |d_z| ≥ 0.5 (or |r| ≥ 0.3) AND
+  direction. For SP2 the omnibus condition is the **Holm-corrected** omnibus
+  result. It is shown as "X significantly higher than Y on <measure>
+  (|effect|)", X being the configuration with the higher mean. Significant but
+  below threshold = "statistically detectable but not practically meaningful".
+* **SP2 family = CSR, C3, C6.** C4 and C5 are 100 % of placed boxes by
+  construction (the decoder enforces them), so over all boxes each equals the
+  share of boxes placed. They are reported descriptively ("decoder-enforced;
+  all-box value = share placed") and are not separate tests.
+* A family measure constant across all configurations is *not testable — no
+  variance* and is excluded from the Holm family.
 * **Preliminary** is shown whenever fewer than 30 instances or 30 runs per
   configuration were used.
 * The Sequential vs DGWO utilisation comparison carries the Chapter 3

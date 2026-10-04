@@ -90532,6 +90532,15 @@
     "C5",
     "C6"
    ],
+   "holm_family": [
+    "CSR",
+    "C3",
+    "C6"
+   ],
+   "descriptive_measures": [
+    "C4",
+    "C5"
+   ],
    "by_definition": {
     "placed": {
      "definition": "placed",
@@ -90943,8 +90952,9 @@
       "C4": {
        "measure": "C4",
        "label": "C4 fragility compliance (%)",
-       "lower_is_better": false,
-       "n_instances": 1,
+       "descriptive_only": true,
+       "decoder_enforced": true,
+       "equals_share_placed": true,
        "descriptives": {
         "DGWO": {
          "n": 30,
@@ -90979,34 +90989,28 @@
          "max": 37.2093
         }
        },
-       "instance_means": {
-        "DGWO": 69.6641,
-        "MOGWO": 67.8811,
-        "SEQ": 69.6124,
-        "REP": 31.4987
-       },
        "normality": {
         "basis": "within-instance differences",
         "pairs": [],
         "all_normal": false
        },
        "all_normal": false,
+       "pairs": [],
        "omnibus": {
         "testable": false,
-        "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
         "significant": false,
         "p": null,
         "p_holm": null,
         "significant_holm": false,
-        "holm_family_size": 0
-       },
-       "pairs": []
+        "reason": "decoder-enforced; all-box value = share placed"
+       }
       },
       "C5": {
        "measure": "C5",
        "label": "C5 stability compliance (%)",
-       "lower_is_better": false,
-       "n_instances": 1,
+       "descriptive_only": true,
+       "decoder_enforced": true,
+       "equals_share_placed": true,
        "descriptives": {
         "DGWO": {
          "n": 30,
@@ -91041,28 +91045,21 @@
          "max": 37.2093
         }
        },
-       "instance_means": {
-        "DGWO": 69.6641,
-        "MOGWO": 67.8811,
-        "SEQ": 69.6124,
-        "REP": 31.4987
-       },
        "normality": {
         "basis": "within-instance differences",
         "pairs": [],
         "all_normal": false
        },
        "all_normal": false,
+       "pairs": [],
        "omnibus": {
         "testable": false,
-        "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
         "significant": false,
         "p": null,
         "p_holm": null,
         "significant_holm": false,
-        "holm_family_size": 0
-       },
-       "pairs": []
+        "reason": "decoder-enforced; all-box value = share placed"
+       }
       },
       "C6": {
        "measure": "C6",
@@ -91264,8 +91261,9 @@
      "C4": {
       "measure": "C4",
       "label": "C4 fragility compliance (%)",
-      "lower_is_better": false,
-      "n_instances": 1,
+      "descriptive_only": true,
+      "decoder_enforced": true,
+      "equals_share_placed": true,
       "descriptives": {
        "DGWO": {
         "n": 30,
@@ -91300,34 +91298,28 @@
         "max": 37.2093
        }
       },
-      "instance_means": {
-       "DGWO": 69.6641,
-       "MOGWO": 67.8811,
-       "SEQ": 69.6124,
-       "REP": 31.4987
-      },
       "normality": {
        "basis": "within-instance differences",
        "pairs": [],
        "all_normal": false
       },
       "all_normal": false,
+      "pairs": [],
       "omnibus": {
        "testable": false,
-       "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
        "significant": false,
        "p": null,
        "p_holm": null,
        "significant_holm": false,
-       "holm_family_size": 0
-      },
-      "pairs": []
+       "reason": "decoder-enforced; all-box value = share placed"
+      }
      },
      "C5": {
       "measure": "C5",
       "label": "C5 stability compliance (%)",
-      "lower_is_better": false,
-      "n_instances": 1,
+      "descriptive_only": true,
+      "decoder_enforced": true,
+      "equals_share_placed": true,
       "descriptives": {
        "DGWO": {
         "n": 30,
@@ -91362,28 +91354,21 @@
         "max": 37.2093
        }
       },
-      "instance_means": {
-       "DGWO": 69.6641,
-       "MOGWO": 67.8811,
-       "SEQ": 69.6124,
-       "REP": 31.4987
-      },
       "normality": {
        "basis": "within-instance differences",
        "pairs": [],
        "all_normal": false
       },
       "all_normal": false,
+      "pairs": [],
       "omnibus": {
        "testable": false,
-       "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
        "significant": false,
        "p": null,
        "p_holm": null,
        "significant_holm": false,
-       "holm_family_size": 0
-      },
-      "pairs": []
+       "reason": "decoder-enforced; all-box value = share placed"
+      }
      },
      "C6": {
       "measure": "C6",

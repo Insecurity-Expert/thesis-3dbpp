@@ -200,3 +200,47 @@ Key hunk (study.py):
 - `tools/test_sample_guard.py`: **PASS, 11 / 11**. The guard refuses the deprecated file, a `*DEPRECATED*` name with valid content, and a `"deprecated": true` flag under any name. The CLI exits non-zero without writing a study file. The thesis sample equals a fresh `sampling.py` draw (same ids, same order). Demo 350 is outside it and matches the pipeline (129 boxes, 3 types, 33 fragile).
 - Live server check (scratch database): `/api/instances` returns 31 entries. The first is 350 with the demo label, `demo: true`, `in_study_sample: false`. 350 appears once, and `study_sample_count` is 30.
 - `tools/test_reference_hashes.py` **PASS 8 / 8**. test_custom_load, test_custom_load_aliases, test_study_provenance and test_run_settings: PASS. `ready_made_samples()` runs (4 samples).
+
+---
+
+## Item 4 - Stats fixes (SP2 family of 3, Holm-gated verdicts, neutral presentation)
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `experiments/stats.py` | `SP2_FAMILY = ("CSR", "C3", "C6")`. C4 and C5 on the primary definition become descriptive entries (`descriptive_only`, `decoder_enforced`, `equals_share_placed`, reason "decoder-enforced; all-box value = share placed"). Holm runs over the family only. New `apply_verdicts(cmp, omnibus_significant, gate)` sets each pair's `significant`, `outperforms` and verdict; SP1 and SP3 call it with the raw omnibus result (unchanged behaviour), SP2 calls it again with the **Holm-corrected** omnibus result. Neutral verdict text "X significantly higher than Y on <measure> (\|effect\| = …, magnitude)", X = higher mean (new field `higher`). Composite gains `title` "Supplementary composite ranking (Chapter 3)", `supplementary`, `distinguished`; its note reads "no configuration distinguished: …". **Kept unchanged:** every test, effect size, threshold, the composite formula / Friedman / Nemenyi, the `outperforms` computation and the JSON key `recommendation` (stored files, the server list and test_recommend read it) | +82 / -31 |
+| `tools/test_stats.py` | the old C4 check asserted C4 was a tested measure; it now asserts the descriptive entry. New section 12a: family = (CSR, C3, C6), Holm family size 3, C4 / C5 descriptive and equal to the share placed, every significant SP2 pair has a significant Holm-corrected omnibus, `apply_verdicts` on a fabricated pair (gate not passed → no verdict; gate passed → exact neutral text), no "outperforms" in any verdict text; composite title, `distinguished` and the new note | +43 / -5 |
+| `experiments/results/studies/studyA_…json`, `studyB_…json` | `stats` block re-attached with the new stats.py (`python experiments/stats.py <file>`). **No run was repeated; everything outside `stats` is byte-for-byte equal** | A +33 / -48, B +760 / -1560 (the removed C4 / C5 test blocks) |
+| `client/src/study/verdicts.js` | `pairVerdict` → kind `significant`, text "X significantly higher than Y" (falls back to the means for stats without `higher`). Sentences give \|effect\|. The gate text comes from `omnibus_gate`. SP1: "No significant difference in container fill between the configurations". SP2 names C4 / C5 as descriptive, outside the family. SP3 "(rank 1 = lowest)" instead of "(lower is better)". `compositeSummary` lists scores in the fixed configuration order and ends "no configuration distinguished" when Friedman is not significant; when it is significant, "Highest mean composite score: X" plus which pairs Nemenyi separates. `outcomeBanner` has no "winner" kind; its title is "Outcome pattern <A–D> (Chapter 3)" and the composite is a supplementary sentence | +53 / -38 |
+| `client/src/study/StudyResults.jsx` | banner: no trophy, no "Recommendation", no highlight. Composite table titled "Supplementary composite ranking (Chapter 3)", fixed configuration order, rank column kept, no "recommended" badge or row highlight, no "Higher is better" | +13 / -14 |
+| `client/src/study/CompareTab.jsx` | headings: "Do the configurations differ?". The "What we recommend" section becomes the supplementary composite. "Lower rank = better" / "1 = best" replaced with neutral rank wording. Friedman chip reads "Significant" / "Not significant — no configuration distinguished". Tab label "Composite (supplementary)" | +15 / -15 |
+| `client/src/study/StatsTables.jsx` | colour key follows the new kind; the explanatory note describes the conditions, including the Holm gate for SP2 | +2 / -2 |
+| `client/src/study/StudyLauncher.jsx` | study list no longer appends "· rec. X" | +1 / -1 |
+| `docs/STUDIES.md`, `docs/MOCK_DEFENSE_RESULTS.md` | describe the family of 3, the Holm gate, the neutral wording, and Study B's updated SP2 decision | +26 / -19 |
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer behaviour | none: no optimizer file touched | - | - | reference hashes 8 / 8 |
+| Study validity | stored stats blocks are recomputed (re-analysis, not a rerun). Study B's SP2 decision changes from "rejected (CSR, C3, C4, C5)" to "rejected (CSR, C3)". The Holm p-values for CSR (0.0128), C3 and C6 (0.1357) are the same numbers as before: C4 and C5 sat at the top of the old ordering, so dropping them leaves the multipliers of the others unchanged. No pair verdict, SP1 / SP3 number, composite number or outcome pattern changed (checked field by field) | - | low | the before / after comparison is recorded below |
+| Manuscript | Chapter 3 must state the SP2 family as {CSR, C3, C6}, with C4 / C5 reported descriptively (decoder-enforced; all-box value = share placed), and that SP2 pairwise conclusions require the Holm-corrected omnibus test. **Section to edit:** the SP2 paragraph of "Statistical Treatment" that lists the compliance measures tested with Holm (I don't have the manuscript text to quote; please paste it if you want exact wording) | certain | medium | wording in docs/STUDIES.md can be reused |
+| Statistics | family size 5 → 3 (less conservative for CSR / C3 / C6 in general; identical values on Study B). SP2 pairs need the Holm-corrected omnibus result (more conservative). Tests, effect sizes (ES-1 d_z, ES-2 Kerby r), thresholds and the composite are unchanged | - | medium | test_stats 12a |
+| Timing (SP3) | none | - | - | - |
+| UI | Technical details (StudyResults, CompareTab, StatsTables) and the study list wording change. **Not changed (item 7):** the Results page cards and the Loading Guide, which still use recommend.py's per-load composite and "Recommended" badge | certain | low | build compiles with no warnings; Jest 12 / 12; the actual sentences for Study A and B were rendered with verdicts.js and read back (below) |
+| Older stats files | a study file analysed before this change has no `higher`, `omnibus_gate` or `title` fields | low | low | verdicts.js falls back (higher from the means, generic gate text) |
+| Reversibility | `git revert`; then rerun `python experiments/stats.py` on the two study files | - | - | - |
+
+### C. Verification
+
+- `tools/test_stats.py`: **PASS** (including the 11 new checks in 12a).
+- Study A / B re-analysis: everything outside `stats` is identical. In Study B, SP1, SP3, the outcome pattern and the composite numbers are identical once the new text fields are ignored, and no SP2 pair changed `significant` or `outperforms`.
+- Rendered UI text for Study B (verdicts.js on the stored stats): banner "Outcome pattern D (Chapter 3)"; SP1 "Sequential significantly higher than DGWO (|d_z| = 1.84, large); …"; SP2 "… C4 and C5 are reported descriptively, outside the Holm family … differ on overall rule compliance, weight limit on each box (C3)"; composite "… (significant). Highest mean composite score: MOGWO, 3.36 / 5. Nemenyi separates it from Repair-based. Nemenyi does not separate it from DGWO and Sequential."
+- Full suite: test_reference_hashes **8 / 8**, test_geometry 89, test_recommend, test_sample_guard, test_study_provenance, test_run_settings, test_custom_load, test_custom_load_aliases, test_determinism, pytest test_pipeline 31: all PASS. Client: `react-scripts build` compiles with no warnings; **Jest 12 / 12** (run with `PYTHON` set to the venv; the guide test calls Python).
+
+### Left as is (outside the agreed item; flagging only)
+
+- **SP3 pair verdicts** are still gated on the raw per-class Friedman result, not on the Holm (ET, PM) result. Gating them too would be consistent with SP2; say if you want it.
+- The **outcome-pattern descriptions** in stats.py are Chapter 3's definitions ("both hybrids outperform both baselines …") and are shown as written.
+- `server/studies.js` still sends the composite's top configuration as `recommendation` in the study list. The UI no longer displays it.
