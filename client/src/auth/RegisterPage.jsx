@@ -1,7 +1,8 @@
 // client/src/auth/RegisterPage.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { authApi } from "../services/api";
 import logoImg from "../logo.png";
 
 const ROLES = [
@@ -17,6 +18,13 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("researcher");
+  const [questions, setQuestions] = useState([]);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+
+  useEffect(() => {
+    authApi.recoveryQuestions().then((r) => setQuestions(r.questions || [])).catch(() => setQuestions([]));
+  }, []);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,10 +34,14 @@ export default function RegisterPage() {
       setErr("Please fill in all fields.");
       return;
     }
+    if (!question || !answer.trim()) {
+      setErr("Choose a recovery question and type your answer. It lets you reset your password if you forget it.");
+      return;
+    }
     setErr("");
     setLoading(true);
     try {
-      await register({ email, name, password, role });
+      await register({ email, name, password, role, recovery_question: question, recovery_answer: answer });
       nav("/app");
     } catch (e) {
       setErr(e.message);
@@ -126,6 +138,24 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="reg-question">Recovery question</label>
+            <select id="reg-question" className="form-input" style={{ paddingLeft: 12 }} value={question}
+                    onChange={(e) => setQuestion(e.target.value)} required>
+              <option value="">Choose a question…</option>
+              {questions.map((q) => <option key={q} value={q}>{q}</option>)}
+            </select>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: "20px" }}>
+            <label className="form-label" htmlFor="reg-answer">Answer</label>
+            <input id="reg-answer" className="form-input" style={{ paddingLeft: 12 }} type="text" autoComplete="off"
+                   value={answer} onChange={(e) => setAnswer(e.target.value)} required />
+            <div style={{ fontSize: 11.5, color: "var(--text-dim)", marginTop: 6, textAlign: "left" }}>
+              Used only for "Forgot password". Capital letters and extra spaces don't matter.
             </div>
           </div>
 

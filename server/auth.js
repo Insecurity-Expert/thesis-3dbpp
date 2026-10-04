@@ -3,6 +3,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("./db");
+const accounts = require("./accounts");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-me";
@@ -28,9 +29,13 @@ function authRequired(req, res, next) {
 }
 
 router.post("/register", (req, res) => {
-  const { email, name, password, role } = req.body || {};
+  const { name, password, role, recovery_question, recovery_answer } = req.body || {};
+  // Stored trimmed and lower-cased, so "Lydia@Example.com " signs in as lydia@example.com.
+  const email = accounts.normEmail((req.body || {}).email);
   if (!email || !name || !password)
     return res.status(400).json({ error: "email, name, password required" });
+  if (!accounts.RECOVERY_QUESTIONS.includes(recovery_question) || !accounts.normAnswer(recovery_answer))
+    return res.status(400).json({ error: "choose a recovery question and give an answer (used for Forgot password)" });
   const exists = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (exists) return res.status(409).json({ error: "Email already registered" });
 
@@ -38,6 +43,11 @@ router.post("/register", (req, res) => {
   const info = db
     .prepare("INSERT INTO users (email, name, role, pass_hash) VALUES (?,?,?,?)")
     .run(email, name, role || "researcher", hash);
+  db.mutate((data) => {
+    const u = data.users.find((x) => x.id === info.lastInsertRowid);
+    u.recovery_question = recovery_question;
+    u.recovery_answer_hash = accounts.hashAnswer(recovery_answer);   // bcrypt; the answer itself is never stored
+  });
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
 
   res
@@ -48,14 +58,34 @@ router.post("/register", (req, res) => {
 
 router.post("/login", (req, res) => {
   const { email, password } = req.body || {};
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-  if (!user || !bcrypt.compareSync(password, user.pass_hash))
+  // Normalised email; if two old accounts differ only by case, the one whose
+  // password matches signs in.
+  const user = accounts.findForLogin(email, password);
+  if (!user)
     return res.status(401).json({ error: "Wrong email or password" });
 
   res
     .cookie(COOKIE, sign(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 864e5 })
     .json({ id: user.id, email: user.email, name: user.name, role: user.role, howto_hidden: !!user.howto_hidden,
             howto_auto_shown: user.howto_auto_shown !== false });
+});
+
+// ── Forgot password (recovery question; no email needed) ────────────────────
+router.get("/recovery-questions", (req, res) => {
+  res.json({ questions: accounts.RECOVERY_QUESTIONS });
+});
+
+router.post("/forgot/question", (req, res) => {
+  const q = accounts.recoveryQuestion((req.body || {}).email);
+  if (!q) return res.status(404).json({ error: accounts.NO_QUESTION });
+  res.json({ question: q });
+});
+
+router.post("/forgot/reset", (req, res) => {
+  const { email, answer, new_password } = req.body || {};
+  const r = accounts.resetWithAnswer(email, answer, new_password);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json({ ok: true });
 });
 
 router.post("/logout", (req, res) => {

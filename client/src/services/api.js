@@ -64,6 +64,17 @@ export const authApi = {
     });
   },
 
+  // Forgot password: recovery question set at registration (no email needed)
+  async recoveryQuestions() {
+    return request("/api/auth/recovery-questions");
+  },
+  async forgotQuestion(email) {
+    return request("/api/auth/forgot/question", { method: "POST", body: JSON.stringify({ email }) });
+  },
+  async forgotReset(email, answer, new_password) {
+    return request("/api/auth/forgot/reset", { method: "POST", body: JSON.stringify({ email, answer, new_password }) });
+  },
+
   async setPrefs(prefs) {
     return request("/api/auth/me/prefs", { method: "PATCH", body: JSON.stringify(prefs) });
   },

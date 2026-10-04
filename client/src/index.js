@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import LoginPage from "./auth/LoginPage";
 import RegisterPage from "./auth/RegisterPage";
+import ForgotPasswordPage from "./auth/ForgotPasswordPage";
 import Shell from "./Shell";
 import { ToastProvider } from "./components/ui";
 import LandingPage from "./LandingPage";
@@ -23,6 +24,7 @@ root.render(
         <Route path="/" element={<LandingPage />} /> 
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/app" element={<Protected><ToastProvider><Shell /></ToastProvider></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

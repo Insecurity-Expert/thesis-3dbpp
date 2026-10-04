@@ -313,3 +313,57 @@ Study A has no SP3 (parallel timing), so its file is unchanged.
 
 - `tools/test_stats.py` PASS (2 new checks). `tools/test_reference_hashes.py` **8 / 8**. `tools/test_recommend.py` PASS.
 - Study B before vs after: runs identical; every stats block except SP3 identical; no SP3 pair changed `significant` or `outperforms`.
+
+---
+
+## Item 6 - Auth: database guard, email normalisation, demo seed, forgot password, admin reset
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `server/db.js` | **Guard:** a file that exists but cannot be read, cannot be parsed, or has no `users` / `runs` lists now throws `DbLoadError` (the request fails with the reason); nothing is written. Previously it returned an empty database, which the next write saved over every account and run. **Backup:** before every write the current file is copied to `<file>.bak`. **Atomic write:** write to `<file>.tmp`, then rename; if Windows refuses the rename, write in place (the backup was just made). The `email` lookups compare trimmed, lower-cased emails. New `read` / `mutate` / `normEmail` exports. The data directory is created only for the file actually used | +61 / -13 |
+| `server/accounts.js` | new: `migrateEmails` (one-time, idempotent; case-only duplicates are reported and left alone, not merged), `seedDemoAccount` (keyed on the normalised email; `STACKR_DEMO_EMAIL` default `admin@gmail.com`, `STACKR_DEMO_PASSWORD` default `stackr-demo`; never overwrites an existing account), `findForLogin` (tries every account with the normalised email), the recovery question list, `resetWithAnswer` (bcrypt-hashed answer compared case- and space-insensitively; 5 wrong answers lock that email for 15 minutes, in memory), `adminReset` | +138 / 0 |
+| `server/auth.js` | register stores the normalised email and requires a recovery question from the list plus an answer (stored only as a bcrypt hash). Login uses `findForLogin`. New routes `GET /recovery-questions`, `POST /forgot/question`, `POST /forgot/reset` | +33 / -3 |
+| `server/index.js` | at startup, `migrateEmails()` then `seedDemoAccount()` (an unreadable database is reported and left untouched; the server still starts). A JSON error handler, so a database error reaches the UI as a message rather than an HTML stack trace | +18 / 0 |
+| `server/reset-password.js` | new admin CLI: `node server/reset-password.js <email> [--password <pw>]`, which prints a temporary password when none is given and refuses when several accounts share the email | +35 / 0 |
+| `client/src/auth/RegisterPage.jsx` | recovery question select + answer, required, with a hint | +32 / -2 |
+| `client/src/auth/LoginPage.jsx` | "Forgot password?" link | +4 / 0 |
+| `client/src/auth/ForgotPasswordPage.jsx` | new: email → question → answer + new password (twice) → done. For an account without a question it shows the admin-reset message | +115 / 0 |
+| `client/src/index.js`, `client/src/services/api.js` | `/forgot-password` route; three API calls | +13 / 0 |
+| `tools/test_auth.js` | new Node test (37 checks) against the real router and a scratch database | +164 / 0 |
+| `README.md` | accounts paragraph; test line | +13 / 0 |
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer / studies / statistics / SP3 timing | none: no optimizer, experiment or stats file touched | - | - | reference hashes 8 / 8 |
+| Manuscript | none (tool feature, not methodology) | - | - | - |
+| Existing accounts | the first start migrates stored emails to lower case; accounts that differ only by case are left as they are and still sign in (the one whose password matches) | low | low | migration tested (normalise, idempotent, collision) |
+| Existing accounts without a recovery question | they cannot use Forgot password | certain | low | the page says to use the admin reset; `server/reset-password.js` covers it. Optional follow-up: let a signed-in user set a question in Account settings |
+| Account enumeration | `/forgot/question` reveals that an account with a question exists (unknown email and no question give the same message) | certain | low (local tool) | 5-attempt lock per email; answers bcrypt-hashed |
+| Lockout is in memory | a server restart clears it | - | low | acceptable for a local tool |
+| Known demo password | anyone at the machine can sign in as the demo account | certain | low | set `STACKR_DEMO_PASSWORD` on the defense machine; the seed never changes an existing account's password |
+| Windows file locks | rename can fail while another process has the file open | low | low | falls back to an in-place write after the backup |
+| Database errors now surface | a corrupt file used to "work" (as an empty database, then wiped it); it now returns errors until restored from `.bak` | intended | - | the error message names the `.bak` file |
+| UI and tests | Register, Sign in, the new Forgot password page | - | - | build compiles with no warnings; Jest 12 / 12; browser walkthrough below |
+| Reversibility | `git revert`. Migrated emails stay lower-case, which the old code would then require users to type exactly | - | low | - |
+
+### C. Verification
+
+- `node tools/test_auth.js`: **PASS, 37 / 37**. Covers:
+  - normalised register and sign-in (three spellings);
+  - 409 on a case variant; question required; answer stored only as a hash;
+  - migration (normalise, idempotent, collision kept and signs in);
+  - demo seed (creates, idempotent, skips a case-variant existing account, env vars used);
+  - forgot password (question, wrong answer 401, right answer with other case and spacing resets, old password rejected, lock after 5);
+  - admin message for no question / unknown email, and the admin CLI;
+  - database guard (backup equals the pre-write file, no tmp left, a corrupt file gives a 500 and stays byte-identical, sign-in on a corrupt file fails rather than succeeding on empty data, the startup seed refuses to write over it, a file without lists is refused).
+- **Browser walkthrough** (real server + dev client, scratch database, Playwright/Chromium):
+  - register "  Lydia@Example.COM " and sign in as "lydia@example.com";
+  - Forgot password: a wrong answer shows "The answer does not match.", then "  quezon city " resets it and the new password signs in;
+  - the demo account (seeded at server start) signs in;
+  - its Forgot password shows the admin-reset message.
+  - Screenshots checked for layout.
+- `tools/test_reference_hashes.py` **8 / 8**; `tools/test_run_settings.py` PASS; client build OK; Jest 12 / 12.

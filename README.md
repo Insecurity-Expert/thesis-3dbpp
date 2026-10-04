@@ -79,6 +79,18 @@ npm install
 npm start
 ```
 
+**Accounts.** Accounts live in `server/data/db_mock.json` on the server
+machine (not in git). On start the server creates a demo account if it is
+missing: `admin@gmail.com` / `stackr-demo`, or `STACKR_DEMO_EMAIL` /
+`STACKR_DEMO_PASSWORD` if set. Emails are matched trimmed and lower-cased.
+Registration asks for a recovery question, which "Forgot password?" on the
+sign-in page uses (5 wrong answers lock it for 15 minutes). For an account
+with no recovery question, reset it on the server machine:
+`node server/reset-password.js <email>` (prints a temporary password) or
+`... <email> --password <new>`. Before every write the database is copied to
+`db_mock.json.bak`; if the file cannot be read, requests fail and nothing is
+written. Restore from the `.bak` copy.
+
 In the app: pick a wtpack instance, a configuration and a preset
 (Quick = pop 10 × 60 iterations, Standard = 10 × 300, Full = 30 × 500), set
 the seed, and run. The Results tab shows the metrics, the parameters the
@@ -105,6 +117,7 @@ python tools/test_determinism.py    # same seed -> same hash, different seed -> 
 python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
 python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions
 python tools/test_sample_guard.py       # study.py refuses deprecated samples; the demo instance is outside the study sample
+node tools/test_auth.js                 # emails, demo seed, forgot password, admin reset, database guard (needs server/npm install)
 python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (31 tests)
 python tools/test_stats.py          # the Chapter 3 statistics (repeated measures) against hand-checked values
 python tools/compare_validators.py experiments/results/slide_i350_s1.json   # independent validator vs the optimizer's evaluator

@@ -7,6 +7,7 @@ const readline  = require("readline");
 const WebSocket = require("ws");
 const cookieParser = require("cookie-parser");
 const { router: authRouter, userFromCookieHeader } = require("./auth");
+const accounts  = require("./accounts");
 const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
 const { CAL, calibratedArgs } = require("./runSettings");
@@ -293,6 +294,23 @@ app.get("/api/instances", (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+// A request that hits a database error (e.g. an unreadable db file, see
+// db.js) answers with the message as JSON instead of an HTML stack trace.
+app.use((err, req, res, next) => {   // eslint-disable-line no-unused-vars
+  console.error("request failed:", err.message);
+  res.status(500).json({ error: err.message });
+});
+
+// Accounts: normalise stored emails once, and make sure the demo account
+// exists (server/accounts.js). A database that cannot be read is reported and
+// left untouched; the server still starts.
+try {
+  accounts.migrateEmails();
+  accounts.seedDemoAccount();
+} catch (e) {
+  console.error(`\u26A0\uFE0F  accounts not checked: ${e.message}`);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
