@@ -100,7 +100,7 @@ The demo runbook is [docs/DEMO.md](docs/DEMO.md).
 
 ```bash
 python tools/demo_check.py          # DGWO Quick seed 42 on instance 350 reproduces the stored reference exactly
-python tools/test_geometry.py       # 89 geometry / constraint / decoder / repair checks, compiled == reference
+python tools/test_geometry.py       # 92 geometry / constraint / decoder / repair checks, compiled == reference
 python tools/test_determinism.py    # same seed -> same hash, different seed -> different hash
 python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
 python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions

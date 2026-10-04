@@ -2,10 +2,51 @@
 
 ## Summary (read this first)
 
-**Status: stopped at item 3 (ambiguity). Items 1 and 2 are committed. Items 3, 4 and 5 are not started. Nothing pushed, no branch deleted.**
+**Status: items 1-5 done, each a separate commit, all pushed to
+`origin/ccr-404428c3-7wury8` only. No stop condition was hit after item 3's
+decision. No PR, no merge, no branch deleted. Items 6+ (auth, Results / Loading
+Guide, greedy, race lanes) not started.**
 
 | Item | Commit | Result |
 |---|---|---|
+| 1 Determinism-reference test | `d739e68` | done |
+| 2 Commit recording (start / end / dirty) + numba pin 0.68.0 | `82d7f83` | done |
+| - log: stopped at item 3 for a decision | `67a2827` | your answer: option 1 |
+| 3 sample30 cleanup (option 1) | `21aacf0` | done |
+| 4 Stats fixes + neutral presentation | `bd0bcbc` | done; Study A / B stats blocks re-attached (analysis only) |
+| 5 Port the wip assertion | this commit | done; it was a *weaker* existing check, now strengthened; branch kept |
+
+**Hash check:** `tools/test_reference_hashes.py` passes **8 / 8 after every
+commit**. DGWO, MOGWO, SEQ and REP at seeds 1 and 42 on instance 350 are
+byte-identical to bbed351 / 3f4392b. No optimizer file was touched and no
+study was rerun.
+
+**Tests (final state)** (Python 3.11.15, numba 0.68.0): test_reference_hashes
+8 / 8, test_geometry 92, test_stats (with the new SP2 / Holm-gate / neutral-text
+checks), test_recommend, test_sample_guard 11, test_study_provenance 13,
+test_run_settings, test_custom_load 62, test_custom_load_aliases,
+test_determinism, pytest test_pipeline 31: **all PASS**. Client:
+`react-scripts build` compiles with no warnings; **Jest 12 / 12** (the guide
+test needs `PYTHON` pointing at an interpreter with numpy).
+
+**Needs you:**
+1. **Manuscript (Chapter 3, Statistical Treatment, SP2).** State the family as
+   {CSR, C3, C6}, C4 / C5 reported descriptively, and that SP2 pairwise
+   conclusions require the Holm-corrected omnibus test. Study B's SP2 decision
+   is now "rejected (CSR, C3)", with the same Holm p-values as before.
+2. **SP3 pair verdicts** are still gated on the raw per-class Friedman result,
+   not the Holm (ET, PM) result. Say if you want them gated like SP2.
+3. **numba pin:** after `pip install -r requirements.txt` on the laptop (0.62.1
+   → 0.68.0), run `python tools/test_reference_hashes.py` there.
+4. `wip/align-with-manuscript` can now be deleted (its content is superseded or
+   ported) once you say so.
+5. The Results cards and Loading Guide still show recommend.py's per-load
+   "Recommended" badge; that is item 7.
+
+**Also noted (not changed):** `docs/MOCK_DEFENSE_RESULTS.md` parameter table says
+R_max = 3 and stop_seed = run seed; the code has R_MAX = 5 and stop seed 42.
+
+---|---|---|
 | 1 Determinism-reference test | `d739e68` | done |
 | 2 Commit recording + numba pin | `82d7f83` | done |
 | 3 sample30 cleanup | - | **stopped, needs your decision (below)** |
@@ -244,3 +285,42 @@ Key hunk (study.py):
 - **SP3 pair verdicts** are still gated on the raw per-class Friedman result, not on the Holm (ET, PM) result. Gating them too would be consistent with SP2; say if you want it.
 - The **outcome-pattern descriptions** in stats.py are Chapter 3's definitions ("both hybrids outperform both baselines …") and are shown as written.
 - `server/studies.js` still sends the composite's top configuration as `recommendation` in the study list. The UI no longer displays it.
+
+---
+
+## Item 5 - Port the wip assertion (branch NOT deleted)
+
+### Finding first
+
+The Phase 1 review said HEAD had dropped the wip assertion "heaviest box (2) no
+longer above box 0". It hadn't: HEAD has a check with that name, but a
+**weaker** one. HEAD's stack case (`_b3`) passes if box 2 was *deferred*
+(`2 not in _pl3 or …`) and only requires R1 to have acted at all. The wip
+version (1bcefe9) required heaviest-first **relocation** with free floor:
+nothing deferred, all three boxes still placed, and box 2 itself off box 0.
+That stronger behaviour is what was missing, so that is what I ported. HEAD
+already covers the wip branch's other repair checks (R1 defer, R2 relocate, R3
+removal into the unpacked list) with equal or stricter assertions.
+
+### A. Diff
+
+| File | Change | + / - |
+|---|---|---|
+| `tools/test_geometry.py` | three checks added to the existing stack case (`_b3`): "stack: R1 deferred nothing", "stack: all three boxes still placed", "stack: heaviest box (2) relocated off box 0" (the wip condition, without the deferral escape); comment cites 1bcefe9 | +7 / 0 |
+| `README.md` | geometry check count 89 → 92 | +1 / -1 |
+
+### B. Risk assessment
+
+| Area | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| Optimizer behaviour | none: test only; repair.py untouched | - | - | reference hashes 8 / 8 |
+| Study validity / manuscript / statistics / timing | none | - | - | - |
+| Tests | the new checks pin the current relocation behaviour; a future repair change that defers instead would now fail here, which is intended | - | - | - |
+| Branch | `wip/align-with-manuscript` left in place, as instructed. Its only unique content (1bcefe9) is now either superseded (stats.py, test_pipeline, sampling.py by edcc4a6) or ported (this item), so it can be deleted once you approve | - | - | - |
+| Reversibility | `git revert` | - | - | - |
+
+### C. Verification
+
+- `tools/test_geometry.py`: **PASS, 92 / 92** (the 3 new checks pass on the current repair code).
+- `tools/test_reference_hashes.py`: **PASS 8 / 8**.
+- `origin/wip/align-with-manuscript` is still at 1bcefe9 (not deleted).

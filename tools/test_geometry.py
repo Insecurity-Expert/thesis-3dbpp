@@ -283,6 +283,13 @@ st3 = repair_arrangement(_pl3, _or3, _un3, _b3, _rc)
 check("R1 acted on the overloaded stack", st3['relocated_R1'] + st3['deferred_R1'] >= 1, True)
 check("heaviest box (2) no longer above box 0",
       2 not in _pl3 or _pl3[2][2] == 0 or _pl3[2][0] >= 10 or _pl3[2][1] >= 10, True)
+# Ported from wip/align-with-manuscript (1bcefe9): with free floor the stack is
+# fixed by RELOCATION, heaviest first, so nothing is deferred and box 2 itself
+# (not only "box 2 or deferral") ends up off box 0.
+check("stack: R1 deferred nothing", st3['deferred_R1'], 0)
+check("stack: all three boxes still placed", len(_pl3), 3)
+check("stack: heaviest box (2) relocated off box 0",
+      _pl3[2][2] == 0 or _pl3[2][0] >= 10 or _pl3[2][1] >= 10, True)
 check("post-repair S == 100 (overload)", evaluate_constraints(_pl3, _b3, _or3)[0], 100.0)
 
 # R2 stop order: a stop-2 box between a stop-1 box and the rear door (y = 0)
