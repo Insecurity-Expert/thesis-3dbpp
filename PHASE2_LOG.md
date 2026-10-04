@@ -20,7 +20,7 @@ asked for after the branch review.**
 | 6 Auth | `8263673` | done |
 | 7 Results and Loading Guide | `366058c` | done |
 | 8a Review follow-ups: server defects 1 and 2, JWT warning | `1ae40c9` | done |
-| 8a Docs: DEMO.md secrets, guided-ui, trade-offs wording | B | done |
+| 8a Docs: DEMO.md secrets, guided-ui, trade-offs wording | `7cc6682` | done |
 
 **Hash check:** `tools/test_reference_hashes.py` passes **8 / 8 after every
 commit**. DGWO, MOGWO, SEQ and REP at seeds 1 and 42 on instance 350 are
@@ -450,7 +450,7 @@ From the branch review (defects 1 and 2), plus the requested warning and docs.
 | `server/auth.js` | exports `usingDefaultSecret`; the secret itself is unchanged | +3 / -1 |
 | `tools/test_server_errors.js` | new (8 checks): malformed JSON → 400 as JSON; a database error in a route → JSON 500; a custom-load save on an unreadable database is answered 500, no exception escapes to the process, no orphan file, and the server answers afterwards. Runs the real converter (needs `python` on PATH, as the server does) | +96 / 0 |
 
-**Commit B: docs and wording**
+**Commit B (`7cc6682`): docs and wording**
 
 | File | Change | + / - |
 |---|---|---|
