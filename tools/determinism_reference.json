@@ -14,7 +14,7 @@
  "recorded_with": {
   "numba": "0.68.0",
   "python": "3.11.15",
-  "platform": "Linux-6.18.44-fc-v64-x86_64-with-glibc2.39"
+  "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39"
  },
  "cases": [
   {
@@ -36,49 +36,49 @@
   {
    "configuration": "MOGWO",
    "seed": 1,
-   "sha256": "5bcb2b85ac41511030d017710cc3e5017f817fc26297754855d3fcd55940a5ee",
-   "placed": 77,
-   "su_pct": 60.2876,
-   "csr_pct": 49.3506
+   "sha256": "aff19275cd5c90a753d9f9a6d4c29c813217b9504c80850be86fdc68e41e0149",
+   "placed": 80,
+   "su_pct": 62.7103,
+   "csr_pct": 43.75
   },
   {
    "configuration": "MOGWO",
    "seed": 42,
-   "sha256": "3afc1b612e1b9ce531846ebfa9867991b70d21ef775b3a55813541b84a584198",
-   "placed": 82,
-   "su_pct": 62.9008,
-   "csr_pct": 31.7073
+   "sha256": "40bbf8a2690471ab178a02fcba60e04c522b6dbb025baac8bee818b9f506e4e6",
+   "placed": 83,
+   "su_pct": 64.7016,
+   "csr_pct": 38.5542
   },
   {
    "configuration": "SEQ",
    "seed": 1,
-   "sha256": "3c5c044cfdf76b7572fdd868fc1af5fed926a94725df00de0906ceb1deb87f79",
-   "placed": 81,
-   "su_pct": 59.6319,
-   "csr_pct": 30.8642
+   "sha256": "ccf010e1d8b3463c4c2137c3cf8e5a3d1ac70fe9cdc44322204fe013639c9258",
+   "placed": 77,
+   "su_pct": 59.7262,
+   "csr_pct": 36.3636
   },
   {
    "configuration": "SEQ",
    "seed": 42,
-   "sha256": "b150c53ac089fda849acfedcf66f135d0763a87ff8f308840f0a84fce07137ba",
-   "placed": 84,
-   "su_pct": 64.6894,
-   "csr_pct": 41.6667
+   "sha256": "4d816a75b1c249541f8123362d45ae500418c98d7bc1f1aee5d37cca47bb6897",
+   "placed": 83,
+   "su_pct": 63.7951,
+   "csr_pct": 38.5542
   },
   {
    "configuration": "REP",
    "seed": 1,
-   "sha256": "a965e2d526c5878767047c46815d8d9e0b40b2755f68dfbe6a96552f1442c3ab",
-   "placed": 30,
-   "su_pct": 20.4717,
+   "sha256": "33de9876a66233ad1b6085a1e68fa80ba8d1b75a9668280655920eb1d1341c5b",
+   "placed": 36,
+   "su_pct": 29.3337,
    "csr_pct": 100.0
   },
   {
    "configuration": "REP",
    "seed": 42,
-   "sha256": "681939bc1420c5f010cbdda6631db57ad31188d2a940258f5d6ddf5dbff09b40",
-   "placed": 38,
-   "su_pct": 24.9899,
+   "sha256": "152cf6c178c1556185e23c861cac0d5adb2da2e24370a1c11fc80ab9443434bb",
+   "placed": 32,
+   "su_pct": 24.6349,
    "csr_pct": 100.0
   }
  ]
