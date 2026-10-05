@@ -324,8 +324,11 @@ class SequentialHybrid(StandaloneMOGWO):
         pop.sort(key=lambda w: w.scalar_fitness)
         alpha, beta, delta = pop[0], pop[1], pop[2]
 
+        # One schedule across both phases (Chapter 3): a decays from 2 toward
+        # 0 over t = 0..max_iter-1, so phase 1 stops halfway down and phase 2
+        # continues from there instead of restarting at 2.
         for iteration in range(T1):
-            a = 2.0 - iteration * (2.0 / T1)
+            a = 2.0 - iteration * (2.0 / self.max_iter)
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
@@ -348,7 +351,7 @@ class SequentialHybrid(StandaloneMOGWO):
         alpha, beta, delta = self._select_leaders(archive)
 
         for iteration in range(T2):
-            a = 2.0 - iteration * (2.0 / T2)
+            a = 2.0 - (T1 + iteration) * (2.0 / self.max_iter)
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
