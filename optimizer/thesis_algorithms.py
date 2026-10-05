@@ -191,7 +191,7 @@ class StandaloneMOGWO(ThesisOptimizerBase):
             self._evaluate(w)
             self._update_archive(archive, w)
 
-        alpha, beta, delta = self._select_leaders(archive)
+        alpha, beta, delta = self._select_leaders(archive, pop)
 
         for iteration in range(self.max_iter):
             a = 2.0 - iteration * (2.0 / self.max_iter)
@@ -206,7 +206,7 @@ class StandaloneMOGWO(ThesisOptimizerBase):
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
 
-            alpha, beta, delta = self._select_leaders(archive)
+            alpha, beta, delta = self._select_leaders(archive, pop)
             self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:
@@ -276,14 +276,9 @@ class StandaloneMOGWO(ThesisOptimizerBase):
             archive.pop(remove_idx)
         return archive
 
-    def _select_leaders(self, archive):
-        if len(archive) < 1:
-            # Fallback if empty (shouldn't happen)
-            fake = self._new_wolf()
-            return fake, fake, fake
-
+    def _select_leaders(self, archive, pop):
         if len(archive) < 3:
-            return archive[0], archive[min(1, len(archive)-1)], archive[0]
+            return self._fill_leaders(archive, pop)
 
         # Grid-density leader selection (roulette wheel inversely proportional to density)
         grid_counts, wolf_grids = self._compute_grid_densities(archive)
@@ -301,6 +296,23 @@ class StandaloneMOGWO(ThesisOptimizerBase):
         # Select 3 without replacement
         selected_indices = self.rng.choice(len(archive), size=3, replace=False, p=probabilities)
         return archive[selected_indices[0]], archive[selected_indices[1]], archive[selected_indices[2]]
+
+    @staticmethod
+    def _fill_leaders(archive, pop):
+        """Fewer than 3 archive members: take them all, then fill the free
+        slots with the highest-SU population wolves (REP: repaired SU) whose
+        genome is not already a leader, so alpha, beta and delta are three
+        distinct wolves. No RNG draw; ties keep population order."""
+        leaders = list(archive)
+        for w in sorted(pop, key=lambda w: -w.su):
+            if len(leaders) == 3:
+                break
+            if not any(np.array_equal(w.X, l.X) for l in leaders):
+                leaders.append(w)
+        # Only reachable if the population holds fewer than 3 distinct genomes
+        while len(leaders) < 3:
+            leaders.append(leaders[-1])
+        return leaders[0], leaders[1], leaders[2]
 
     def _emit(self, it, best):
         self.stream_cb("iteration_update", {
@@ -348,7 +360,7 @@ class SequentialHybrid(StandaloneMOGWO):
         for w in pop:
             self._update_archive(archive, w)
 
-        alpha, beta, delta = self._select_leaders(archive)
+        alpha, beta, delta = self._select_leaders(archive, pop)
 
         for iteration in range(T2):
             a = 2.0 - (T1 + iteration) * (2.0 / self.max_iter)
@@ -361,7 +373,7 @@ class SequentialHybrid(StandaloneMOGWO):
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
 
-            alpha, beta, delta = self._select_leaders(archive)
+            alpha, beta, delta = self._select_leaders(archive, pop)
             self._record(T1 + iteration, self._archive_best(archive))
 
             if self.stream_cb:
@@ -406,7 +418,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
             self._note_repair(w)
             self._update_archive(archive, w)
 
-        alpha, beta, delta = self._select_leaders(archive)
+        alpha, beta, delta = self._select_leaders(archive, pop)
 
         for iteration in range(self.max_iter):
             a = 2.0 - iteration * (2.0 / self.max_iter)
@@ -422,7 +434,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
 
-            alpha, beta, delta = self._select_leaders(archive)
+            alpha, beta, delta = self._select_leaders(archive, pop)
             self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:
