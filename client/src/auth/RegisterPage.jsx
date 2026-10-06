@@ -5,19 +5,12 @@ import { useAuth } from "./AuthContext";
 import { authApi } from "../services/api";
 import logoImg from "../logo.png";
 
-const ROLES = [
-  { value: "researcher", label: "Researcher" },
-  { value: "logistics", label: "Logistics" },
-  { value: "other", label: "Other" },
-];
-
 export default function RegisterPage() {
   const { register } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("researcher");
   const [questions, setQuestions] = useState([]);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -41,7 +34,7 @@ export default function RegisterPage() {
     setErr("");
     setLoading(true);
     try {
-      await register({ email, name, password, role, recovery_question: question, recovery_answer: answer });
+      await register({ email, name, password, recovery_question: question, recovery_answer: answer });
       nav("/app");
     } catch (e) {
       setErr(e.message);
@@ -156,33 +149,6 @@ export default function RegisterPage() {
                    value={answer} onChange={(e) => setAnswer(e.target.value)} required />
             <div style={{ fontSize: 11.5, color: "var(--text-dim)", marginTop: 6, textAlign: "left" }}>
               Used only for "Forgot password". Capital letters and extra spaces don't matter.
-            </div>
-          </div>
-
-          <div className="form-group" style={{ marginBottom: "28px" }}>
-            <span className="form-label">I am a...</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {ROLES.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setRole(r.value)}
-                  style={{
-                    flex: 1,
-                    padding: "10px 0",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    border: role === r.value ? "2px solid var(--primary)" : "1px solid var(--border)",
-                    background: role === r.value ? "var(--primary-light)" : "var(--bg-input)",
-                    color: role === r.value ? "var(--primary)" : "var(--text-muted)",
-                    fontWeight: role === r.value ? "700" : "500",
-                    fontSize: "13px",
-                    transition: "all 0.15s ease"
-                  }}
-                >
-                  {r.label}
-                </button>
-              ))}
             </div>
           </div>
 

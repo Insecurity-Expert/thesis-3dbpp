@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import CustomLoadBanner, { customLoadOf, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, PROBLEM_OUTLINE, stopColor } from "../BinViewer";
 import { studiesApi } from "../services/api";
 import {
@@ -60,79 +60,6 @@ function Row({ k, v, strong = true, color }) {
   );
 }
 
-// ── Study run picker: configuration / test case / seed -> run index ─────────
-function StudyRunPicker({ studies, onLoaded, onError }) {
-  const usable = (studies || []).filter((s) => s.status === "done" || s.status === "imported");
-  const [studyId, setStudyId] = useState(usable[0] ? usable[0].id : null);
-  const [doc, setDoc] = useState(null);
-  const [cfg, setCfg] = useState(null);
-  const [inst, setInst] = useState(null);
-  const [seed, setSeed] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-
-  useEffect(() => {
-    if (studyId === null) return;
-    let alive = true;
-    setDoc(null);
-    studiesApi.get(studyId).then((d) => {
-      if (!alive) return;
-      const runs = (d.study && d.study.runs) || [];
-      setDoc(d.study);
-      setCfg(runs[0] ? runs[0].configuration : null);
-      setInst(runs[0] ? runs[0].instance_id : null);
-      setSeed(runs[0] ? runs[0].seed : null);
-    }).catch((e) => alive && onErrorRef.current(`Could not open the study: ${e.message}`));
-    return () => { alive = false; };
-  }, [studyId]);
-
-  if (usable.length === 0) return <div style={{ fontSize: 12, color: "var(--text-dim)" }}>No finished studies yet. Import or run one from Start analysis.</div>;
-  const runs = (doc && doc.runs) || [];
-  const uniq = (xs) => Array.from(new Set(xs));
-  const cfgs = uniq(runs.map((r) => r.configuration));
-  const insts = uniq(runs.filter((r) => r.configuration === cfg).map((r) => r.instance_id));
-  const seeds = uniq(runs.filter((r) => r.configuration === cfg && r.instance_id === inst).map((r) => r.seed));
-  const idx = runs.findIndex((r) => r.configuration === cfg && r.instance_id === inst && r.seed === seed);
-  const sel = { width: "100%", marginBottom: 8 };
-
-  const load = async () => {
-    if (idx < 0) return;
-    setBusy(true);
-    try {
-      const view = await studiesApi.runView(studyId, idx);
-      onLoaded({ ...view, study_label: doc.name });
-    } catch (e) {
-      onError(`This study run could not be shown: ${e.message}`);
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <div>
-      <select className="form-input" style={sel} value={studyId ?? ""} onChange={(e) => setStudyId(Number(e.target.value))}>
-        {usable.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-      </select>
-      {doc && (
-        <>
-          <select className="form-input" style={sel} value={cfg ?? ""} onChange={(e) => setCfg(e.target.value)}>
-            {cfgs.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="form-input" style={sel} value={inst ?? ""} onChange={(e) => setInst(e.target.value === "" ? null : Number(e.target.value))}>
-            {insts.map((i) => <option key={i ?? "custom"} value={i ?? ""}>{i === null ? `Custom load (${CUSTOM_LOAD_LABEL.split(" \u2014 ")[1]})` : `Instance ${i}`}</option>)}
-          </select>
-          <select className="form-input" style={sel} value={seed ?? ""} onChange={(e) => setSeed(Number(e.target.value))}>
-            {seeds.map((s) => <option key={s} value={s}>Repeat code (seed) {s}</option>)}
-          </select>
-          <button type="button" className="btn btn-primary btn-sm btn-block" disabled={busy || idx < 0} onClick={load}>
-            {busy ? "Rebuilding…" : "Show this run"}
-          </button>
-          <div className="field-hint" style={{ marginTop: 6 }}>The stored arrangement is re-checked first: if its container fill or rule score does not match what the study recorded, you get an error instead of a picture.</div>
-        </>
-      )}
-    </div>
-  );
-}
-
 export default function VisualizationTab({
   finalResult,
   placements,
@@ -160,6 +87,10 @@ export default function VisualizationTab({
   const [studyView, setStudyView] = useState(null);
   const [studyError, setStudyError] = useState(null);
   const [requestBusy, setRequestBusy] = useState(false);
+
+  // A new or reopened run is what the viewer shows; a "View Arrangement"
+  // request (below, declared later so it wins on mount) switches to a study run.
+  useEffect(() => { if (finalResult) setSource("run"); }, [finalResult]);
 
   // "View Arrangement" on a Results card: that method's representative run,
   // with the boxes that break a rule highlighted.
@@ -374,7 +305,7 @@ export default function VisualizationTab({
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>
               <h4 style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Nothing to show yet</h4>
               <p style={{ color: "var(--text-dim)", fontSize: "12px", marginTop: "4px" }}>
-                {source === "study" ? "Pick a study run and click “Show this run”." : "Start a run from Start analysis, or open a saved one from Run history."}
+                Start a run from Start analysis, or open a saved one from Run history.
               </p>
             </div>
           )}
@@ -440,23 +371,7 @@ export default function VisualizationTab({
           </div>
         </div>
 
-        {/* Column 3: Run Selection */}
-        <div>
-          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>● WHICH RUN</h4>
-          <div className="tabs-inline grow" style={{ marginBottom: 16 }}>
-            <button type="button" className={source === "run" ? "active" : ""} onClick={() => setSource("run")}>This run</button>
-            <button type="button" className={source === "study" ? "active" : ""} onClick={() => setSource("study")}>A study run</button>
-          </div>
-          {source === "run" ? (
-            <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.5 }}>
-              {finalResult ? "Preview: one run, one seed. Showing the run you just made, or the saved run you opened from Run history." : "No run yet — start one from Start analysis, or open one from Run history."}
-            </div>
-          ) : (
-            <StudyRunPicker studies={studies} onLoaded={(v) => { setStudyError(null); setStudyView(v); }} onError={(m) => { setStudyView(null); setStudyError(m); }} />
-          )}
-        </div>
-
-        {/* Column 4: Run Summary / Packing Metrics & Problems */}
+        {/* Column 3: Run Summary / Packing Metrics & Problems */}
         <div>
           <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>● RUN SUMMARY</h4>
           {result ? (
