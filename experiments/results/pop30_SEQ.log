@@ -1,1 +1,1 @@
-SEQ pop=30 seed=1 inst=350 final SU=67.00 CSR=65.85 placed=82 297s (594 ms/iter) -> SEQ_pop30_s1_i350.csv
+SEQ pop=30 seed=1 inst=350 final SU=81.65 CSR=42.16 placed=102 91s (182 ms/iter) -> SEQ_pop30_s1_i350.csv

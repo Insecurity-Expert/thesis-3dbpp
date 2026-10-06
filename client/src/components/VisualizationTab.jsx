@@ -449,7 +449,7 @@ export default function VisualizationTab({
           </div>
           {source === "run" ? (
             <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.5 }}>
-              {finalResult ? "Showing the run you just made, or the saved run you opened from Run history." : "No run yet — start one from Start analysis, or open one from Run history."}
+              {finalResult ? "Preview: one run, one seed. Showing the run you just made, or the saved run you opened from Run history." : "No run yet — start one from Start analysis, or open one from Run history."}
             </div>
           ) : (
             <StudyRunPicker studies={studies} onLoaded={(v) => { setStudyError(null); setStudyView(v); }} onError={(m) => { setStudyView(null); setStudyError(m); }} />

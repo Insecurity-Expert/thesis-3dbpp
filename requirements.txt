@@ -1,25 +1,17 @@
 # Core scientific computing
 numpy>=1.24.0
 scipy>=1.10.0
-# JIT for the decoder / repair / evaluator hot loops (optimizer/). 0.62 is the
-# version the Step 6 exactness gate was verified against.
-numba>=0.62.0
+# JIT for the decoder / repair / evaluator hot loops (optimizer/). Pinned:
+# 0.68.0 produced the stored studies and tools/determinism_reference.json
+# (the Step 6 exactness gate was first verified on 0.62). Every study file
+# records the numba version it ran with.
+numba==0.68.0
 
-# Statistics
+# Statistics (experiments/stats.py)
 scikit-posthocs>=0.7.0
 
-# Visualization
-matplotlib>=3.7.0
-plotly>=5.14.0
-
-# Configuration and utilities
-pyyaml>=6.0
-
-# Memory profiling
-memory-profiler>=0.61.0
-
-# Optional: GUI framework (for future desktop app)
-# PyQt6>=6.5.0
+# Per-run peak memory (M-4) in experiments/study.py
+psutil>=5.9.0
 
 # Testing
 pytest>=7.0.0

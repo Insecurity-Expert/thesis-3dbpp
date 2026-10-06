@@ -1,8 +1,8 @@
 // Trade-offs between container fill and rule-following, from real runs:
 // one point per run (x = container fill %, y = rule-following over ALL boxes %,
-// a box left out counting as not following). A run is "best of both"
-// (non-dominated) when no other run is at least as good on both and better
-// on one.
+// a box left out counting as not following). A run is "not exceeded on both"
+// (non-dominated) when no other run of the same configuration is at least as
+// high on both and higher on one. Runs are compared within one configuration.
 
 export const allBoxPct = (r) => (r.n_items ? (r.csr_pct * r.placed) / r.n_items : 0);
 

@@ -47,9 +47,9 @@ seeded). Provenance, citations and the augmentation rules are in
 | code | UI label | what it does |
 |---|---|---|
 | **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates) |
-| **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the most compliant archive member |
-| **SEQ** | Sequential | GWO search, then one repair pass (R1–R5) on the final arrangement |
-| **REP** | Repair-based | repair inside the loop — every evaluated wolf is repaired first, so CSR = 100 % by construction |
+| **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the archive member with the highest SU |
+| **SEQ** | Sequential | DGWO for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
+| **REP** | Repair-based | MOGWO with repair inside the loop — every evaluated wolf is repaired first (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction |
 
 All four share the same decoder (deepest-bottom-left-fill over extreme
 points with a 2n random-key genome: n sequence keys + n orientation keys),
@@ -59,7 +59,7 @@ the same evaluator and the same decode-time enforcement flags
 ## Running it
 
 Requirements: Python 3.12 with `pip install -r requirements.txt` (numpy,
-scipy, numba), Node 22.
+scipy, numba — pinned to 0.68.0, the version behind the stored results), Node 22.
 
 **Terminal A — server** (HTTP API on `:3001`, WebSocket on `:3002`; warms the
 numba cache on start and reports readiness at `/api/ready`):
@@ -78,6 +78,19 @@ cd client
 npm install
 npm start
 ```
+
+**Accounts.** Accounts live in `server/data/db_mock.json` on the server
+machine (not in git). On start the server creates a demo account if it is
+missing: `admin@gmail.com` / `stackr-demo`, or `STACKR_DEMO_EMAIL` /
+`STACKR_DEMO_PASSWORD` if set. Emails are matched trimmed and lower-cased.
+Registration asks for a recovery question, which "Forgot password?" on the
+sign-in page uses (5 wrong answers lock it for 15 minutes). For an account
+with no recovery question, reset it on the server machine:
+`node server/reset-password.js <email>` (prints a temporary password) or
+`... <email> --password <new>`. Before every write the database is copied to
+`db_mock.json.bak`; if the file cannot be read, requests fail and nothing is
+written. Restore from the `.bak` copy. Set `JWT_SECRET` before the server is
+reachable by others (it warns at start when it is not set; see docs/DEMO.md).
 
 In the app: pick a wtpack instance, a configuration and a preset
 (Quick = pop 10 × 60 iterations, Standard = 10 × 300, Full = 30 × 500), set
@@ -100,9 +113,16 @@ The demo runbook is [docs/DEMO.md](docs/DEMO.md).
 
 ```bash
 python tools/demo_check.py          # DGWO Quick seed 42 on instance 350 reproduces the stored reference exactly
-python tools/test_geometry.py       # 75 geometry / constraint / decoder / repair checks, compiled == reference
+python tools/test_geometry.py       # 92 geometry / constraint / decoder / repair checks, compiled == reference
 python tools/test_determinism.py    # same seed -> same hash, different seed -> different hash
-python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (28 tests)
+python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
+python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions
+python tools/test_sample_guard.py       # study.py refuses deprecated samples; the demo instance is outside the study sample
+node tools/test_auth.js                 # emails, demo seed, forgot password, admin reset, database guard (needs server/npm install)
+node tools/test_server_errors.js        # 400 kept for bad requests; a database error in a custom-load save is answered, not a crash
+python tools/test_representative.py     # representative run = closest to the median container fill, ties to the lowest seed
+python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (31 tests)
+python tools/test_stats.py          # the Chapter 3 statistics (repeated measures) against hand-checked values
 python tools/compare_validators.py experiments/results/slide_i350_s1.json   # independent validator vs the optimizer's evaluator
 ```
 
@@ -117,7 +137,7 @@ optimizer/          the thesis optimizer
   geometry_3d.py      DBLF decoder, extreme points, decode-time C4/C5 checks (numba)
   thesis_algorithms.py DGWO / MOGWO / SequentialHybrid / RepairBasedHybrid
   thesis_metrics.py   SU, CSR and per-constraint evaluation (compiled + reference)
-  repair.py           relocate-then-defer repair operators R1-R5
+  repair.py           relocate-then-defer repair: R1 weight (C3), R2 stop order (C6), R3 fixpoint removal
   main_optimizer.py   CLI / streaming entry point used by the server
 preprocessing/      wtpack loader, fragility and stop augmentation, sampling, tests
 experiments/        runner, baselines, convergence scripts, results/ and samples/

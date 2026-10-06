@@ -78,6 +78,19 @@ SIZES = {
 }
 
 
+def load_sample(path):
+    """Read a sample provenance file, refusing a deprecated one: its file name
+    contains DEPRECATED, or its JSON has "deprecated": true."""
+    path = Path(path)
+    if 'DEPRECATED' in path.name.upper():
+        raise ValueError(f"refusing deprecated sample file {path.name}: use experiments/sample30_seed42.json")
+    doc = json.loads(path.read_text(encoding='utf-8'))
+    if doc.get('deprecated') is True:
+        raise ValueError(f"refusing sample file {path.name}: it is marked deprecated "
+                         f"({doc.get('deprecated_reason', 'no reason given')})")
+    return doc
+
+
 def parse_seeds(spec):
     """'1-10' -> [1..10]; '1,4,9' -> [1,4,9]; both may be mixed."""
     out = []
@@ -93,12 +106,54 @@ def parse_seeds(spec):
     return out
 
 
-def git_commit():
+# Windows: never open a console window for a child process. The server starts
+# this script detached (no console of its own), so every console program it
+# launches would otherwise get a fresh, visible window.
+_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
+
+def _hide_worker_windows():
+    """Pool workers are started by multiprocessing with fixed creation flags,
+    so CREATE_NO_WINDOW cannot be passed to them. pythonw.exe is the same
+    interpreter without a console; workers talk to the parent over pipes,
+    never stdout, so nothing is lost."""
+    if sys.platform != 'win32':
+        return
+    import multiprocessing
+    pythonw = Path(sys.executable).with_name('pythonw.exe')
+    if pythonw.exists():
+        multiprocessing.set_executable(str(pythonw))
+
+
+def _git(args, cwd):
+    return subprocess.check_output(['git', *args], cwd=cwd, stderr=subprocess.DEVNULL,
+                                   creationflags=_NO_WINDOW).decode()
+
+
+def git_commit(cwd=_ROOT):
     try:
-        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=_ROOT,
-                                       stderr=subprocess.DEVNULL).decode().strip()
+        return _git(['rev-parse', '--short', 'HEAD'], cwd).strip()
     except Exception:
         return None
+
+
+def git_state(cwd=_ROOT):
+    """Commit and working-tree state. dirty = a TRACKED file differs from the
+    commit (untracked files, e.g. study outputs, are not counted); None when
+    git is unavailable."""
+    commit = git_commit(cwd)
+    try:
+        changed = [ln[3:] for ln in _git(['status', '--porcelain', '--untracked-files=no'], cwd).splitlines() if ln.strip()]
+    except Exception:
+        return {'commit': commit, 'dirty': None, 'dirty_files': None}
+    return {'commit': commit, 'dirty': bool(changed), 'dirty_files': changed[:20]}
+
+
+def library_versions():
+    """Versions that can change results (numba compiles the hot loops)."""
+    import numpy, scipy, numba
+    return {'python': platform.python_version(), 'numba': numba.__version__,
+            'numpy': numpy.__version__, 'scipy': scipy.__version__}
 
 
 def load_custom_load(custom_id, raw_dir=None):
@@ -283,7 +338,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
               configs=CONFIGS, raw_dir=None, run_stats=True, log=print):
     raw_dir = raw_dir or str(_ROOT / 'data' / 'raw')
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
-    sample = json.loads(Path(sample_path).read_text(encoding='utf-8')) if sample_path else None
+    sample = load_sample(sample_path) if sample_path else None
 
     custom_doc = None
     if custom_load:
@@ -309,6 +364,13 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     order = {'REP': 0, 'MOGWO': 1, 'DGWO': 2, 'SEQ': 3}
     if mode == 'parallel':
         tasks.sort(key=lambda t: order.get(t['configuration'], 9))
+
+    # Provenance is taken BEFORE the first run: the code that ran is the code
+    # at the start. The end state is recorded too, so a commit or edit made
+    # while the study was running is visible in the file.
+    git_start = git_state()
+    if git_start['dirty']:
+        log(f"WARNING: working tree has uncommitted changes to tracked files: {', '.join(git_start['dirty_files'])}")
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -337,6 +399,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
 
     try:
         # One fresh process per run, in both modes (see module docstring).
+        _hide_worker_windows()
         with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
                                  max_tasks_per_child=1, initializer=warm_worker,
                                  initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:
@@ -357,12 +420,26 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
                              configs.index(r['configuration'])))
     bad = [r for r in runs if not r['validation']['agree']]
 
+    git_end = git_state()
+    changed_during_run = (git_end['commit'] != git_start['commit']
+                          or git_end['dirty_files'] != git_start['dirty_files'])
+    if changed_during_run:
+        log(f"WARNING: the repository changed while the study ran "
+            f"(start {git_start['commit']}, end {git_end['commit']})")
+
     study = {
         'stackr_study': 1,
         'name': name,
         'size': size,
         'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
-        'commit': git_commit(),
+        'commit': git_start['commit'],                 # at the START of the study
+        'git': {'commit_start': git_start['commit'], 'dirty_start': git_start['dirty'],
+                'dirty_files_start': git_start['dirty_files'],
+                'commit_end': git_end['commit'], 'dirty_end': git_end['dirty'],
+                'dirty_files_end': git_end['dirty_files'],
+                'changed_during_run': changed_during_run,
+                'dirty_rule': 'tracked files only (git status --porcelain --untracked-files=no)'},
+        'versions': library_versions(),
         'machine': {'platform': platform.platform(), 'processor': platform.processor(),
                     'cpu_count': os.cpu_count(), 'python': platform.python_version()},
         'mode': mode,
@@ -475,7 +552,10 @@ def main():
         p.error('pass exactly one of --instance, --sample, --custom-load (or --size)')
 
     if sample:
-        prov = json.loads(Path(sample).read_text(encoding='utf-8'))
+        try:
+            prov = load_sample(sample)
+        except ValueError as e:
+            p.error(str(e))
         instance_ids = [c['instance_id'] for c in prov['selected']]
         if a.n_instances:
             instance_ids = instance_ids[:a.n_instances]

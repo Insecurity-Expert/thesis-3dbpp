@@ -1,9 +1,10 @@
 """
-Relocate-then-defer repair (Chapter 3, R1-R5).
+Relocate-then-defer repair (Chapter 3): R1 weight (C3), R2 stop order (C6),
+R3 re-evaluation. C4 and C5 are enforced in the decoder and have no repair step.
 
-Every operator first tries to RELOCATE a violating box to a feasible extreme
-point; only when no position exists is the box DEFERRED to the unpacked list.
-After R_MAX passes any box still in violation is removed (R5), iterated to a
+R1 and R2 first try to RELOCATE a violating box to a feasible extreme point;
+only when no position exists is the box DEFERRED to the unpacked list.
+After R_MAX passes any box still in violation is removed (R3), iterated to a
 fixpoint because removing a support can orphan the boxes above it. The result
 is feasible by construction: S(X_feas) == 1.0 is asserted, not hoped for.
 
@@ -391,9 +392,9 @@ def find_feasible_position(box_idx, items, placements, orientations, container,
 
     Returns ((x, y, z, dx, dy, dz), r) or None. The orientation is returned
     alongside the position because C3 depends on which face bears load.
-    min_y, if given, requires y >= min_y (used by R4).
+    min_y, if given, requires y >= min_y (optional; no operator passes it).
     corridor=(x_i, z_i, dx_i, dz_i, deeper) restricts candidates to those deeper
-    than box i or laterally outside its xz removal corridor (R4).
+    than box i or laterally outside its xz removal corridor (R2).
     """
     if eps is None:
         eps = rebuild_extreme_points(placements, container)

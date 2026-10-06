@@ -6,7 +6,9 @@ const { spawn } = require("child_process");
 const readline  = require("readline");
 const WebSocket = require("ws");
 const cookieParser = require("cookie-parser");
-const { router: authRouter, userFromCookieHeader } = require("./auth");
+const { router: authRouter, userFromCookieHeader, usingDefaultSecret } = require("./auth");
+const accounts  = require("./accounts");
+const { jsonErrors } = require("./errors");
 const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
 const { CAL, calibratedArgs } = require("./runSettings");
@@ -15,9 +17,12 @@ const app     = express();
 const PORT    = 3001;
 const WS_PORT = 3002;
 
-const DATA_ROOT = path.join(__dirname, "..", "data", "CLP-Datasets-Main", "BR");
 const RAW_DIR   = path.join(__dirname, "..", "data", "raw");
-const SAMPLE    = path.join(__dirname, "..", "experiments", "samples", "sample30_seed42.json");
+// The thesis study sample (30 instances; preprocessing/sampling.py) and the
+// demo instance 350, which is listed first and is not part of that sample.
+const SAMPLE    = path.join(__dirname, "..", "experiments", "sample30_seed42.json");
+const DEMO_INSTANCE = path.join(__dirname, "..", "experiments", "samples", "demo_instance_350.json");
+const DEMO_LABEL = "Demo instance (not in the 30-instance study sample)";
 const OPTIMIZER = path.join(__dirname, "..", "optimizer", "main_optimizer.py");
 
 // Strategy names as the UI sends them -> main_optimizer.py codes.
@@ -25,10 +30,9 @@ const STRATEGY_MAP = {
   "DGWO": "DGWO", "MOGWO": "MOGWO",
   "Sequential": "SEQ", "SEQ": "SEQ",
   "Repair-based": "REP", "REP": "REP",
-  "HDGWO": "HDGWO",
 };
 // Reverse map: the UI label for a spawned strategy code (kept for run history rows).
-const STRATEGY_LABEL = { DGWO: "DGWO", MOGWO: "MOGWO", SEQ: "Sequential", REP: "Repair-based", HDGWO: "HDGWO" };
+const STRATEGY_LABEL = { DGWO: "DGWO", MOGWO: "MOGWO", SEQ: "Sequential", REP: "Repair-based" };
 
 // numba compiles on first use (1-2 s, cached to disk after the first ever run).
 // Pay that cost at server start, not in front of an audience.
@@ -41,7 +45,7 @@ function warmOptimizer() {
   const proc = spawn("python", [
     OPTIMIZER, "350", "--dataset", "wtpack", "--raw-dir", RAW_DIR,
     "--strategy", "REP", "--pop-size", "3", "--max-iter", "1", "--seed", "0",
-  ], { env: { ...process.env, PYTHONMALLOC: "malloc" } });
+  ], { windowsHide: true, env: { ...process.env, PYTHONMALLOC: "malloc" } });
   let stderr = "";
   proc.stderr.on("data", (c) => { stderr += c.toString(); });
   proc.on("close", (code) => {
@@ -71,19 +75,17 @@ app.use("/api/studies", studiesRouter);
 //
 // Each client connection owns its own Python child process.
 // Protocol (client → server):
-//   { action: "run",  instancePath: "<abs path>", maxTime?: 90 }
+//   { action: "run", dataset: "wtpack", instanceId: 0..699, strategy, popSize, maxIter, seed? }
+//   { action: "run", dataset: "custom", customLoadId, strategy, popSize, maxIter, seed? }
 //   { action: "stop" }
 //
 // Protocol (server → client, each message is a JSON line from Python or a
 // synthetic control message):
 //   { type: "instance_info",    container, n_items, lower_bound }
-//   { type: "iteration_update", iteration, max_iter, best_bins,
-//           best_dissipation, best_composite, temperature,
-//           last_udhc, udhc_accepted, solution:[...] }
-//   { type: "integration_applied", bins_reduced_by, new_bins }
-//   { type: "instance_complete", bins_used, lower_bound, gap_pct,
-//           dissipation, composite_score, volume_util_pct, runtime_s,
-//           container, n_items, items:[...] }
+//   { type: "iteration_update", iteration, max_iter, best_placed, best_su, best_csr,
+//           fitness?, phase? }
+//   { type: "instance_complete", placed, unplaced, metrics, params, container,
+//           n_items, items:[...], problem_view, spawn, ... }
 //   { type: "stopped" }
 //   { type: "error",       error: "..." }
 //   { type: "run_closed",  code: 0|1 }
@@ -122,69 +124,51 @@ wss.on("connection", (ws, req) => {
       }
 
       const pyStrategy = STRATEGY_MAP[msg.strategy] || "SEQ";
-      const maxTime = Math.min(Number(msg.maxTime) || 90, 300);
-      let argv;
-
-      if (msg.dataset === "wtpack" || msg.dataset === "custom") {
-        let id;
-        if (msg.dataset === "custom") {
-          if (!wsUser) { send({ type: "error", error: "Sign in to run a custom load." }); return; }
-          const row = ownedLoad(wsUser, msg.customLoadId);
-          if (!row) { send({ type: "error", error: "Custom load not found for this account." }); return; }
-          id = row.id;
-        } else {
-          id = Number(msg.instanceId);
-          if (!Number.isInteger(id) || id < 0 || id > 699) {
-            send({ type: "error", error: "instanceId must be an integer in 0..699" });
-            return;
-          }
-        }
-        // Tuning is UI-driven; clamp so a typo cannot launch a multi-hour run.
-        const popSize = Math.min(Math.max(Number(msg.popSize) || 10, 3), 60);
-        const maxIter = Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000);
-        argv = [
-          OPTIMIZER, String(id), "--dataset", msg.dataset, "--raw-dir", RAW_DIR,
-          "--stream", "--strategy", pyStrategy,
-          "--pop-size", String(popSize), "--max-iter", String(maxIter),
-        ];
-        // λ and enforcement are not user settings: always the calibrated values.
-        argv.push(...calibratedArgs());
-        if (msg.seed !== undefined && msg.seed !== null) argv.push("--seed", String(Number(msg.seed)));
-      } else {
-        // Legacy BR JSON path: unchanged.
-        const instancePath = msg.instancePath;
-        if (!instancePath) {
-          send({ type: "error", error: "instancePath required" });
-          return;
-        }
-        const norm = path.resolve(instancePath);
-        if (!norm.startsWith(path.resolve(DATA_ROOT))) {
-          send({ type: "error", error: "Path outside data directory" });
-          return;
-        }
-        if (!fs.existsSync(norm)) {
-          send({ type: "error", error: "File not found" });
-          return;
-        }
-        argv = [OPTIMIZER, norm, "--stream", "--max-time", String(maxTime), "--strategy", pyStrategy];
+      if (msg.dataset !== "wtpack" && msg.dataset !== "custom") {
+        send({ type: "error", error: 'dataset must be "wtpack" or "custom"' });
+        return;
       }
+      let id;
+      if (msg.dataset === "custom") {
+        if (!wsUser) { send({ type: "error", error: "Sign in to run a custom load." }); return; }
+        const row = ownedLoad(wsUser, msg.customLoadId);
+        if (!row) { send({ type: "error", error: "Custom load not found for this account." }); return; }
+        id = row.id;
+      } else {
+        id = Number(msg.instanceId);
+        if (!Number.isInteger(id) || id < 0 || id > 699) {
+          send({ type: "error", error: "instanceId must be an integer in 0..699" });
+          return;
+        }
+      }
+      // Tuning is UI-driven; clamp so a typo cannot launch a multi-hour run.
+      const popSize = Math.min(Math.max(Number(msg.popSize) || 10, 3), 60);
+      const maxIter = Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000);
+      const argv = [
+        OPTIMIZER, String(id), "--dataset", msg.dataset, "--raw-dir", RAW_DIR,
+        "--stream", "--strategy", pyStrategy,
+        "--pop-size", String(popSize), "--max-iter", String(maxIter),
+      ];
+      // λ and enforcement are not user settings: always the calibrated values.
+      argv.push(...calibratedArgs());
+      if (msg.seed !== undefined && msg.seed !== null) argv.push("--seed", String(Number(msg.seed)));
 
       console.log("PY spawn:", argv.slice(1).join(" "));
-      const physics = msg.dataset === "wtpack" || msg.dataset === "custom";
       const spawned = {
         strategy: pyStrategy,
         strategy_label: STRATEGY_LABEL[pyStrategy] || pyStrategy,
-        dataset: physics ? msg.dataset : "br",
-        instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : msg.dataset === "custom" ? String(msg.customLoadId) : msg.instancePath,
-        pop_size: physics ? Math.min(Math.max(Number(msg.popSize) || 10, 3), 60) : null,
-        max_iter: physics ? Math.min(Math.max(Number(msg.maxIter) || 60, 1), 2000) : null,
-        lambda: physics ? CAL.lambdas.w : null,
-        enforce_support: physics ? CAL.enforce_support : null,
-        enforce_fragility: physics ? CAL.enforce_fragility : null,
+        dataset: msg.dataset,
+        instance: msg.dataset === "wtpack" ? Number(msg.instanceId) : String(msg.customLoadId),
+        pop_size: popSize,
+        max_iter: maxIter,
+        lambda: CAL.lambdas.w,
+        enforce_support: CAL.enforce_support,
+        enforce_fragility: CAL.enforce_fragility,
         seed: msg.seed !== undefined && msg.seed !== null ? Number(msg.seed) : null,
         argv: argv.slice(1),
       };
-      childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), env: { ...process.env, PYTHONMALLOC: "malloc" } });
+      childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), windowsHide: true,
+                                          env: { ...process.env, PYTHONMALLOC: "malloc" } });
       const proc = childProc;
       childInfo = { strategy: spawned.strategy, instance: spawned.instance };
 
@@ -273,175 +257,69 @@ app.get("/api/ready", (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/instances?dataset=wtpack
+// GET /api/instances  (the client sends ?dataset=wtpack; it is the only dataset)
 // Returns the sampled wtpack instances with provenance (preprocessing/sampling.py).
-// Without the query it returns the legacy BR JSON listing.
 // ─────────────────────────────────────────────────────────────────────────────
 app.get("/api/instances", (req, res) => {
-  if (req.query.dataset === "wtpack") {
-    try {
-      if (!fs.existsSync(SAMPLE)) {
-        return res.status(404).json({ error: "sample file not found: " + SAMPLE });
-      }
-      const prov = JSON.parse(fs.readFileSync(SAMPLE, "utf8"));
-      const instances = prov.selected.map((c) => ({
-        instance_id:   c.instance_id,
-        br_class:      c.br_class,
-        file:          c.file,
-        n_boxes:       c.n_boxes,
-        n_types:       c.n_types,
-        fragile_rate:  c.fragile_rate,
-        fragile_count: c.fragile_count,
-        container:     c.container,
-        // Labelled by heterogeneity (the BR class = number of box TYPES); the
-        // instance's actual box count is secondary and never the class label.
-        label: c.br_class + " \u2014 " + c.n_types + " box types \u2014 instance " + c.instance_id +
-               " (" + c.n_boxes + " boxes, " + Math.round(c.fragile_rate * 100) + "% fragile)",
-      }));
-      return res.json({ dataset: "wtpack", seed: prov.seed, count: instances.length, instances });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
   try {
-    const instances = [];
-    if (!fs.existsSync(DATA_ROOT)) {
-      return res.json({ count: 0, instances, warning: "BR dataset directory not found: " + DATA_ROOT });
+    if (!fs.existsSync(SAMPLE)) {
+      return res.status(404).json({ error: "sample file not found: " + SAMPLE });
     }
-    const sets = fs.readdirSync(DATA_ROOT)
-      .filter((n) => fs.statSync(path.join(DATA_ROOT, n)).isDirectory())
-      .sort((a, b) => parseInt(a.replace("BR", "")) - parseInt(b.replace("BR", "")));
-
-    for (const setName of sets) {
-      const setPath = path.join(DATA_ROOT, setName);
-      const files   = fs.readdirSync(setPath)
-        .filter((f) => f.endsWith(".json"))
-        .sort((a, b) => parseInt(a) - parseInt(b));
-
-      for (const file of files) {
-        instances.push({
-          set:   setName,
-          file,
-          label: `${setName} / ${file}`,
-          path:  path.join(setPath, file),
-        });
-      }
-    }
-    res.json({ count: instances.length, instances });
+    const prov = JSON.parse(fs.readFileSync(SAMPLE, "utf8"));
+    const demo = fs.existsSync(DEMO_INSTANCE) ? JSON.parse(fs.readFileSync(DEMO_INSTANCE, "utf8")).instance : null;
+    const entry = (c, isDemo) => ({
+      instance_id:   c.instance_id,
+      br_class:      c.br_class,
+      file:          c.file,
+      n_boxes:       c.n_boxes,
+      n_types:       c.n_types,
+      fragile_rate:  c.fragile_rate,
+      fragile_count: c.fragile_count,
+      container:     c.container,
+      // Labelled by heterogeneity (the BR class = number of box TYPES); the
+      // instance's actual box count is secondary and never the class label.
+      label: (isDemo ? DEMO_LABEL + " \u2014 " : "") +
+             c.br_class + " \u2014 " + c.n_types + " box types \u2014 instance " + c.instance_id +
+             " (" + c.n_boxes + " boxes, " + Math.round(c.fragile_rate * 100) + "% fragile)",
+      demo:          isDemo,
+      in_study_sample: !isDemo,
+    });
+    // The demo instance comes first, so it is the UI's default selection.
+    const instances = [
+      ...(demo ? [entry(demo, true)] : []),
+      ...prov.selected.filter((c) => !demo || c.instance_id !== demo.instance_id).map((c) => entry(c, false)),
+    ];
+    return res.json({ dataset: "wtpack", seed: prov.seed, count: instances.length,
+                      study_sample_count: prov.selected.length, instances });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/instance-details
-// Returns details (container dimensions and items list) of a selected instance.
-// ─────────────────────────────────────────────────────────────────────────────
-app.get("/api/instance-details", (req, res) => {
-  const instancePath = req.query.path;
-  if (!instancePath) {
-    return res.status(400).json({ error: "path parameter is required" });
-  }
-  try {
-    const resolved = path.resolve(instancePath);
-    if (!resolved.startsWith(path.resolve(DATA_ROOT))) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    if (!fs.existsSync(resolved)) {
-      return res.status(404).json({ error: "Instance not found" });
-    }
-    const content = fs.readFileSync(resolved, "utf8");
-    const parsed = JSON.parse(content);
+// Errors answer as JSON with their own status (400 for a malformed body,
+// 500 for e.g. an unreadable database), never an HTML stack trace.
+app.use(jsonErrors);
 
-    // Map parsed format to front-end expected properties
-    const container = parsed.Objects && parsed.Objects[0] ? {
-      L: parsed.Objects[0].Length,
-      H: parsed.Objects[0].Height,
-      D: parsed.Objects[0].Depth
-    } : null;
-
-    const items = (parsed.Items || []).map((it, idx) => ({
-      id: it.id || `BOX-${String(idx + 1).padStart(3, "0")}`,
-      L: it.Length,
-      H: it.Height,
-      D: it.Depth,
-      Qty: it.Demand,
-      Type: it.Type || "Standard",
-      Weight: it.Weight || parseFloat((10 + (idx * 3.5) % 15).toFixed(1)), // synthetic weight
-      Stop: it.Stop || 1
-    }));
-
-    res.json({ container, items });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/instances/custom
-// Creates or updates the custom run configuration file.
-// ─────────────────────────────────────────────────────────────────────────────
-// Retired (410): it wrote a legacy BR JSON with made-up weights and Stop 1 for
-// blanks. Custom loads go through POST /api/instances/custom-load. The code
-// below is kept for reference and never runs.
-const OLD_MANUAL_ENTRY_RETIRED = true;
-app.post("/api/instances/custom", (req, res) => {
-  if (OLD_MANUAL_ENTRY_RETIRED) {
-    return res.status(410).json({ error: "The old manual entry is retired: it filled in made-up weights. " +
-                                         "Use POST /api/instances/custom-load (Start analysis → Type them in / Import a CSV)." });
-  }
-  try {
-    const { container, items } = req.body;
-    if (!container || !items) {
-      return res.status(400).json({ error: "container and items are required" });
-    }
-
-    const customDir = path.join(DATA_ROOT, "custom");
-    if (!fs.existsSync(customDir)) {
-      fs.mkdirSync(customDir, { recursive: true });
-    }
-    const filePath = path.join(customDir, "custom.json");
-
-    const formatted = {
-      Name: "custom",
-      Objects: [{
-        Length: Number(container.L),
-        Height: Number(container.H),
-        Depth: Number(container.D),
-        Stock: null,
-        Cost: 0
-      }],
-      Items: items.map((it) => ({
-        id: it.id,
-        Length: Number(it.L),
-        C1_Length: 0,
-        Height: Number(it.H),
-        C1_Height: 1,
-        Depth: Number(it.D),
-        C1_Depth: 0,
-        Demand: Number(it.Qty),
-        DemandMax: null,
-        Type: it.Type || "Standard",
-        Weight: Number(it.Weight || 0),
-        Stop: Number(it.Stop || 1),
-        Value: 0
-      }))
-    };
-
-    fs.writeFileSync(filePath, JSON.stringify(formatted, null, 2));
-    res.json({ success: true, path: filePath });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// Accounts: normalise stored emails once, and make sure the demo account
+// exists (server/accounts.js). A database that cannot be read is reported and
+// left untouched; the server still starts.
+try {
+  accounts.migrateEmails();
+  accounts.seedDemoAccount();
+} catch (e) {
+  console.error(`\u26A0\uFE0F  accounts not checked: ${e.message}`);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n✅  HTTP API  →  http://localhost:${PORT}`);
   console.log(`✅  WebSocket →  ws://localhost:${WS_PORT}`);
-  console.log(`    BR JSON   →  ${DATA_ROOT}${fs.existsSync(DATA_ROOT) ? "" : "  (missing)"}`);
   console.log(`    wtpack    →  ${RAW_DIR}`);
   console.log(`    sample    →  ${SAMPLE}\n`);
+  if (usingDefaultSecret) {
+    console.warn("\u26A0\uFE0F  JWT_SECRET is not set: sign-in tokens use a built-in development secret that anyone with");
+    console.warn("    this code can use to forge a session. Fine on a closed demo laptop; set JWT_SECRET to any long");
+    console.warn("    random string before the server is reachable by others (see docs/DEMO.md).\n");
+  }
   warmOptimizer();
 });

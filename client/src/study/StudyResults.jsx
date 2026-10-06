@@ -3,7 +3,7 @@
 // every number and sentence is computed from the study file's stats block.
 import React from "react";
 import { Section, Empty, ConfigName, cell, ConfoundNote } from "./StatsTables";
-import { fmt, label, outcomeBanner, compositeSummary, sp1Summary, sp2Summary, sp3Summary, provenanceItems, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import { fmt, label, outcomeBanner, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, sp1Summary, sp2Summary, sp3Summary, provenanceItems, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 import CustomLoadBanner, { customLoadOf, CustomLoadBadge } from "../components/CustomLoadBanner";
 
 const { th, td } = cell;
@@ -59,11 +59,10 @@ export function StudyProgress({ progress, study }) {
 function Banner({ stats }) {
   const b = outcomeBanner(stats);
   if (!b) return null;
-  const winner = b.kind === "winner";
   return (
-    <div style={{ padding: "22px 26px", borderRadius: 14, border: `1px solid ${winner ? "var(--primary)" : "var(--border)"}`, background: winner ? "var(--primary-light)" : "var(--bg-card)", boxShadow: "var(--shadow)" }}>
-      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: winner ? "var(--primary-hover)" : "var(--text-dim)" }}>
-        {winner ? "🏆 Recommendation — from the composite ranking" : b.kind === "info" ? "Overall ranking" : "Outcome"}
+    <div style={{ padding: "22px 26px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-card)", boxShadow: "var(--shadow)" }}>
+      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-dim)" }}>
+        {b.kind === "info" ? "Study scope" : "Outcome"}
       </div>
       <div className="font-display" style={{ fontSize: 24, fontWeight: 600, marginTop: 4, color: "var(--text-main)" }}>{b.title}</div>
       <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>{b.sub}</div>
@@ -74,28 +73,28 @@ function Banner({ stats }) {
 function ScoreTable({ stats }) {
   const cs = stats.composite;
   if (!cs || !cs.available) return null;
-  const rec = cs.recommendation && cs.recommendation.configuration;
-  const ranked = cs.ranking;
+  // Fixed configuration order; the composite never highlights a configuration.
+  const ordered = CONFIG_ORDER.filter((c) => cs.components[c]);
+  const rankOf = Object.fromEntries(cs.ranking.map((c, i) => [c, i + 1]));
   return (
-    <Section title="Overall score for all four methods" desc={`Four things matter equally — container fill, rule compliance (${DEFINITION_PLAIN[cs.csr_definition]}), computational cost (time and memory) and consistency — each scaled 0–5 within every test case, then averaged over ${cs.n_instances} test cases. Higher is better.`}>
+    <Section title={COMPOSITE_TITLE} desc={`Supplementary to SP1–SP3. Four components weighted equally — container fill, rule compliance (${DEFINITION_PLAIN[cs.csr_definition]}), computational cost (time and memory) and consistency — each scaled 0–5 within every test case, then averaged over ${cs.n_instances} test cases. A higher score means a higher composite value.`}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
             <th style={th}>Method</th><th style={th}>Container full</th><th style={th}>Rules followed</th><th style={th}>Speed & memory</th><th style={th}>Consistency</th><th style={th}>Overall</th><th style={th}>Rank</th>
           </tr></thead>
           <tbody>
-            {ranked.map((c, i) => {
+            {ordered.map((c) => {
               const k = cs.components[c];
-              const isRec = c === rec;
               return (
-                <tr key={c} style={{ background: isRec ? "var(--primary-light)" : "transparent" }}>
-                  <td style={{ ...td, fontWeight: 700 }}><ConfigName stats={stats} code={c} />{isRec && <span className="badge badge-primary" style={{ marginLeft: 8 }}>recommended</span>}</td>
+                <tr key={c}>
+                  <td style={{ ...td, fontWeight: 700 }}><ConfigName stats={stats} code={c} /></td>
                   <td style={td}>{fmt.num(k.SU_n * 5, 2)}</td>
                   <td style={td}>{fmt.num(k.CSR_n * 5, 2)}</td>
                   <td style={td}>{fmt.num((1 - k.CC_n) * 5, 2)}</td>
                   <td style={td}>{fmt.num((1 - k.Rob_n) * 5, 2)}</td>
                   <td style={{ ...td, fontWeight: 800, fontSize: 15 }}>{fmt.num(cs.mean_cs[c] * 5, 2)} / 5</td>
-                  <td style={td}>{i + 1}</td>
+                  <td style={td}>{rankOf[c]}</td>
                 </tr>
               );
             })}
@@ -135,7 +134,7 @@ function ComplianceTable({ stats }) {
                   </td>
                   {configs.map((c) => <td key={c} style={{ ...td, fontWeight: isPrimary ? 700 : 500 }}>{fmt.pct(stats.descriptives[m][d][c].mean, 2)}</td>)}
                   <td style={{ ...td, fontSize: 12, color: o.testable ? (o.significant_holm ? "var(--green)" : "var(--text-muted)") : "var(--text-dim)" }}>
-                    {o.testable ? (o.significant_holm ? `Yes (Holm ${fmt.peq(o.p_holm)})` : `No (Holm ${fmt.peq(o.p_holm)})`) : o.reason}
+                    {o.testable ? (o.significant_holm ? `Yes (Holm ${fmt.peq(o.p_holm)})` : `No (Holm ${fmt.peq(o.p_holm)})`) : cmp.descriptive_only ? "descriptive only" : o.reason}
                   </td>
                 </tr>
               );
@@ -222,7 +221,7 @@ export default function StudyResults({ study, stats, progress, row, onOpenCompar
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <CustomLoadBanner info={customLoadOf(study) || (row.params && row.params.customLoad ? { id: row.params.customLoad, label: row.custom_load_label } : null)} />
         <StudyProgress progress={progress} study={study} />
-        <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Container fill (SP1) and safety rules (SP2) appear here when every run has finished. {row.n_instances === 1 || (row.params && row.params.instanceId !== null && row.params.instanceId !== undefined) ? "The overall ranking needs ≥ 2 test cases, so this study will not name a winner." : ""}</p>
+        <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Container fill (SP1) and safety rules (SP2) appear here when every run has finished. {row.n_instances === 1 || (row.params && row.params.instanceId !== null && row.params.instanceId !== undefined) ? "The composite ranking needs ≥ 2 test cases, so this study will not have one." : ""}</p>
       </div>
     );
   }

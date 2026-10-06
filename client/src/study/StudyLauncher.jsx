@@ -167,7 +167,7 @@ export default function StudyLauncher({
                     <td>{s.n_runs ?? (s.progress && s.progress.total) ?? "—"}</td>
                     <td>{s.n_instances ?? "—"}</td>
                     <td>{s.mode || "—"}{s.timing_valid === false ? " (timing flagged)" : ""}</td>
-                    <td>{s.outcome ? `Outcome ${s.outcome}` : "—"}{s.recommendation ? ` · rec. ${s.recommendation}` : ""}</td>
+                    <td>{s.outcome ? `Outcome ${s.outcome}` : "—"}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <button className="btn btn-primary btn-xs" onClick={() => onOpenStudy(s.id)}>Open</button>{" "}
                       <button className="btn btn-danger-outline btn-xs" onClick={() => onDeleteStudy(s)}>Delete</button>

@@ -1,5 +1,7 @@
 # Guided UI — Part 0 read-only report
 
+> **Historical report; later change in Phase 2 item 7 (2026-10-04):** The per-load recommendation (`experiments/recommend.py`, the "Recommended for this load" card and badge, `tools/test_recommend.py`) was removed. Results now compares the configurations without a ranking (hybrids by default, full comparison on request); each card opens its representative run from `experiments/representative.py` (closest to the median container fill, ties to the lowest seed); the Loading Guide selects no configuration by default. See `PHASE2_LOG.md`.
+
 Nothing was changed to produce this. Sources: `client/src/**`, `design/Updated_Prototype.html`,
 `experiments/stats.py`, `experiments/study.py`, `preprocessing/custom_load.py`,
 `optimizer/arrangement_view.py`, `optimizer/main_optimizer.py`, `tools/validate_arrangement.py`,
@@ -75,7 +77,7 @@ Processing / Results / Guide).
 | Study select dropdown | ADV | Technical details → Studies |
 | Things to know button + card | MAIN | Kept as the prototype's button + **pop-up**, using the shared `ThingsToKnow` component |
 | Study progress (`StudyProgress`) | MAIN | Processing screen (Part D) |
-| Outcome banner (`Banner`, study-level composite) | ADV | Technical details (outcome badge). Its place is taken by "Recommended for this load" (per-load composite, Part E) |
+| Outcome banner (`Banner`, study-level composite) | ADV | Technical details (outcome badge). Its place was taken by "Recommended for this load" (per-load composite, Part E), since removed (Phase 2 item 7) |
 | Provenance strip | ADV | Technical details |
 | Score table (composite components) | ADV | Technical details |
 | Compliance table (SP2 descriptives + omnibus) | ADV | Technical details |

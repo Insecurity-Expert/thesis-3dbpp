@@ -1,11 +1,13 @@
 // Loading & Unloading Guide — the prototype's Loading Guide panel (help banner,
-// method selector, Print button, three pages), built from ONE stored
-// solution: by default the recommended method's representative run of the
-// comparison on Results. Only what the stored solution determines is shown
+// configuration selector, Print button, three pages), built from ONE stored
+// solution: the representative run (closest to the median container fill) of
+// the configuration the user picks; none is picked by default, and all four
+// are offered in the fixed order. Only what the stored solution determines is shown
 // (viewer/guidePlan.js); no geographic destinations.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { runsApi, studiesApi } from "../services/api";
-import { METHODS, methodOf, methodLabel } from "../methods";
+import { methodOf, methodLabel } from "../methods";
+import { ordered } from "../viewer/comparison";
 import { buildGuide, guideCsv, boxList } from "../viewer/guidePlan";
 import { fmtNum, RULES } from "../viewer/boxInfo";
 import GuideViews from "./GuideViews";
@@ -59,12 +61,12 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
   const study = row ? studyDoc.study : null;
   const done = row && (row.status === "done" || row.status === "imported") && study;
 
-  // The comparison's recommendation (representative runs per method).
+  // The comparison's representative run of each configuration.
   useEffect(() => {
     setRec(null); setView(null); setErr(null);
     if (!done) return undefined;
     let alive = true;
-    studiesApi.recommendation(row.id).then((r) => alive && setRec(r)).catch((e) => alive && setErr(`Could not read the comparison: ${e.message}`));
+    studiesApi.representatives(row.id).then((r) => alive && setRec(r)).catch((e) => alive && setErr(`Could not read the comparison: ${e.message}`));
     return () => { alive = false; };
   }, [done, row && row.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -77,8 +79,9 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
   }, [request]);
 
   const load = rec && rec.loads.length ? rec.loads[Math.min(loadIndex, rec.loads.length - 1)] : null;
-  const top = load && load.available ? load.top : null;
-  const shownMethod = method && load && load.representative[method] ? method : top || (load ? load.configurations[0] : null);
+  // No configuration is selected until the user picks one (or "Export Guide"
+  // on a Results card picks it).
+  const shownMethod = method && load && load.representative[method] ? method : null;
 
   useEffect(() => {
     if (single || !load || !shownMethod) return undefined;
@@ -141,12 +144,12 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
-          <label className="field-label">Which method's plan do you want to see?</label>
-          <select className="field-input" style={{ minWidth: 380 }} value={shownMethod || ""} disabled={!load || !!single}
-            onChange={(e) => setMethod(e.target.value)}>
-            {!load && <option value="">— run STACKR first —</option>}
-            {load && Object.keys(METHODS).filter((c) => load.representative[c]).map((c) => (
-              <option key={c} value={c}>{methodLabel(c)} — {fmtNum(load.representative[c].su_pct, 1)}% full{c === top ? " · recommended" : ""}</option>
+          <label className="field-label" htmlFor="guide-config">Which configuration's plan do you want to see?</label>
+          <select id="guide-config" className="field-input" style={{ minWidth: 380 }} value={shownMethod || ""} disabled={!load || !!single}
+            onChange={(e) => setMethod(e.target.value || null)}>
+            <option value="">{load ? "— choose a configuration —" : "— run STACKR first —"}</option>
+            {load && ordered(load.configurations).map((c) => (
+              <option key={c} value={c}>{methodLabel(c)} — {fmtNum(load.representative[c].su_pct, 1)}% full</option>
             ))}
           </select>
         </div>
@@ -166,7 +169,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
           <option value="screen" disabled={!finalResult}>The Quick Test on screen{finalResult ? "" : " (none)"}</option>
           {savedRows.map((r) => <option key={r.id} value={r.id}>#{r.id} · {methodLabel(r.strategy_code || r.strategy)} · {r.instance}{r.seed != null ? ` · repeat code ${r.seed}` : ""}</option>)}
         </select>
-        <div className="field-hint">A single run has no recommendation; its guide is built the same way.</div>
+        <div className="field-hint">Preview: one run, one seed. Its guide is built the same way.</div>
       </details>
     </div>
   );
@@ -174,7 +177,11 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
   if (err) return <>{controls}<div className="alert-danger">{err}</div></>;
   if (!single && !done) {
     return (<>{controls}<div className="card" style={{ textAlign: "center", padding: "48px 32px", color: "var(--text-dim)", fontSize: 13 }}>
-      No plan yet. Run STACKR from Start analysis; the recommended solution's plan appears here.</div></>);
+      No plan yet. Run STACKR from Start analysis, then choose a configuration here.</div></>);
+  }
+  if (!single && rec && !shownMethod) {
+    return (<>{controls}<div className="card" style={{ textAlign: "center", padding: "40px 32px", color: "var(--text-dim)", fontSize: 13 }}>
+      Choose a configuration above to build its loading plan. All four are available; none is selected by default.</div></>);
   }
   if (!guide) return <>{controls}<div className="card"><div className="field-hint">{busy || !rec ? "Checking and loading the solution…" : "Pick a solution above."}</div></div></>;
   if (!guide.check.ok) {
@@ -195,15 +202,14 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       {controls}
 
       <Page n={1} title="Loading & Unloading Guide" custom={customText}
-        desc={single ? "A single saved run (no recommendation)." : null}>
+        desc={single ? "Preview: one run, one seed." : null}>
         {!single && (
           <div className="info-callout" style={{ marginBottom: 14, display: "block" }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>
-              {methodCode === top ? "Recommended solution: " : "Solution shown: "}{methodLabel(methodCode)}, repeat code {seed}
+              Solution shown: {methodLabel(methodCode)}, repeat code {seed}
             </div>
             <div style={{ fontSize: 12.5, marginTop: 2 }}>
-              {top ? (methodCode === top ? "The method recommended for this load on the Results page; this is its best run." : `The method recommended for this load is ${nameOf(top)}; this plan shows ${nameOf(methodCode)}'s best run instead.`)
-                : "No method is recommended for this comparison (see Results); this is the selected method's best run."}
+              The representative run of {nameOf(methodCode)} on this load: {rec && rec.representative_rule}.
             </div>
           </div>
         )}
@@ -296,7 +302,6 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
             <li>Method: {methodLabel(methodCode)}; repeat code (seed) {seed ?? "—"}.</li>
             <li>Preset: {study && study.preset ? `${study.preset.name} (pack size ${study.preset.pop_size} × ${study.preset.max_iter} iterations)` : shown.params ? `pack size ${shown.params.pop_size} × ${shown.params.max_iter} iterations` : "—"}.</li>
             <li>Time: {shown.timing ? `CPU ${secs(shown.timing.cpu_ms)}, wall-clock ${secs(shown.timing.wall_ms)} (${shown.timing.mode} comparison)` : `wall-clock ${shown.runtime_s != null ? `${shown.runtime_s} s` : "—"}`}.</li>
-            {!single && load && load.available && <li>Overall scores for this load (0–5): {load.ranking.map((c) => `${nameOf(c)} ${fmtNum(load.composite[c].CS * 5, 2)}`).join(" · ")}.</li>}
           </ul>
         </details>
       </Page>

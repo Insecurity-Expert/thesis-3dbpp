@@ -44,7 +44,9 @@ deterministically, when an instance is loaded:
   (`preprocessing/stop_assignment.py`).
 
 The instances used for experiments are listed with full provenance in
-`experiments/samples/sample30_seed42.json` (`preprocessing/sampling.py`).
+`experiments/sample30_seed42.json` (`preprocessing/sampling.py`). The older
+`experiments/samples/sample30_seed42_DEPRECATED.json` was drawn by the previous
+sampling rule and is refused by `experiments/study.py`.
 Instance ids are 0..699, round-robin over the files:
 `file = (id % 7) + 1`, `index = id // 7`.
 
@@ -52,5 +54,5 @@ Instance ids are 0..699, round-robin over the files:
 
 `CLP-Datasets-main/` (the Bischoff–Ratcliff BR0–BR18 JSON conversions) was
 deleted from the repository; it carried no mass or load-bearing data and is
-not used by the thesis pipeline. The legacy HD-GWO code path that read it is
-retained but has no data.
+not used by the thesis pipeline. The legacy HD-GWO code path that read it has
+been removed as well.

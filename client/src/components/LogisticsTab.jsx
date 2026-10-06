@@ -281,7 +281,7 @@ export default function LogisticsTab({
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>What Run STACKR does</div>
               <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
                 {demo
-                  ? <>It packs this load with all four methods, {demo.runs / 4} times each (repeat codes {String(demo.seeds).replace("-", "–")}): {demo.runs} runs, up to {demo.workers} at a time. Then Results shows the four solutions side by side and which one is recommended for this load.</>
+                  ? <>It packs this load with all four methods, {demo.runs / 4} times each (repeat codes {String(demo.seeds).replace("-", "–")}): {demo.runs} runs, up to {demo.workers} at a time. Then Results compares Sequential and Repair-Based, with the full four-configuration comparison one click away.</>
                   : "Reading the run settings from the server…"}
               </div>
             </div>
@@ -292,7 +292,7 @@ export default function LogisticsTab({
             <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 12 }}>
               <div>
                 <div className="card-title">Quick Test</div>
-                <div className="card-desc" style={{ marginBottom: 10 }}>One method, one run. No recommendation — use Run STACKR for that. Uses the repeat code from Settings → Advanced.</div>
+                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run, one seed. Use Run STACKR to compare the configurations. Uses the repeat code from Settings → Advanced.</div>
                 <div className="tabs-inline grow" style={{ marginBottom: 8 }}>
                   {["DGWO", "MOGWO", "Sequential", "Repair-based"].map((s) => (
                     <button key={s} type="button" onClick={() => setStrategy(s)} className={strategy === s ? "active" : ""} title={methodLabel(s)} disabled={running}>

@@ -1,6 +1,6 @@
-// Acceptance 5: the Loading Guide on instance 350, recommended run.
-// The recommendation comes from experiments/recommend.py (Study B holds
-// instance 350 with serial timing, so a recommendation exists); the guide is
+// Acceptance 5: the Loading Guide on instance 350 for one selected
+// configuration (Sequential), using its representative run from
+// experiments/representative.py (closest to the median container fill); the guide is
 // built from experiments/run_view.py's payload exactly as the app builds it,
 // and checked against tools/guide_reference.py, which uses only the
 // independent validator (tools/validate_arrangement.py).
@@ -15,11 +15,12 @@ const STUDY = path.join(ROOT, "experiments", "results", "studies", "studyB_sampl
 const PY = process.env.PYTHON || "python3";
 const py = (args) => JSON.parse(execFileSync(PY, args, { cwd: ROOT, maxBuffer: 64 << 20 }).toString());
 
+const METHOD = "SEQ";   // the Guide has no default; a configuration is chosen
 let load, view, ref, guide;
 beforeAll(() => {
-  const rec = py([path.join(ROOT, "experiments", "recommend.py"), STUDY]);
-  load = rec.loads.find((l) => l.instance_id === 350);
-  const idx = load.representative[load.top].run_index;
+  const rep = py([path.join(ROOT, "experiments", "representative.py"), STUDY]);
+  load = rep.loads.find((l) => l.instance_id === 350);
+  const idx = load.representative[METHOD].run_index;
   view = py([path.join(ROOT, "experiments", "run_view.py"), "--study", STUDY, "--run", String(idx)]);
   ref = py([path.join(ROOT, "tools", "guide_reference.py"), "--study", STUDY, "--run", String(idx)]);
   guide = buildGuide(view);
@@ -32,10 +33,9 @@ const idxOf = () => {
   return m;
 };
 
-test("instance 350 has a recommendation and the guide uses its representative run", () => {
-  expect(load.available).toBe(true);
-  expect(view.strategy).toBe(load.top);
-  expect(view.seed).toBe(load.representative[load.top].seed);
+test("instance 350: the guide uses the selected configuration's representative run", () => {
+  expect(view.strategy).toBe(METHOD);
+  expect(view.seed).toBe(load.representative[METHOD].seed);
   expect(guide.steps.length).toBe(view.items.length);
 });
 

@@ -1,4 +1,6 @@
 {
+  "deprecated": true,
+  "deprecated_reason": "Drawn by the old sampling rule (fragile share as a gate). The current preprocessing/sampling.py regenerates experiments/sample30_seed42.json, which is the thesis sample; 12 of the 30 instances differ. experiments/study.py refuses this file.",
   "seed": 42,
   "n_total": 30,
   "max_boxes": 200,

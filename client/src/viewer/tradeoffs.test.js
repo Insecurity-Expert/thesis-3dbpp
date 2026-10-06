@@ -7,7 +7,7 @@ import { tradeoffPoints, nonDominated, allBoxPct } from "./tradeoffs";
 
 const FILE = path.join(__dirname, "..", "..", "..", "experiments", "results", "studies", "studyA_i350_standard_s1-30_parallel.json");
 
-test("Study A, MOGWO: dots and the best-of-both runs", () => {
+test("Study A, MOGWO: dots and the runs not exceeded on both", () => {
   const runs = JSON.parse(fs.readFileSync(FILE, "utf8")).runs.filter((r) => r.configuration === "MOGWO");
   expect(runs.length).toBe(30);
   const pts = tradeoffPoints(runs);
@@ -32,5 +32,5 @@ test("Study A, MOGWO: dots and the best-of-both runs", () => {
   const got = nonDominated(pts).map((p) => p.seed).sort((a, b) => a - b);
   expect(got).toEqual(want);
   expect(got.length).toBeGreaterThan(0);
-  console.log(`Study A MOGWO: best-of-both runs ${got.length} out of ${pts.length} (seeds ${got.join(", ")})`);
+  console.log(`Study A MOGWO: runs not exceeded on both ${got.length} out of ${pts.length} (seeds ${got.join(", ")})`);
 });

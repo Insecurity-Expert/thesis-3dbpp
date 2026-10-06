@@ -64,6 +64,17 @@ export const authApi = {
     });
   },
 
+  // Forgot password: recovery question set at registration (no email needed)
+  async recoveryQuestions() {
+    return request("/api/auth/recovery-questions");
+  },
+  async forgotQuestion(email) {
+    return request("/api/auth/forgot/question", { method: "POST", body: JSON.stringify({ email }) });
+  },
+  async forgotReset(email, answer, new_password) {
+    return request("/api/auth/forgot/reset", { method: "POST", body: JSON.stringify({ email, answer, new_password }) });
+  },
+
   async setPrefs(prefs) {
     return request("/api/auth/me/prefs", { method: "PATCH", body: JSON.stringify(prefs) });
   },
@@ -79,11 +90,7 @@ export const authApi = {
 // Instances API (OR-Library & Custom instances)
 // ─────────────────────────────────────────────────────────────────────────────
 export const instancesApi = {
-  async getAll() {
-    return request("/api/instances");
-  },
-
-  // Sampled wtpack instances with provenance (experiments/samples/sample30_seed42.json)
+  // Demo instance 350 first, then the 30-instance study sample (experiments/sample30_seed42.json)
   async getWtpack() {
     return request("/api/instances?dataset=wtpack");
   },
@@ -91,20 +98,6 @@ export const instancesApi = {
   // numba warm-up state: { state: "cold"|"warming"|"warm"|"error", warm, seconds }
   async getReady() {
     return request("/api/ready");
-  },
-
-  async getDetails(instancePath) {
-    if (!instancePath) {
-      throw new Error("instancePath is required");
-    }
-    return request(`/api/instance-details?path=${encodeURIComponent(instancePath)}`);
-  },
-
-  async saveCustom({ container, items }) {
-    return request("/api/instances/custom", {
-      method: "POST",
-      body: JSON.stringify({ container, items }),
-    });
   },
 };
 
@@ -170,7 +163,7 @@ export const studiesApi = {
   async progress(id) { return request(`/api/studies/${encodeURIComponent(id)}/progress`); },
   async runView(id, idx) { return request(`/api/studies/${encodeURIComponent(id)}/runs/${encodeURIComponent(idx)}/view`); },
   async remove(id) { return request(`/api/studies/${encodeURIComponent(id)}`, { method: "DELETE" }); },
-  async recommendation(id) { return request(`/api/studies/${encodeURIComponent(id)}/recommendation`); },
+  async representatives(id) { return request(`/api/studies/${encodeURIComponent(id)}/representatives`); },
   async stop(id) { return request(`/api/studies/${encodeURIComponent(id)}/stop`, { method: "POST" }); },
 };
 

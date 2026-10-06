@@ -1,8 +1,10 @@
-"""Pop-30 convergence check (Part J): was max_iter, chosen at pop 10, also
-right at the campaign's pop 30? Records best-so-far per iteration via the
-observation-only record_history hook.
+"""Convergence curves (Part F at pop 10, Part J at pop 30): best-so-far per
+iteration via the observation-only record_history hook, max_iter 500.
 
-    python experiments/convergence_pop30.py DGWO 1 350
+    python experiments/convergence_pop30.py DGWO 1 350          # pop 30 -> DGWO_pop30_s1_i350.csv
+    python experiments/convergence_pop30.py DGWO 1 350 10       # pop 10 -> DGWO_s1_i350.csv
+
+The stop seed is fixed at 42, as in experiments/runner.py.
 """
 import sys, csv, time
 from pathlib import Path
@@ -13,14 +15,21 @@ from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid,
 CFG = {'DGWO': StandaloneDGWO, 'MOGWO': StandaloneMOGWO, 'SEQ': SequentialHybrid, 'REP': RepairBasedHybrid}
 
 name, seed, inst_id = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-pop, iters = 30, 500
-inst = load_augmented_instance({'data': {'raw_dir': str(_ROOT / 'data' / 'raw')}}, instance_id=inst_id, stop_seed=seed)
+pop = int(sys.argv[4]) if len(sys.argv) > 4 else 30
+iters = 500
+inst = load_augmented_instance({'data': {'raw_dir': str(_ROOT / 'data' / 'raw')}}, instance_id=inst_id, stop_seed=42)
 opt = CFG[name](inst['boxes'], inst['container'], pop_size=pop, max_iter=iters, lambda_penalty=0.20,
                 enforce_support=True, enforce_fragility=True, seed=seed, record_history=True)
 t0 = time.perf_counter(); best = opt.run(); el = time.perf_counter() - t0
-out = _ROOT / 'experiments' / 'convergence' / f'{name}_pop30_s{seed}_i{inst_id}.csv'
+tag = '_pop30' if pop == 30 else ''
+out = _ROOT / 'experiments' / 'convergence' / f'{name}{tag}_s{seed}_i{inst_id}.csv'
 with open(out, 'w', newline='') as f:
-    w = csv.writer(f); w.writerow(['cfg', 'seed', 'instance', 'pop', 'iteration', 'best_su', 'best_csr', 'best_placed'])
+    w = csv.writer(f)
+    if pop == 30:
+        w.writerow(['cfg', 'seed', 'instance', 'pop', 'iteration', 'best_su', 'best_csr', 'best_placed'])
+    else:
+        w.writerow(['cfg', 'seed', 'instance', 'iteration', 'best_su', 'best_csr', 'best_placed'])
     for it, su, csr, pl in opt.history:
-        w.writerow([name, seed, inst_id, pop, it + 1, f"{su*100:.4f}", f"{csr:.4f}", pl])
+        row = [name, seed, inst_id] + ([pop] if pop == 30 else []) + [it + 1, f"{su*100:.4f}", f"{csr:.4f}", pl]
+        w.writerow(row)
 print(f"{name} pop={pop} seed={seed} inst={inst_id} final SU={best.su*100:.2f} CSR={best.csr:.2f} placed={len(best.placements)} {el:.0f}s ({1000*el/iters:.0f} ms/iter) -> {out.name}")

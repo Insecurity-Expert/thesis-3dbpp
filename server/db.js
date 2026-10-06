@@ -3,31 +3,77 @@ const fs = require("fs");
 const path = require("path");
 
 const DATA_DIR = path.join(__dirname, "data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // STACKR_DB_FILE points the server at another file (a scratch database for
 // tests, or an empty one); the default is the usual server/data/db_mock.json.
 const FILE_PATH = process.env.STACKR_DB_FILE ? path.resolve(process.env.STACKR_DB_FILE) : path.join(DATA_DIR, "db_mock.json");
+if (!fs.existsSync(path.dirname(FILE_PATH))) fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
+
+const BACKUP_PATH = FILE_PATH + ".bak";
+
+// Data-loss guard. A file that exists but cannot be read or parsed is an
+// ERROR, never an empty database: returning empty data here used to let the
+// next write replace every account and run with nothing. The request fails
+// instead, nothing is written, and the last good copy is in <file>.bak.
+class DbLoadError extends Error {}
 
 function loadData() {
   if (!fs.existsSync(FILE_PATH)) {
     const initial = { users: [], runs: [], studies: [], custom_loads: [] };
-    fs.writeFileSync(FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
+    writeAtomic(JSON.stringify(initial, null, 2));
     return initial;
   }
+  let data;
   try {
-    const data = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
-    if (!Array.isArray(data.studies)) data.studies = [];   // older files predate studies
-    if (!Array.isArray(data.custom_loads)) data.custom_loads = [];   // ... and custom loads
-    return data;
+    data = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
   } catch (e) {
-    return { users: [], runs: [], studies: [], custom_loads: [] };
+    throw new DbLoadError(`database file ${FILE_PATH} could not be read (${e.message}); nothing was written. ` +
+                          `The last good copy is ${BACKUP_PATH}.`);
+  }
+  if (!data || typeof data !== "object" || !Array.isArray(data.users) || !Array.isArray(data.runs)) {
+    throw new DbLoadError(`database file ${FILE_PATH} has no users / runs lists; nothing was written. ` +
+                          `The last good copy is ${BACKUP_PATH}.`);
+  }
+  if (!Array.isArray(data.studies)) data.studies = [];   // older files predate studies
+  if (!Array.isArray(data.custom_loads)) data.custom_loads = [];   // ... and custom loads
+  return data;
+}
+
+// Write to a temporary file, then rename over the database, so a crash
+// mid-write never leaves a half-written file. Windows can refuse the rename
+// while another process has the file open; then write in place (the backup
+// made just before still holds the previous version).
+function writeAtomic(text) {
+  const tmp = FILE_PATH + ".tmp";
+  fs.writeFileSync(tmp, text, "utf8");
+  try {
+    fs.renameSync(tmp, FILE_PATH);
+  } catch (e) {
+    fs.writeFileSync(FILE_PATH, text, "utf8");
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
   }
 }
 
 function saveData(data) {
-  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2), "utf8");
+  // Back up the current file before every write. saveData is only reached
+  // after a successful loadData, so the file being copied is a good one.
+  if (fs.existsSync(FILE_PATH)) fs.copyFileSync(FILE_PATH, BACKUP_PATH);
+  writeAtomic(JSON.stringify(data, null, 2));
 }
+
+// Whole-document access for code that is not a single SQL-shaped statement
+// (account migration, demo seed, password recovery). mutate saves only when
+// fn returns something other than false.
+function read(fn) { return fn(loadData()); }
+function mutate(fn) {
+  const data = loadData();
+  const out = fn(data);
+  if (out !== false) saveData(data);
+  return out;
+}
+
+// Emails are compared trimmed and lower-cased everywhere.
+const normEmail = (e) => String(e == null ? "" : e).trim().toLowerCase();
 
 class MockStatement {
   constructor(sql) {
@@ -38,8 +84,8 @@ class MockStatement {
     const data = loadData();
     // 1. SELECT id FROM users WHERE email = ?
     if (this.sql.includes("SELECT id FROM users WHERE email = ?")) {
-      const email = params[0];
-      const found = data.users.find(u => u.email === email);
+      const email = normEmail(params[0]);
+      const found = data.users.find(u => normEmail(u.email) === email);
       return found ? { id: found.id } : undefined;
     }
     // 2. SELECT * FROM users WHERE id = ?
@@ -50,8 +96,8 @@ class MockStatement {
     }
     // 3. SELECT * FROM users WHERE email = ?
     if (this.sql.includes("SELECT * FROM users WHERE email = ?")) {
-      const email = params[0];
-      const found = data.users.find(u => u.email === email);
+      const email = normEmail(params[0]);
+      const found = data.users.find(u => normEmail(u.email) === email);
       return found;
     }
     // 4. SELECT id,email,name,role,created_at FROM users WHERE id = ?
@@ -275,4 +321,6 @@ class MockDatabase {
   }
 }
 
-module.exports = new MockDatabase();
+const db = new MockDatabase();
+Object.assign(db, { read, mutate, normEmail, DbLoadError, FILE_PATH, BACKUP_PATH });
+module.exports = db;

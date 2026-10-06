@@ -1,0 +1,22 @@
+{
+  "purpose": "Demo instance for the UI's wtpack dropdown (Quick Test, live demo, Study A, tools/demo_check.py). It is NOT in the 30-instance study sample (experiments/sample30_seed42.json) and is never used by the thesis study.",
+  "source": "the instance-350 entry of experiments/samples/sample30_seed42_DEPRECATED.json; n_boxes, n_types and fragile_count re-checked against preprocessing.pipeline.load_augmented_instance",
+  "instance": {
+    "instance_id": 350,
+    "br_class": "BR1",
+    "file": "wtpack1.txt",
+    "index": 50,
+    "n_types": 3,
+    "n_boxes": 129,
+    "fragile_rate": 0.2558,
+    "fragile_count": 33,
+    "lbs_min": 0.04468,
+    "lbs_max": 0.19643,
+    "lbs_ratio": 4.3964,
+    "container": {
+      "L": 587.0,
+      "W": 233.0,
+      "H": 220.0
+    }
+  }
+}

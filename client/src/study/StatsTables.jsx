@@ -1,7 +1,7 @@
 // client/src/study/StatsTables.jsx — building blocks shared by the study views.
 // All text comes from stats fields through verdicts.js templates.
 import React from "react";
-import { fmt, label, pairVerdict, effectPlain, normalitySentence, omnibusSentence, pairSentence, MEASURE_PLAIN, CONFIG_DESC } from "./verdicts";
+import { fmt, label, pairVerdict, effectPlain, normalitySentence, omnibusSentence, pairSentence, dfText, sphericityText, MEASURE_PLAIN, CONFIG_DESC } from "./verdicts";
 
 export function Section({ title, desc, children, right }) {
   return (
@@ -74,28 +74,28 @@ export function DescriptivesTable({ stats, measures }) {
   );
 }
 
-export function NormalityTable({ stats, cmp, unitFmt }) {
-  const f = unitFmt || ((v) => fmt.num(v, 2));
+// Repeated measures: one Shapiro-Wilk per pair, on the within-test-case differences.
+export function NormalityTable({ stats, cmp }) {
+  const pairs = (cmp.normality && cmp.normality.pairs) || [];
+  if (!pairs.length) {
+    return <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>No normality check: {cmp.omnibus.reason || "the comparison could not be run"}.</p>;
+  }
   return (
     <div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr><th style={th}>Configuration</th><th style={th}>Average ± spread</th><th style={th}>Shapiro-Wilk W</th><th style={th}>p</th><th style={th}>Numbers look normal?</th></tr></thead>
+          <thead><tr><th style={th}>Pair (differences within each test case)</th><th style={th}>Shapiro-Wilk W</th><th style={th}>p</th><th style={th}>Differences look normal?</th></tr></thead>
           <tbody>
-            {Object.entries(cmp.normality).map(([c, n]) => {
-              const d = cmp.descriptives[c] || {};
-              return (
-                <tr key={c}>
-                  <td style={{ ...td, fontWeight: 700 }}>{label(stats, c)}</td>
-                  <td style={td}>{f(d.mean)} ± {d.sd === null || d.sd === undefined ? "—" : f(d.sd)}</td>
-                  <td style={td}>{n.applicable ? fmt.num(n.W, 3) : "—"}</td>
-                  <td style={td}>{n.applicable ? fmt.p(n.p) : "—"}</td>
-                  <td style={{ ...td, color: n.applicable ? (n.normal ? "var(--green)" : "var(--amber)") : "var(--text-dim)" }}>
-                    {n.applicable ? (n.normal ? "Yes" : "No — rank-based tests") : `Not applicable — ${n.reason}`}
-                  </td>
-                </tr>
-              );
-            })}
+            {pairs.map((n) => (
+              <tr key={n.a + n.b}>
+                <td style={{ ...td, fontWeight: 700 }}>{label(stats, n.a)} − {label(stats, n.b)}</td>
+                <td style={td}>{n.applicable ? fmt.num(n.W, 3) : "—"}</td>
+                <td style={td}>{n.applicable ? fmt.p(n.p) : "—"}</td>
+                <td style={{ ...td, color: n.applicable ? (n.normal ? "var(--green)" : "var(--amber)") : "var(--text-dim)" }}>
+                  {n.applicable ? (n.normal ? "Yes" : "No — rank-based tests") : `Not applicable — ${n.reason}`}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -112,7 +112,9 @@ export function OmnibusCard({ cmp, measureCode, holm }) {
       <div className="stat-chip" style={{ flex: "1 1 200px" }}>
         <div className="stat-chip-label">Test</div>
         <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{o.testable ? o.test : "Not testable"}</div>
-        <div className="stat-chip-sub">{o.testable ? `${o.statistic_name} = ${fmt.num(o.statistic, 3)}${o.df ? `, df = ${o.df.join(", ")}` : ""}` : o.reason}</div>
+        <div className="stat-chip-sub">{o.testable ? `${o.statistic_name} = ${fmt.num(o.statistic, 3)}${o.df ? `, df = ${dfText(o)}` : ""}` : o.reason}</div>
+        {o.testable && o.sphericity && <div className="stat-chip-sub">{sphericityText(o)}</div>}
+        {o.testable && o.effect_size && <div className="stat-chip-sub">{o.effect_size} = {fmt.num(o.effect_value, 3)}</div>}
       </div>
       <div className="stat-chip" style={{ flex: "1 1 160px" }}>
         <div className="stat-chip-label">{holm ? "Holm-corrected p" : "p-value"}</div>
@@ -152,7 +154,7 @@ export function PairsTable({ stats, cmp, measureCode, valueFmt }) {
                   <td style={td}>{fmt.p(p.p)}</td>
                   <td style={{ ...td, color: p.significant ? "var(--green)" : "var(--text-dim)" }}>{p.significant ? "Yes" : "No"}</td>
                   <td style={td}>{effectPlain(p.effect)}{p.effect.practical ? "" : " — below threshold"}</td>
-                  <td style={{ ...td, fontWeight: 700, color: v.kind === "outperforms" ? "var(--primary)" : v.kind === "detectable" ? "var(--amber)" : "var(--text-dim)" }}>{v.text}</td>
+                  <td style={{ ...td, fontWeight: 700, color: v.kind === "significant" ? "var(--primary)" : v.kind === "detectable" ? "var(--amber)" : "var(--text-dim)" }}>{v.text}</td>
                 </tr>
               );
             })}
@@ -163,7 +165,7 @@ export function PairsTable({ stats, cmp, measureCode, valueFmt }) {
         {cmp.pairs.map((p) => <li key={p.a + p.b}>{pairSentence(stats, p, measureCode)}</li>)}
       </ul>
       <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>
-        A configuration "outperforms" another only when all three hold: the corrected post-hoc test is significant, the effect size reaches the threshold ({cmp.effect_size === "Cohen's d" ? "|d| ≥ 0.5" : "|r| ≥ 0.3"}), and the direction favours it. "Statistically detectable but not practically meaningful" means the first holds and the second does not.
+        "X significantly higher than Y" (X has the higher mean) is shown only when Chapter 3's conditions all hold: the {cmp.pairs.length && cmp.pairs[0].omnibus_gate === "Holm-corrected omnibus test" ? "Holm-corrected omnibus test" : "omnibus test"} is significant, the Holm-corrected post-hoc test is significant, and the effect size reaches the threshold ({cmp.effect_size === "d_z" ? "|d_z| ≥ 0.5" : "|r| ≥ 0.3"}). "Statistically detectable but not practically meaningful" means the tests are significant and the effect size is below the threshold.
       </p>
     </div>
   );

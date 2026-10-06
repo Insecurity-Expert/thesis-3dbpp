@@ -62,7 +62,7 @@ export default function ResultsTab({
         </div>
         {finalResult && (
           <span className="badge badge-primary" style={{ padding: "6px 14px", fontSize: "12px", textTransform: "none" }}>
-            {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy}
+            {replay ? `Saved run #${String(replay.id).padStart(3, "0")}` : `Run #${String(runHistory.length).padStart(3, "0")}`} - {shownStrategy} · Preview: one run, one seed
           </span>
         )}
       </div>
@@ -87,7 +87,6 @@ export default function ResultsTab({
           {/* Summary cards */}
           {(() => {
             const m = finalResult.metrics || {};
-            const cd = m.constraint_detail;
             const placed = finalResult.placed ?? (finalResult.items ? finalResult.items.length : 0);
             const total  = finalResult.n_items ?? placed;
             return (
@@ -97,7 +96,7 @@ export default function ResultsTab({
                   label="CSR (placed boxes, M-2)"
                   value={`${m.M2_constraint_satisfaction_pct.toFixed(1)}%`}
                   color={isRepair ? "var(--text-muted)" : m.M2_constraint_satisfaction_pct >= 99.99 ? "var(--green)" : "var(--amber)"}
-                  subtitle={isRepair ? "100% by construction (repair R1–R5)" : "placed boxes satisfying C3–C6"}
+                  subtitle={isRepair ? "100% by construction (repair R1–R3)" : "placed boxes satisfying C3–C6"}
                   title="Denominator: boxes actually placed in the container. Unplaced boxes are not counted."
                 />
                 <StatChip
@@ -158,7 +157,7 @@ export default function ResultsTab({
                 </h4>
                 {isRepair && (
                   <div style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "14px", padding: "10px 12px", background: "var(--bg-input)", borderRadius: "8px", lineHeight: 1.5 }}>
-                    <b style={{ color: "var(--text-main)" }}>100% by construction.</b> The repair-based configuration relocates or defers every violating box before evaluation (operators R1–R5), so its compliance is guaranteed rather than searched for. The cost shows up in <b>boxes placed</b> and <b>space utilization</b>, not here — compare those columns against the other configurations.
+                    <b style={{ color: "var(--text-main)" }}>100% by construction.</b> The repair-based configuration relocates or defers every violating box before evaluation (operators R1–R3), so its compliance is guaranteed rather than searched for. The cost shows up in <b>boxes placed</b> and <b>space utilization</b>, not here — compare those columns against the other configurations.
                   </div>
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
