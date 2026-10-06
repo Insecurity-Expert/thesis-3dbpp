@@ -6,6 +6,9 @@ import CustomLoadBanner, { customLoadOf, CustomLoadBadge, CUSTOM_LOAD_LABEL } fr
 import { Section, Empty, DescriptivesTable, NormalityTable, OmnibusCard, PairsTable, ConfoundNote, cell, ConfigName } from "./StatsTables";
 import { ProvenanceStrip } from "./StudyResults";
 import LineChart from "./LineChart";
+import { SopSummary } from "../components/SopSummary";
+import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
+import { timingValid } from "./timing";
 import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 
 const { th, td } = cell;
@@ -296,7 +299,23 @@ const SUBTABS = [
   { id: "saved", label: "Saved runs side by side" },
 ];
 
-export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, showPicker = true }) {
+// SP1–SP3 at the top of the Studies page. With >= 2 test cases every mark is
+// a stats.py verdict; with one test case the values are described, not tested.
+export function StudySopSummary({ study, stats }) {
+  const codes = CONFIG_ORDER.filter((c) => (stats.configurations || []).includes(c));
+  const nameOf = (c) => label(stats, c);
+  const timingOk = timingValid(study, stats);
+  const tested = isTestedStudy(stats);
+  const model = tested
+    ? testedModel({ stats, codes, nameOf, timingOk })
+    : descriptiveModel({ runs: study.runs || [], codes, nameOf, timingOk });
+  return <SopSummary model={model} nameOf={nameOf} title="SOP Summary"
+    desc={tested
+      ? `All ${codes.length} configurations over the study's ${stats.provenance.n_instances} test cases. "Significantly higher / lower" only where the Holm-corrected test and the effect-size threshold both support it; the full statistics are below.`
+      : "All configurations on this study's one test case. Described only: with one test case nothing is tested."} />;
+}
+
+export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, summary = false, showPicker = true }) {
   const [sub, setSub] = useState("sp1");
   const ready = row && row.status !== "running" && study && stats;
   return (
@@ -309,6 +328,7 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
         {showPicker && <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />}
       </div>
       {sub !== "saved" && <CustomLoadBanner info={customLoadOf(study) || (row && row.custom_load ? { id: row.custom_load, label: row.custom_load_label } : null)} />}
+      {summary && ready && <StudySopSummary study={study} stats={stats} />}
       <div className="tabs-inline">
         {SUBTABS.map((t) => <button key={t.id} className={sub === t.id ? "active" : ""} onClick={() => setSub(t.id)}>{t.label}</button>)}
       </div>

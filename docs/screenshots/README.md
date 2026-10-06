@@ -15,3 +15,5 @@ scratch database via `STACKR_DB_FILE`), Edge headless via Playwright, 1440 px wi
 The `rd_*` files are older (rear-door orientation guides, Prompt 0) and are not part of this set.
 
 | `inputs_*` | Prompt 3, custom loads (scratch database). `src_sample`: ready-made OR-Library samples with computed box counts, the 200-box-cap labels and why the 476-box instance is not offered. `src_typed_checked`: a typed 36-box load after the server check (stops assigned once, seed 42). `src_csv_errors`: row/column errors from the server. `quick_*`, `launcher_custom`, `study_*`: the same load through Quick Test and a Demo Full Comparison, labelled "Custom load — not part of the thesis dataset" on every tab. |
+
+| `sop_<before\|after>_*` | SOP Summary change (2026-10-06, Playwright Chromium, 1440 px). `before`: master's Results and Technical details (now Studies) pages. `after`: Results opening on the SOP Summary for Study A (one test case, descriptive marks) and Study B (8 test cases, stats.py verdicts), the new Technical Details tab, and the Studies page with its summary; light and dark. |

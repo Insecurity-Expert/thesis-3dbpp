@@ -627,3 +627,50 @@ input:checked + .slider:before { transform: translateX(16px); }
     grid-template-columns: 1fr;
   }
 }
+
+/* ── SOP Summary (components/SopSummary.jsx) ──────────────────────────────
+   Best = green, "about the same" = lighter green, everything else neutral.
+   Every mark also carries a text label, so colour is never the only cue. */
+:root {
+  --sop-best-bg: #D3E8E0; --sop-best-fg: #1F4A3F;
+  --sop-tie-bg: #EFF6F3;  --sop-tie-fg: #3E6A5E;
+  --sop-mark-best-bg: #4C7A6E; --sop-mark-best-fg: #FFFFFF;
+  --sop-bar-best: #4C7A6E; --sop-bar-tie: #9CC4B7; --sop-bar-other: #CBC4D0;
+}
+[data-theme="dark"] {
+  --sop-best-bg: #2C4E44; --sop-best-fg: #DDF0E9;
+  --sop-tie-bg: #1D2B27;  --sop-tie-fg: #A9CFC3;
+  --sop-mark-best-bg: #7FB3A3; --sop-mark-best-fg: #10201B;
+  --sop-bar-best: #7FB3A3; --sop-bar-tie: #4B7A6C; --sop-bar-other: #4A4453;
+}
+.sop-table th, .sop-table td { white-space: nowrap; }
+.sop-table td.sop-problem { white-space: normal; min-width: 170px; color: var(--text-main); vertical-align: top; }
+.sop-table td.sop-measure { white-space: normal; min-width: 160px; }
+.sop-table td.sop-better { font-weight: 700; color: var(--text-main); vertical-align: top; }
+.sop-table tbody.sop-group tr:hover td { background: transparent; }
+.sop-table td.sop-cell-best { background: var(--sop-best-bg); color: var(--sop-best-fg); font-weight: 700; }
+.sop-table td.sop-cell-tie { background: var(--sop-tie-bg); color: var(--sop-tie-fg); font-weight: 600; }
+.sop-table tbody.sop-group tr:hover td.sop-cell-best { background: var(--sop-best-bg); }
+.sop-table tbody.sop-group tr:hover td.sop-cell-tie { background: var(--sop-tie-bg); }
+.sop-value { margin-right: 6px; }
+.sop-mark { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.sop-mark-best { background: var(--sop-mark-best-bg); color: var(--sop-mark-best-fg); }
+.sop-mark-tie { border: 1px dashed currentColor; color: var(--sop-tie-fg); }
+.sop-table tr.sop-sentence-row td { white-space: normal; border-bottom: 2px solid var(--border); padding-top: 6px; }
+.sop-sentence { font-size: 13.5px; color: var(--text-main); line-height: 1.5; }
+.sop-note { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.sop-footnote { margin-top: 10px; }
+.sop-chart-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .sop-chart-panels { grid-template-columns: 1fr; } }
+.sop-chart-panel { margin: 0; }
+.sop-chart-panel figcaption { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+.sop-bar-row { display: grid; grid-template-columns: 96px 1fr 150px; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+.sop-bar-label { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sop-bar-track { height: 12px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
+.sop-bar { display: block; height: 100%; background: var(--sop-bar-other); border-radius: 0 4px 4px 0; }
+.sop-bar-best { background: var(--sop-bar-best); }
+.sop-bar-tie { background: var(--sop-bar-tie); }
+.sop-bar-value { color: var(--text-main); font-weight: 600; }
+.sop-bar-mark { color: var(--text-muted); font-weight: 700; font-size: 11px; }
+.sop-table td.sop-cell { white-space: normal; min-width: 96px; }
+.sop-mark { white-space: nowrap; margin-top: 2px; }
