@@ -42,7 +42,8 @@ def run_view(study_path, run_index):
         b = boxes[u['item_idx']]
         u.update(l=b['l'], w=b['w'], h=b['h'])
     view['timing'] = {'wall_ms': run.get('exec_time_ms'), 'cpu_ms': run.get('cpu_time_ms'),
-                      'peak_mem_mb': run.get('peak_mem_mb'), 'mode': doc.get('mode')}
+                      'peak_mem_mb': run.get('peak_mem_mb'), 'mode': doc.get('mode'),
+                      'valid': bool(doc.get('timing_valid', doc.get('mode') == 'serial'))}
     view['study_name'] = doc.get('name')
     return view
 

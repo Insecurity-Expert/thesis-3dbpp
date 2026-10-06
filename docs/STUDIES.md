@@ -12,6 +12,7 @@ treatment) can.
 |---|---|
 | `experiments/study.py` | runs configurations × seeds × instances, one **fresh process per run** (numba warmed untimed; M-3 = wall-clock of `run()`, M-4 = process peak working set via psutil — `tracemalloc` is not used because it slows the optimizer ~4×), validates every arrangement with `tools/validate_arrangement.py`, writes one study file and its `.progress.json`, then calls `stats.py`. Each file records the git commit at the **start** (`commit`), the end commit, whether tracked files were modified at either point (`git.dirty_start` / `git.dirty_end`, warned on the console) and the numba / numpy / scipy / python versions (`versions`) |
 | `experiments/stats.py` | Chapter 3 statistics, repeated measures with instances as subjects: descriptives; SP1 and SP2 via Shapiro–Wilk on within-instance differences → RM-ANOVA (Mauchly, Greenhouse–Geisser, paired t, d_z) or Friedman (Wilcoxon, rank-biserial r); SP2 on CSR, C3 and C6 with Holm across the testable ones (family of 3) and an explicit H₀ decision, C4 / C5 descriptive; SP3 Friedman within each BR class, Holm across ET and PM (serial studies only); supplementary composite ranking + Friedman/Nemenyi; outperformance (three conditions, reported in neutral wording); outcome pattern A–D. Compliance over all boxes (`PRIMARY_COMPLIANCE = "all_boxes"`) is tested; over placed boxes is descriptive |
+| `experiments/baselines.py --study <file>` | per-instance non-search baselines for a study (study.py runs it automatically after the GWO runs): the **Weight-Sorted Greedy** (one pass, heaviest box first) and the **Random Order** baseline (30 draws per instance, each one pass of a shuffled loading order, `default_rng([42, instance_id])`). Same decoder, evaluator, flags and stop labels as the study; every arrangement checked by the independent validator; always run serially in one process after an untimed warm-up. Stored in `study["baselines"]`, then `stats.py` is re-applied |
 | `tools/test_stats.py` | acceptance checks for `stats.py` |
 | `server/studies.js` | `POST/GET /api/studies`, `/progress`, `/import`, `/available`, `/sizes` — detached jobs (not tied to the WebSocket), user-scoped, mirrored in the `db.js` mock |
 | `client/src/study/` | launcher + locked test settings, study Results view, Compare tab (SP1 / SP2 / SP3 / Overall / saved runs side by side); **every sentence is generated in `verdicts.js` from the stats block** |
@@ -29,7 +30,13 @@ python experiments/study.py --print-defaults            # the locked parameters 
 
 `--mode serial` runs one optimizer at a time (timing valid → SP3 and the
 composite are computed). `--mode parallel` shares the CPU and the file is
-flagged *concurrent*; `stats.py` then refuses SP3 and the composite.
+flagged *concurrent*; `stats.py` then refuses SP3 and the composite, and
+`stats["timing"]` marks every execution-time and peak-memory figure of the file
+**invalid** (`label`: "INVALID - parallel runs shared the CPU …"). Every screen
+and export that shows those figures marks them: the study tables and extra
+numbers, the Results page cards and per-run table, the run viewer / guide
+timing line (`timing.valid`), `representative.py` (`timing_valid`) and the
+Appendix 1 CSV (`Timing_valid`).
 
 Study A and Study B result files **are committed** (~3.6 MB together). A
 rerun with the `--size standard` and `--size multi` commands above takes about
@@ -83,3 +90,25 @@ imported automatically: a fresh database shows empty states everywhere.
 * The Sequential vs DGWO utilisation comparison carries the Chapter 3
   confound note: Sequential's DGWO phase gets `max_iter // 2` iterations
   (30 of 60 at Quick, 150 of 300 at Standard), the MOGWO phase the rest.
+
+## Supplementary: the non-search baselines (Chapter 3)
+
+Reported in `stats["supplementary"]`, **separately from SP1–SP3**: not in their
+Holm families and not part of the outcome pattern.
+
+- **vs the Weight-Sorted Greedy, CSR over all boxes only, one-tailed.** For each
+  configuration, its per-instance mean CSR (all boxes) minus the greedy's one
+  value on that instance; H₁: configuration > greedy. Shapiro–Wilk on those
+  differences → one-tailed paired t-test with d_z, otherwise one-tailed
+  Wilcoxon signed-rank with the matched-pairs rank-biserial r. Holm across the
+  four configurations (a family of its own). The verdict needs the
+  Holm-corrected p < 0.05 and, to be called practically meaningful, the same
+  effect thresholds as SP1–SP3 (|d_z| ≥ 0.5, |r| ≥ 0.3). Needs ≥ 2 instances.
+- **Random Order, descriptive only:** mean / median / sd / min / max of CSR
+  over all boxes, SU and execution time, pooled over all draws and per
+  instance. No test.
+
+A study file without `baselines` reports `supplementary.available = false`;
+`python experiments/baselines.py --study <file>` adds them without touching
+the GWO runs.
+

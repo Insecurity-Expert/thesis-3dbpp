@@ -301,7 +301,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
           <ul style={{ margin: "8px 0 0 18px", padding: 0, fontSize: 12.5, lineHeight: 1.65, color: "var(--text-muted)" }}>
             <li>Method: {methodLabel(methodCode)}; repeat code (seed) {seed ?? "—"}.</li>
             <li>Preset: {study && study.preset ? `${study.preset.name} (pack size ${study.preset.pop_size} × ${study.preset.max_iter} iterations)` : shown.params ? `pack size ${shown.params.pop_size} × ${shown.params.max_iter} iterations` : "—"}.</li>
-            <li>Time: {shown.timing ? `CPU ${secs(shown.timing.cpu_ms)}, wall-clock ${secs(shown.timing.wall_ms)} (${shown.timing.mode} comparison)` : `wall-clock ${shown.runtime_s != null ? `${shown.runtime_s} s` : "—"}`}.</li>
+            <li>Time: {shown.timing ? `CPU ${secs(shown.timing.cpu_ms)}, wall-clock ${secs(shown.timing.wall_ms)} (${shown.timing.mode} comparison${shown.timing.valid === false ? "; invalid: parallel runs shared the CPU" : ""})` : `wall-clock ${shown.runtime_s != null ? `${shown.runtime_s} s` : "—"}`}.</li>
           </ul>
         </details>
       </Page>

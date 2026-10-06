@@ -3,6 +3,7 @@
 // every number and sentence is computed from the study file's stats block.
 import React from "react";
 import { Section, Empty, ConfigName, cell, ConfoundNote } from "./StatsTables";
+import { timingValid, TIMING_INVALID_NOTE } from "./timing";
 import { fmt, label, outcomeBanner, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, sp1Summary, sp2Summary, sp3Summary, provenanceItems, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 import CustomLoadBanner, { customLoadOf, CustomLoadBadge } from "../components/CustomLoadBanner";
 
@@ -48,7 +49,7 @@ export function StudyProgress({ progress, study }) {
       </div>
       {progress.last_run && (
         <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 12 }}>
-          Last finished: {progress.last_run.configuration} seed {progress.last_run.seed} — container {fmt.pct(progress.last_run.su_pct)} full, CSR {fmt.pct(progress.last_run.csr_pct)}, {fmt.ms(progress.last_run.exec_time_ms)}.
+          Last finished: {progress.last_run.configuration} seed {progress.last_run.seed} — container {fmt.pct(progress.last_run.su_pct)} full, CSR {fmt.pct(progress.last_run.csr_pct)}, {fmt.ms(progress.last_run.exec_time_ms)}{progress.mode === "serial" ? "" : " (time invalid: parallel runs)"}.
         </div>
       )}
       {progress.status === "error" && <div className="alert-danger" style={{ marginTop: 12 }}>⚠ {progress.error}</div>}
@@ -151,7 +152,7 @@ function PerformanceTable({ stats }) {
   const configs = stats.configurations;
   const d = stats.descriptives;
   const primary = stats.primary_compliance;
-  const timingOk = stats.provenance.timing_valid;
+  const timingOk = timingValid(null, stats);
   return (
     <Section title="How each method performed" desc={`Averages across ${stats.provenance.runs_per_configuration} runs per method. The ± number is the spread (standard deviation) — smaller means more predictable.`}>
       <div style={{ overflowX: "auto" }}>
@@ -174,9 +175,51 @@ function PerformanceTable({ stats }) {
           </tbody>
         </table>
       </div>
-      {!timingOk && <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8 }}>* {stats.provenance.timing_note} — time and memory are shown for reference only and are not tested.</p>}
+      {!timingOk && <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8 }}>* {TIMING_INVALID_NOTE} ({stats.provenance.timing_note})</p>}
       <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>{sp1Summary(stats)}</p>
       <div style={{ marginTop: 10 }}><ConfoundNote stats={stats} /></div>
+    </Section>
+  );
+}
+
+// Chapter 3 supplementary analysis: non-search baselines, outside SP1–SP3.
+function SupplementaryBaselines({ stats }) {
+  const sp = stats.supplementary;
+  if (!sp || !sp.available) return null;
+  const vg = sp.vs_greedy;
+  const ro = sp.random_order.measures;
+  return (
+    <Section title="Supplementary: compared with the non-search baselines" desc={`Separate from SP1–SP3 (not in their Holm families). Each method against the Weight-Sorted Greedy on rule compliance over all boxes, one-tailed (is the method higher?), Holm across the ${vg.holm_family_size} methods, ${vg.n_instances} test cases. The Random Order baseline (${sp.random_order.n_draws_per_instance} shuffled loading orders per test case) is descriptive only.`}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={th}>Method</th><th style={th}>Rules followed (all boxes)</th><th style={th}>vs greedy</th><th style={th}>Test cases above</th><th style={th}>Test</th><th style={th}>p (Holm)</th><th style={th}>Result</th></tr></thead>
+          <tbody>
+            {CONFIG_ORDER.filter((c) => vg.per_configuration[c]).map((c) => {
+              const r = vg.per_configuration[c];
+              return (
+                <tr key={c}>
+                  <td style={{ ...td, fontWeight: 700 }}>{label(stats, c)}</td>
+                  <td style={td}>{fmt.pct(r.mean, 2)}</td>
+                  <td style={td}>{r.mean_difference >= 0 ? "+" : ""}{fmt.num(r.mean_difference, 2)} pp</td>
+                  <td style={td}>{r.instances_above} of {r.n_instances}</td>
+                  <td style={td}>{r.testable ? r.test : "—"}</td>
+                  <td style={td}>{r.testable ? fmt.num(r.p, 4) : "—"}</td>
+                  <td style={{ ...td, color: r.significant ? "var(--green)" : "var(--text-muted)" }}>{r.verdict}</td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td style={{ ...td, fontWeight: 700 }}>Weight-Sorted Greedy</td>
+              <td style={td}>{fmt.pct(sp.greedy.CSR_all_boxes.mean, 2)}</td><td style={td} colSpan={5}>one pass, heaviest box first · container fill {fmt.pct(sp.greedy.SU.mean, 2)} · {fmt.ms(sp.greedy.ET.mean)}</td>
+            </tr>
+            <tr>
+              <td style={{ ...td, fontWeight: 700 }}>Random Order</td>
+              <td style={td}>{fmt.pct(ro.CSR_all_boxes.mean, 2)} ± {fmt.num(ro.CSR_all_boxes.sd, 2)}</td><td style={td} colSpan={5}>descriptive only · container fill {fmt.pct(ro.SU.mean, 2)} ± {fmt.num(ro.SU.sd, 2)} · {fmt.ms(ro.ET.mean)} per pass</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 8 }}>Baseline times are serial (each pass ran alone after an untimed warm-up).</p>
     </Section>
   );
 }
@@ -185,6 +228,7 @@ function ExtraNumbers({ stats, study }) {
   const configs = stats.configurations;
   const d = stats.descriptives;
   const [open, setOpen] = React.useState(false);
+  const flag = timingValid(study, stats) ? "" : " *";
   return (
     <Section title="Extra technical numbers" desc="For reference only — not part of the overall score." right={<button className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show"}</button>}>
       {open && (
@@ -198,13 +242,14 @@ function ExtraNumbers({ stats, study }) {
                   <td style={td}>{fmt.pct(d.SU[c].median, 2)}</td>
                   <td style={td}>{fmt.pct(d.SU[c].min, 2)} / {fmt.pct(d.SU[c].max, 2)}</td>
                   <td style={td}>{fmt.num(d.SU[c].sd, 3)}</td>
-                  <td style={td}>{fmt.ms(d.ET[c].min)} / {fmt.ms(d.ET[c].max)}</td>
-                  <td style={td}>{fmt.mb(d.PM[c].min)} / {fmt.mb(d.PM[c].max)}</td>
+                  <td style={td}>{fmt.ms(d.ET[c].min)} / {fmt.ms(d.ET[c].max)}{flag}</td>
+                  <td style={td}>{fmt.mb(d.PM[c].min)} / {fmt.mb(d.PM[c].max)}{flag}</td>
                   <td style={td}>{d.SU[c].n}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {flag && <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8 }}>* {TIMING_INVALID_NOTE}</p>}
           <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 8 }}>
             Timing method: {study.timing_method || "—"}. Support threshold {study.support_threshold ?? "—"}; λ = {study.lambdas ? Object.values(study.lambdas).join(" / ") : "—"} (C3 / C4 / C5 / C6); decode-time enforcement of C5 {study.enforce_support ? "on" : "off"}, C4 {study.enforce_fragility ? "on" : "off"}.
           </p>
@@ -237,6 +282,7 @@ export default function StudyResults({ study, stats, progress, row, onOpenCompar
       <ScoreTable stats={stats} />
       <ComplianceTable stats={stats} />
       <PerformanceTable stats={stats} />
+      <SupplementaryBaselines stats={stats} />
       {stats.SP3 && stats.SP3.available && (
         <Section title="Time and memory" desc="Serial study — timing is valid.">
           <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{sp3Summary(stats)}</p>

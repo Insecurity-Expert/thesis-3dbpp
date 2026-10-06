@@ -22,6 +22,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / 'experiments'))
 
 import numpy as np
+from scipy import stats as sps
 from stats import (analyse, holm, rm_anova, mauchly, gg_epsilon, rank_biserial_paired, d_z,
                    apply_verdicts, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
 
@@ -249,6 +250,12 @@ def main():
     check(st['SP3']['available'] is False and 'concurrent' in st['SP3']['reason'], "SP3 refused: " + st['SP3']['reason'])
     check(st['composite']['available'] is False and 'concurrent' in st['composite']['reason'], "composite refused")
     check(st['SP1']['comparison']['omnibus']['testable'], "SP1 still runs on concurrent data")
+    check(st['timing']['valid'] is False and 'INVALID' in st['timing']['label']
+          and set(st['timing']['affects']) >= {'descriptives.ET', 'descriptives.PM', 'composite', 'SP3'},
+          "concurrent timing flagged invalid for ET, PM, SP3 and the composite")
+    st_s = analyse(make_study(lambda c, i, s: {'su': toy_su[c][s - 1] + i, 'csr': toy_csr[c], 'et': toy_et[c]},
+                              [1, 2, 3], [1, 2]))
+    check(st_s['timing']['valid'] is True and st_s['timing']['label'] is None, "serial timing flagged valid")
 
     # ── 11. Holm-Bonferroni on a known vector ────────────────────────────────
     print("11. Holm")
@@ -302,6 +309,44 @@ def main():
     check(got == 'B', f"one hybrid beats both baselines -> B (got {got})")
     got = pattern({'DGWO': 60, 'MOGWO': 42, 'SEQ': 41, 'REP': 40}, {'DGWO': 40, 'MOGWO': 42, 'SEQ': 80, 'REP': 82})
     check(got == 'D', f"hybrids win CSR, lose SU -> D (got {got})")
+
+    # ── 13. supplementary: one-tailed vs the Weight-Sorted Greedy, Random Order ──
+    print("13. supplementary vs greedy (one-tailed) and Random Order")
+    insts13 = [1, 2, 3, 4, 5, 6]
+    # all-box CSR = csr x placed / n; placed = n here, so all-box = csr
+    lift = {'DGWO': [5.0, 6.0, 4.0, 7.0, 5.5, 6.5], 'MOGWO': [1.0, -2.0, 0.5, -1.0, 0.0, -0.5],
+            'SEQ': [0.2, 0.1, -0.1, 0.3, 0.0, 0.1], 'REP': [-3.0, -4.0, -2.0, -5.0, -3.5, -4.5]}
+    greedy13 = {i: 30.0 + i for i in insts13}
+    study13 = make_study(lambda c, i, s: {'su': 50.0, 'csr': greedy13[i] + lift[c][i - 1]}, insts13, [1, 2])
+    study13['baselines'] = {'n_random': 3, 'timing_valid': True, 'timing_note': 'serial', 'per_instance': [
+        {'instance_id': i,
+         'weight_sorted': {'csr_all_pct': greedy13[i], 'su_pct': 60.0, 'exec_time_ms': 2.0, 'placed': 90},
+         'random_order': [{'csr_all_pct': 20.0 + k, 'su_pct': 40.0 + k, 'exec_time_ms': 3.0, 'placed': 80}
+                          for k in range(3)]} for i in insts13]}
+    sp = analyse(study13)['supplementary']
+    vg = sp['vs_greedy']['per_configuration']
+    check(sp['available'] and sp['separate_from'] == 'SP1-SP3', "supplementary block present, separate from SP1-SP3")
+    diff = np.array(lift['DGWO'])
+    t = sps.ttest_1samp(diff, 0.0, alternative='greater')
+    check(vg['DGWO']['test'].startswith('paired t-test') and math.isclose(vg['DGWO']['p_raw'], t.pvalue, rel_tol=1e-5)
+          and vg['DGWO']['p_raw'] < 1e-3, f"DGWO one-tailed paired t p={vg['DGWO']['p_raw']} matches scipy")
+    check(math.isclose(vg['DGWO']['effect']['value'], d_z(diff), rel_tol=1e-5) and vg['DGWO']['significant'],
+          "DGWO d_z and significant after Holm")
+    check(not vg['REP']['significant'] and vg['REP']['p_raw'] > 0.9,
+          f"one-tailed: REP below the greedy is not significant (p={vg['REP']['p_raw']})")
+    check(not vg['MOGWO']['significant'] and not vg['SEQ']['significant'], "no lift -> not significant")
+    adj, fam = holm([vg[c]['p_raw'] for c in CONFIGS])
+    check(sp['vs_greedy']['holm_family_size'] == 4 and all(math.isclose(vg[c]['p'], a, rel_tol=1e-5) for c, a in zip(CONFIGS, adj)),
+          "Holm across the four configurations only")
+    check(sp['vs_greedy']['definition'] == PRIMARY_COMPLIANCE and sp['vs_greedy']['measure'] == 'CSR',
+          "tested on CSR over all boxes")
+    ro = sp['random_order']
+    check(ro['descriptive_only'] and abs(ro['measures']['CSR_all_boxes']['mean'] - 21.0) < 1e-9
+          and abs(ro['measures']['SU']['mean'] - 41.0) < 1e-9 and ro['measures']['ET']['n'] == 18,
+          "Random Order: descriptives only, pooled over draws x instances")
+    st13 = analyse(make_study(lambda c, i, s: {'su': 50.0}, insts13, [1, 2]))
+    check(st13['supplementary']['available'] is False, "no baselines in the file -> supplementary unavailable")
+    check(not no_nan(analyse(study13)), "no NaN anywhere with the supplementary block")
 
     print()
     if FAILS:
