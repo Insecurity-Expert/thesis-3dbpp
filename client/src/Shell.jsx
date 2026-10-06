@@ -29,7 +29,7 @@ export default function Shell() {
   const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, technical, guide, compare (Studies), visualization, history, account
   const [showHowTo, setShowHowTo] = useState(false);
   // "How to use" opens by itself once: on a new account's first login (the
-  // account records that it has), unless "Don't show this again" is ticked.
+  // account records that it has).
   // After that it opens only from the top bar and the Home banner.
   useEffect(() => {
     if (!user || user.howto_hidden || user.howto_auto_shown) return;
@@ -271,6 +271,13 @@ export default function Shell() {
     }
   }, []);
   useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
+  // Results has no study picker: with nothing selected, show the newest
+  // finished study. Another one is opened from Technical details -> Studies.
+  useEffect(() => {
+    if (selectedStudyId !== null) return;
+    const done = studies.filter((s) => s.status === "done" || s.status === "imported");
+    if (done.length) setSelectedStudyId(Math.max(...done.map((s) => s.id)));
+  }, [studies, selectedStudyId]);
 
   // Poll progress while the selected study is running (detached job; survives a reload).
   useEffect(() => {
@@ -860,9 +867,6 @@ export default function Shell() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
               How to use
             </button>
-            <button type="button" className="icon-btn" disabled title="Download the app — not available in this version" aria-label="Download the app (not available in this version)" style={{ opacity: 0.45, cursor: "not-allowed" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-            </button>
             <button
               type="button"
               className="icon-btn"
@@ -879,7 +883,7 @@ export default function Shell() {
                 <div className="card" style={{ position: "absolute", right: 0, top: "46px", width: "220px", boxShadow: "var(--shadow-2)", padding: "16px", zIndex: 1000 }}>
                   <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "12px" }}>
                     <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-main)" }}>{user?.name || "User"}</div>
-                    <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "capitalize" }}>{user?.role || "Researcher"}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-dim)" }}>{user?.email}</div>
                   </div>
                   <button type="button" className="btn btn-secondary btn-sm btn-block" style={{ marginBottom: 8 }} onClick={() => { setActiveTab("account"); setProfileOpen(false); }}>
                     Account
@@ -1023,7 +1027,7 @@ export default function Shell() {
               <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
               <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
               <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
-                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} />
+                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} />
             </div>
           }
           quickTest={finalResult ? (
@@ -1102,11 +1106,7 @@ export default function Shell() {
 
         </main>
       </div>
-      <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} hidden={user && user.howto_hidden}
-        onSetHidden={async (h) => {
-          try { await setPrefs({ howto_hidden: h }); }
-          catch (e) { toast(`Could not save that: ${e.message}`, "err"); throw e; }
-        }} />
+      <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} />
     </div>
   );
 }

@@ -46,9 +46,9 @@ seeded). Provenance, citations and the augmentation rules are in
 
 | code | UI label | what it does |
 |---|---|---|
-| **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates) |
+| **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates); elitist leaders as in Mirjalili et al. (2014): α, β, δ are the best solutions found so far, replaced only by a better wolf, and the best-ever α is returned |
 | **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the archive member with the highest SU |
-| **SEQ** | Sequential | DGWO for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
+| **SEQ** | Sequential | DGWO (elitist, as above) for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
 | **REP** | Repair-based | MOGWO with repair inside the loop — every evaluated wolf is repaired first (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction |
 
 All four share the same decoder (deepest-bottom-left-fill over extreme
@@ -124,6 +124,7 @@ python tools/demo_check.py          # DGWO Quick seed 42 on instance 350 reprodu
 python tools/test_geometry.py       # 92 geometry / constraint / decoder / repair checks, compiled == reference
 python tools/test_determinism.py    # same seed -> same hash, different seed -> different hash
 python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
+python tools/test_elitism.py        # DGWO / SEQ phase 1: best-so-far α, β, δ, replaced only by a better wolf; best-ever α returned
 python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions
 python tools/test_sample_guard.py       # study.py refuses deprecated samples; the demo instance is outside the study sample
 node tools/test_auth.js                 # emails, demo seed, forgot password, admin reset, database guard (needs server/npm install)

@@ -315,7 +315,7 @@ export function StudySopSummary({ study, stats }) {
       : "All configurations on this study's one test case. Described only: with one test case nothing is tested."} />;
 }
 
-export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, summary = false }) {
+export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, summary = false, showPicker = true }) {
   const [sub, setSub] = useState("sp1");
   const ready = row && row.status !== "running" && study && stats;
   return (
@@ -325,7 +325,7 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
           <h3 className="font-display" style={{ fontSize: 20, fontWeight: 600 }}>Do the configurations differ?</h3>
           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>These tables show whether the differences are real or just luck. The composite ranking is supplementary to SP1–SP3.</span>
         </div>
-        <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
+        {showPicker && <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />}
       </div>
       {sub !== "saved" && <CustomLoadBanner info={customLoadOf(study) || (row && row.custom_load ? { id: row.custom_load, label: row.custom_load_label } : null)} />}
       {summary && ready && <StudySopSummary study={study} stats={stats} />}

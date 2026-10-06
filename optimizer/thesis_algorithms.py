@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 
 from thesis_math import decode_position
@@ -142,6 +144,35 @@ class ThesisOptimizerBase:
                               enforce_fragility=self.enforce_fragility,
                               compute_penalty=compute_penalty)
 
+    @staticmethod
+    def _snapshot(w):
+        """Frozen copy of an evaluated wolf. Built with copy.copy, not
+        _new_wolf, so it draws nothing from the RNG."""
+        c = copy.copy(w)
+        c.X = w.X.copy()
+        c.placements = dict(w.placements)
+        c.orientations = dict(w.orientations)
+        c.unplaced = list(w.unplaced)
+        return c
+
+    def _elite_leaders(self, leaders, pop):
+        """Elitist alpha, beta, delta (Mirjalili et al. 2014): the three best
+        PEN-1 solutions found so far. The incumbents are ranked ahead of the
+        population in the stable sort, so a leader is replaced only by a
+        strictly better wolf; a displaced alpha moves down to beta, and so on.
+        Leaders are frozen snapshots, never the moving population wolves."""
+        ranked = sorted(list(leaders) + list(pop), key=lambda w: w.scalar_fitness)
+        out = []
+        for w in ranked:
+            if any(np.array_equal(w.X, l.X) for l in out):
+                continue
+            out.append(w if any(w is l for l in leaders) else self._snapshot(w))
+            if len(out) == 3:
+                break
+        while len(out) < 3:          # fewer than 3 distinct genomes seen
+            out.append(out[-1])
+        return out
+
 class StandaloneDGWO(ThesisOptimizerBase):
     def run(self):
         pop = [self._new_wolf()
@@ -151,7 +182,7 @@ class StandaloneDGWO(ThesisOptimizerBase):
             self._evaluate(w, compute_penalty=True)
 
         pop.sort(key=lambda w: w.scalar_fitness)
-        alpha, beta, delta = pop[0], pop[1], pop[2]
+        alpha, beta, delta = self._elite_leaders([], pop)
 
         for iteration in range(self.max_iter):
             a = 2.0 - iteration * (2.0 / self.max_iter)
@@ -162,12 +193,14 @@ class StandaloneDGWO(ThesisOptimizerBase):
                 self._evaluate(pop[i], compute_penalty=True)
 
             pop.sort(key=lambda w: w.scalar_fitness)
-            alpha, beta, delta = pop[0], pop[1], pop[2]
+            # Elitism: best-so-far leaders, replaced only by a better wolf.
+            alpha, beta, delta = self._elite_leaders([alpha, beta, delta], pop)
             self._record(iteration, alpha)
 
             if self.stream_cb:
                 self._emit(iteration, alpha)
 
+        # The best-ever alpha.
         return alpha
 
     def _emit(self, it, best):
@@ -332,7 +365,7 @@ class SequentialHybrid(StandaloneMOGWO):
             self._evaluate(w, compute_penalty=True)
 
         pop.sort(key=lambda w: w.scalar_fitness)
-        alpha, beta, delta = pop[0], pop[1], pop[2]
+        alpha, beta, delta = self._elite_leaders([], pop)
 
         # One schedule across both phases (Chapter 3): a decays from 2 toward
         # 0 over t = 0..max_iter-1, so phase 1 stops halfway down and phase 2
@@ -345,7 +378,8 @@ class SequentialHybrid(StandaloneMOGWO):
                 self._evaluate(pop[i], compute_penalty=True)
 
             pop.sort(key=lambda w: w.scalar_fitness)
-            alpha, beta, delta = pop[0], pop[1], pop[2]
+            # Elitism in the DGWO phase, as in StandaloneDGWO.
+            alpha, beta, delta = self._elite_leaders([alpha, beta, delta], pop)
 
             self._record(iteration, alpha)
 

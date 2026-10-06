@@ -34,7 +34,6 @@ function ActionRow({ title, desc, button, danger = false, onClick = null, isLast
 
 export default function AccountTab({ user, logout, studies, result }) {
   if (!user) return null;
-  const joined = user.created_at ? new Date(user.created_at) : null;
   return (
     <div className="account-layout">
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -42,7 +41,6 @@ export default function AccountTab({ user, logout, studies, result }) {
           <div className="card-head">
             <div>
               <div className="card-title">Your details</div>
-              <div className="card-desc">As entered when the account was created. Editing is {LATER.toLowerCase()}.</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 24 }}>
@@ -57,11 +55,9 @@ export default function AccountTab({ user, logout, studies, result }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               <Field label="Name" value={user.name} />
-              <Field label="I am a…" value={user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : null} />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               <Field label="Email address" value={user.email} />
-              <Field label="Account created" value={joined && !Number.isNaN(joined.getTime()) ? joined.toLocaleDateString() : null} />
             </div>
           </div>
         </div>

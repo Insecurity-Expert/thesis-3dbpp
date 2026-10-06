@@ -71,6 +71,9 @@ for name in ('studyA_i350_standard_s1-30_parallel.json', 'studyB_sample8_quick_s
             rs = [r for _, r in mine]
             ok_means &= abs(L['means'][c]['su_pct'] - sum(r['su_pct'] for r in rs) / len(rs)) < 1e-9
             ok_means &= abs(L['means'][c]['csr_all_pct'] - sum(r['csr_pct'] * r['placed'] / r['n_items'] for r in rs) / len(rs)) < 1e-9
+            for k in ('C3', 'C4', 'C5', 'C6'):
+                ok_means &= abs(L['means'][c][f'{k}_pct'] - sum(r[f'{k}_pct'] for r in rs) / len(rs)) < 1e-9
+                ok_means &= abs(L['means'][c][f'{k}_all_pct'] - sum(r[f'{k}_pct'] * r['placed'] / r['n_items'] for r in rs) / len(rs)) < 1e-9
     check(f"{name[:6]}: representative = independent median rule ({len(doc['loads'])} load(s))", ok_rule)
     check(f"{name[:6]}: even run count -> the lower-seed of the two middle runs", ok_even)
     check(f"{name[:6]}: run_index points at that run", ok_index)

@@ -13,25 +13,25 @@
  },
  "recorded_with": {
   "numba": "0.68.0",
-  "python": "3.11.15",
+  "python": "3.11.17",
   "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39"
  },
  "cases": [
   {
    "configuration": "DGWO",
    "seed": 1,
-   "sha256": "5e73df025be162d9d416dec99fdc4151ab78bc4937c29b3d3c14ba00a6b53abb",
-   "placed": 77,
-   "su_pct": 60.2014,
-   "csr_pct": 36.3636
+   "sha256": "c62db1926cfa900e53ad573b1b18b950930d9f863cb6de9e152bf0e5d487eca7",
+   "placed": 87,
+   "su_pct": 65.3413,
+   "csr_pct": 47.1264
   },
   {
    "configuration": "DGWO",
    "seed": 42,
-   "sha256": "28e5f3a0ce5062cf1af1155f7d445130d0ca4006efff2fe3e61e0c47a6f74fe7",
-   "placed": 85,
-   "su_pct": 63.6829,
-   "csr_pct": 38.8235
+   "sha256": "eee4d9499bd3c06abf139669cb1aa29f2fd777881cf4a9853a6dd4c6e5f55eb0",
+   "placed": 87,
+   "su_pct": 66.3781,
+   "csr_pct": 32.1839
   },
   {
    "configuration": "MOGWO",
@@ -52,18 +52,18 @@
   {
    "configuration": "SEQ",
    "seed": 1,
-   "sha256": "ccf010e1d8b3463c4c2137c3cf8e5a3d1ac70fe9cdc44322204fe013639c9258",
-   "placed": 77,
-   "su_pct": 59.7262,
-   "csr_pct": 36.3636
+   "sha256": "5caaeb5a0e79c207429087fe095e18be8e08581cc14023d5dcb8b8619f22e601",
+   "placed": 82,
+   "su_pct": 62.4255,
+   "csr_pct": 40.2439
   },
   {
    "configuration": "SEQ",
    "seed": 42,
-   "sha256": "4d816a75b1c249541f8123362d45ae500418c98d7bc1f1aee5d37cca47bb6897",
+   "sha256": "73161ceff8af5243e0f3f5341606436ad382b4196798c8c52ef8c37f84f25c86",
    "placed": 83,
-   "su_pct": 63.7951,
-   "csr_pct": 38.5542
+   "su_pct": 64.5291,
+   "csr_pct": 36.1446
   },
   {
    "configuration": "REP",
