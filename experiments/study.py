@@ -19,6 +19,11 @@ Every arrangement is passed through tools/validate_arrangement.py (the
 independent checker) inside the worker; a disagreement with the optimizer's
 own evaluator aborts the study with a non-zero exit.
 
+After the runs, experiments/baselines.py adds the Weight-Sorted Greedy and the
+Random Order baseline (30 one-pass shuffled orders) for every instance, run
+serially in this process (study["baselines"]); stats.py reports them in its
+supplementary block, outside SP1-SP3.
+
 Each run executes in a FRESH worker process (also in serial mode): the numba
 kernels are warmed untimed first, then M-3 is the wall-clock of opt.run()
 alone and M-4 is the process's peak working set (psutil), which is monotonic
@@ -485,6 +490,17 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         log(f"VALIDATOR DISAGREEMENT on {len(bad)} arrangement(s):")
         for r in bad:
             log(f"  {r['configuration']} inst={r['instance_id']} seed={r['seed']}: {r['validation']}")
+        return study, 2
+
+    # Weight-Sorted Greedy and Random Order baselines per instance (Chapter 3
+    # supplementary analysis); serial, after the GWO runs.
+    from baselines import attach_baselines
+    bad_b = attach_baselines(study, raw_dir, log=log)
+    out.write_text(json.dumps(study, indent=1), encoding='utf-8')
+    if bad_b:
+        prog.update(status='error', error=f'{bad_b} baseline arrangement(s) disagree with the independent validator')
+        _write_progress(progress_path, prog)
+        log(f"VALIDATOR DISAGREEMENT on {bad_b} baseline arrangement(s)")
         return study, 2
 
     if run_stats:

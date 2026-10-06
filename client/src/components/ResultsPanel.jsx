@@ -17,22 +17,24 @@ import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import StudyResults, { StudyProgress } from "../study/StudyResults";
 import { StudySelect } from "../study/CompareTab";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
+import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
 
 const f1 = (v, d = 1) => (v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
 const nameOf = (c) => (methodOf(c) ? methodOf(c).name : c);
 const nickOf = (c) => (methodOf(c) ? methodOf(c).nick : "");
 const POS_TEXT = { highest: "highest", lowest: "lowest", level: "level", between: "" };
 
-function Metric({ k, v, title, note }) {
+function Metric({ k, v, title, note, invalid }) {
   return (
     <div className="metric" title={title}>
       <span>{k}{title ? " ⓘ" : ""}</span>
-      <b>{v}{note && <span className="badge" style={{ marginLeft: 6, textTransform: "none", fontWeight: 600 }} title={note}>by design</span>}</b>
+      <b>{v}{note && <span className="badge" style={{ marginLeft: 6, textTransform: "none", fontWeight: 600 }} title={note}>by design</span>}
+        {invalid && <span className="badge" style={{ marginLeft: 6, textTransform: "none", fontWeight: 600, color: "var(--amber)" }} title={TIMING_INVALID_NOTE}>{TIMING_INVALID_SHORT}</span>}</b>
     </div>
   );
 }
 
-function SolutionCard({ code, means, rep, seqSplit, onView, onGuide }) {
+function SolutionCard({ code, means, rep, seqSplit, timingOk = true, onView, onGuide }) {
   const [open, setOpen] = useState(false);
   const notes = byDesign(code, means, seqSplit);
   return (
@@ -49,12 +51,12 @@ function SolutionCard({ code, means, rep, seqSplit, onView, onGuide }) {
       <Metric k="Rule compliance, all boxes" v={`${f1(means.csr_all_pct)}%`} title="Share of ALL the boxes in the load that follow the four loading rules. A box that was not loaded counts as not following them." />
       <Metric k="Rule compliance, loaded boxes" v={`${f1(means.csr_placed_pct)}%`} title="Share of the loaded boxes that follow the four loading rules. Boxes left out are not counted." note={notes.csr_placed_pct} />
       <Metric k="Boxes loaded" v={`${f1(means.placed)} of ${means.n_items}`} />
-      <Metric k="Time" v={means.cpu_ms != null ? `${Math.round(means.cpu_ms)} ms CPU` : `${Math.round(means.wall_ms)} ms`} title={means.cpu_ms != null ? "Average processor time of the runs." : "Average wall-clock time of the runs."} />
+      <Metric k="Time" v={means.cpu_ms != null ? `${Math.round(means.cpu_ms)} ms CPU` : `${Math.round(means.wall_ms)} ms`} title={means.cpu_ms != null ? "Average processor time of the runs." : "Average wall-clock time of the runs."} invalid={!timingOk} />
       {open && (
         <div style={{ fontSize: 12.5, marginTop: 10, lineHeight: 1.6, color: "var(--text-muted)" }}>
           <div><b>Representative run</b> (repeat code {rep.seed}, the run closest to the median container fill, {f1(rep.median_su_pct)}%): container fill {f1(rep.su_pct)}%, boxes loaded {rep.placed} of {rep.n_items}, rule compliance {f1(rep.csr_all_pct)}% of all boxes and {f1(rep.csr_placed_pct)}% of loaded boxes.</div>
           <div><b>Loaded boxes following each rule</b> in that run: load on top (C3) {f1(rep.C3_pct)}% · fragile (C4) {f1(rep.C4_pct)}% · stable stacking (C5) {f1(rep.C5_pct)}% · unload order (C6) {f1(rep.C6_pct)}%.</div>
-          <div>Container fill over all {means.n_runs} runs: {f1(means.su_min)}% to {f1(means.su_max)}%. Peak memory {f1(means.peak_mem_mb, 0)} MB on average.</div>
+          <div>Container fill over all {means.n_runs} runs: {f1(means.su_min)}% to {f1(means.su_max)}%. Peak memory {f1(means.peak_mem_mb, 0)} MB on average{timingOk ? "" : ` (${TIMING_INVALID_SHORT})`}.</div>
         </div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto", paddingTop: 12 }}>
@@ -139,13 +141,14 @@ function Profiles({ means, codes }) {
   );
 }
 
-function RunTable({ runs }) {
+function RunTable({ runs, timingOk = true }) {
   const order = ["DGWO", "MOGWO", "SEQ", "REP"];
+  const flag = timingOk ? "" : " *";
   const rows = runs.slice().sort((a, b) => order.indexOf(a.configuration) - order.indexOf(b.configuration) || a.seed - b.seed);
   return (
     <div className="card">
       <div className="card-title">Every run on this load</div>
-      <div className="card-desc" style={{ marginBottom: 10 }}>C3–C6: share of the loaded boxes following each rule. Warm-up: the untimed numba start-up of the run's worker process, not included in its CPU time.</div>
+      <div className="card-desc" style={{ marginBottom: 10 }}>C3–C6: share of the loaded boxes following each rule. Warm-up: the untimed numba start-up of the run's worker process, not included in its CPU time.{timingOk ? "" : " * CPU, wall-clock and memory: " + TIMING_INVALID_NOTE}</div>
       <div style={{ overflowX: "auto" }}>
         <table className="data-table" style={{ fontSize: 12 }}>
           <thead><tr><th>Method</th><th>Repeat code</th><th>Fill</th><th>Rules (all boxes)</th><th>Rules (loaded)</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th><th>Loaded</th><th>CPU</th><th>Wall-clock</th><th>Memory</th><th>Warm-up CPU</th></tr></thead>
@@ -154,7 +157,7 @@ function RunTable({ runs }) {
               <tr key={`${r.configuration}-${r.seed}`}>
                 <td>{nameOf(r.configuration)}</td><td>{r.seed}</td><td>{f1(r.su_pct, 2)}%</td><td>{f1((r.csr_pct * r.placed) / r.n_items, 2)}%</td><td>{f1(r.csr_pct, 2)}%</td>
                 <td>{f1(r.C3_pct)}%</td><td>{f1(r.C4_pct)}%</td><td>{f1(r.C5_pct)}%</td><td>{f1(r.C6_pct)}%</td><td>{r.placed}/{r.n_items}</td>
-                <td>{r.cpu_time_ms != null ? Math.round(r.cpu_time_ms) + " ms" : "—"}</td><td>{Math.round(r.exec_time_ms)} ms</td><td>{f1(r.peak_mem_mb, 0)} MB</td><td>{r.worker_warmup_cpu_ms != null ? Math.round(r.worker_warmup_cpu_ms) + " ms" : "—"}</td>
+                <td>{r.cpu_time_ms != null ? Math.round(r.cpu_time_ms) + " ms" + flag : "—"}</td><td>{Math.round(r.exec_time_ms)} ms{flag}</td><td>{f1(r.peak_mem_mb, 0)} MB{flag}</td><td>{r.worker_warmup_cpu_ms != null ? Math.round(r.worker_warmup_cpu_ms) + " ms" : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -260,7 +263,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
 
           <div className={`grid grid-${shown.length}`} style={{ marginBottom: 20 }}>
             {shown.map((c) => (
-              <SolutionCard key={c} code={c} means={load.means[c]} rep={load.representative[c]} seqSplit={seqSplit}
+              <SolutionCard key={c} code={c} means={load.means[c]} rep={load.representative[c]} seqSplit={seqSplit} timingOk={timingValid(study, stats)}
                 onView={() => onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c })}
                 onGuide={() => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey })} />
             ))}
@@ -296,7 +299,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
       {numbers && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {load && <div className="card"><div className="card-desc" style={{ margin: 0 }}>Representative run of each configuration (cards, 3D viewer, Loading Guide): {rep.representative_rule}.</div></div>}
-          {load && <RunTable runs={load.runs} />}
+          {load && <RunTable runs={load.runs} timingOk={timingValid(study, stats)} />}
           {load && (
             <div className="card">
               <div className="card-head">
