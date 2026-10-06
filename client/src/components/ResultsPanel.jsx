@@ -15,7 +15,6 @@ import ThingsToKnow from "./ThingsToKnow";
 import TradeoffsChart from "./TradeoffsChart";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import StudyResults, { StudyProgress } from "../study/StudyResults";
-import { StudySelect } from "../study/CompareTab";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
 import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
 
@@ -31,6 +30,48 @@ function Metric({ k, v, title, note, invalid }) {
       <b>{v}{note && <span className="badge" style={{ marginLeft: 6, textTransform: "none", fontWeight: 600 }} title={note}>by design</span>}
         {invalid && <span className="badge" style={{ marginLeft: 6, textTransform: "none", fontWeight: 600, color: "var(--amber)" }} title={TIMING_INVALID_NOTE}>{TIMING_INVALID_SHORT}</span>}</b>
     </div>
+  );
+}
+
+// The four loading rules, each as the share of loaded boxes that follow it and
+// the share of all boxes (a box left out counts as not following it). C4 and C5
+// are enforced while boxes are placed, so every loaded box follows them by design.
+const RULES = [
+  ["C3", "Load on top", "A box never carries more than its strength allows."],
+  ["C4", "Fragile boxes", "Nothing heavy rests on a fragile box. Enforced while boxes are placed."],
+  ["C5", "Stable stacking", "Each box sits on enough support. Enforced while boxes are placed."],
+  ["C6", "Unload order", "Boxes for earlier stops sit nearer the door."],
+];
+
+function RuleRows({ means }) {
+  if (means.C3_pct == null) return null;      // representatives computed before the per-rule means
+  const num = { textAlign: "right", whiteSpace: "nowrap", fontWeight: 600, padding: "3px 0 3px 10px" };
+  const head = { ...num, fontWeight: 500, color: "var(--text-dim)", fontSize: 11 };
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, margin: "4px 0 8px" }}>
+      <thead>
+        <tr>
+          <th style={{ ...head, textAlign: "left", padding: "3px 0" }}>Each rule</th>
+          <th style={head} title="Share of the loaded boxes that follow the rule.">Loaded ⓘ</th>
+          <th style={head} title="Share of all the boxes in the load that follow the rule; a box that was not loaded counts as not following it.">All boxes ⓘ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {RULES.map(([code, name, what]) => {
+          const enforced = code === "C4" || code === "C5";
+          return (
+            <tr key={code} style={{ borderTop: "1px dashed var(--border)" }} title={enforced ? `${what} So every loaded box follows it by design.` : what}>
+              <td style={{ padding: "3px 0", color: "var(--text-muted)" }}>{name} ({code}){enforced && <sup title="Enforced while boxes are placed: every loaded box follows it by design."> †</sup>}</td>
+              <td style={num}>{f1(means[`${code}_pct`])}%</td>
+              <td style={num}>{f1(means[`${code}_all_pct`])}%</td>
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr><td colSpan={3} className="field-hint" style={{ paddingTop: 4 }}>† Enforced while boxes are placed, so every loaded box follows it by design.</td></tr>
+      </tfoot>
+    </table>
   );
 }
 
@@ -50,6 +91,7 @@ function SolutionCard({ code, means, rep, seqSplit, timingOk = true, onView, onG
       <Metric k="Container fill" v={`${f1(means.su_pct)}%`} />
       <Metric k="Rule compliance, all boxes" v={`${f1(means.csr_all_pct)}%`} title="Share of ALL the boxes in the load that follow the four loading rules. A box that was not loaded counts as not following them." />
       <Metric k="Rule compliance, loaded boxes" v={`${f1(means.csr_placed_pct)}%`} title="Share of the loaded boxes that follow the four loading rules. Boxes left out are not counted." note={notes.csr_placed_pct} />
+      <RuleRows means={means} />
       <Metric k="Boxes loaded" v={`${f1(means.placed)} of ${means.n_items}`} />
       <Metric k="Time" v={means.cpu_ms != null ? `${Math.round(means.cpu_ms)} ms CPU` : `${Math.round(means.wall_ms)} ms`} title={means.cpu_ms != null ? "Average processor time of the runs." : "Average wall-clock time of the runs."} invalid={!timingOk} />
       {open && (
@@ -198,9 +240,9 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   }, [rep, loadKey, study]);
   useEffect(() => { if (load && !tradeMethod) setTradeMethod(ordered(load.configurations)[0]); }, [load, tradeMethod]);
 
-  const header = (
+  // Only a multi-load study needs a header (the load picker).
+  const header = rep && rep.loads.length > 1 && (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-      <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
       {rep && rep.loads.length > 1 && (
         <select className="form-input" style={{ width: "auto", paddingLeft: 12 }} value={loadKey} onChange={(e) => { setLoadKey(Number(e.target.value)); setTradeMethod(null); }} aria-label="Which load">
           {rep.loads.map((L, i) => <option key={i} value={i}>{L.instance_id === null ? "Your custom load" : `Test case ${L.instance_id}`}</option>)}

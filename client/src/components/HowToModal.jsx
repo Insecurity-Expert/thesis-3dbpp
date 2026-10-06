@@ -1,28 +1,16 @@
 // "How to use STACKR" — the prototype's six-step pop-up, rewritten for the
-// guided flow. Opens by itself only on a new account's first login (unless
-// "Don't show this again" is ticked); otherwise from the top-bar help button
-// and the Home banner. Both flags are stored on the account.
-import React, { useEffect, useState } from "react";
+// guided flow. Opens by itself only on a new account's first login (stored on
+// the account); otherwise from the top-bar help button and the Home banner.
+import React from "react";
 import { Modal } from "./ui";
 import { METHODS } from "../methods";
 
 const nick = (c) => `${METHODS[c].name} (${METHODS[c].nick})`;
 
-export default function HowToModal({ open, onClose, hidden, onSetHidden }) {
-  // Shown ticked at once; put back if the account could not be updated.
-  const [checked, setChecked] = useState(!!hidden);
-  useEffect(() => { setChecked(!!hidden); }, [hidden]);
-  const toggle = async (e) => {
-    const v = e.target.checked;
-    setChecked(v);
-    try { await onSetHidden(v); } catch { setChecked(!v); }
-  };
+export default function HowToModal({ open, onClose }) {
   return (
     <Modal open={open} onClose={onClose} title="How to use STACKR" desc="Six simple steps. You don't need any training to get started." maxWidth={640} labelledBy="howto-title"
       footer={<>
-        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12.5, color: "var(--text-muted)", marginRight: "auto" }}>
-          <input type="checkbox" checked={checked} onChange={toggle} /> Don't show this again
-        </label>
         <button type="button" className="btn btn-primary" onClick={onClose}>Got it — let's start</button>
       </>}>
       <div className="guide-step-list">

@@ -212,8 +212,9 @@ export default function LogisticsTab({
                 <span className="lock-pill">🔒 Always on</span>
               </div>
               <div>
-                {RULE_ROWS.map(([code, name, what]) => (
+                {RULE_ROWS.map(([code, name, what], i) => (
                   <div key={code} className="constraint-row locked-constraint" title={code}
+                    style={i === RULE_ROWS.length - 1 ? { borderBottom: "none" } : undefined}
                     onClick={() => toast(`"${name}" is always on — it can't be turned off.`, "warn")}>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{name}: {what}</div>
@@ -222,13 +223,6 @@ export default function LogisticsTab({
                     <label className="switch"><input type="checkbox" checked disabled readOnly aria-label={`${name} (always on)`} /><span className="slider" /></label>
                   </div>
                 ))}
-                <div className="constraint-row" style={{ borderBottom: "none" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>Allow boxes to be turned sideways</div>
-                    <div className="field-hint">Coming in a later version. Benchmark boxes turn only as their published data allows; typed and imported boxes stay upright.</div>
-                  </div>
-                  <label className="switch"><input type="checkbox" checked={false} disabled readOnly aria-label="Allow boxes to be turned sideways (not available)" /><span className="slider" /></label>
-                </div>
               </div>
               <div className="field-hint" style={{ marginTop: 10, lineHeight: 1.5 }}>
                 Every run checks all four rules. Fragile boxes and stable stacking are enforced while boxes are placed; load on top and unload order are scored, so a result can still break them.

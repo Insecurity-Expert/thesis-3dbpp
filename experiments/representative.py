@@ -59,6 +59,11 @@ def load_entry(inst, indexed):
             'su_min': min(r['su_pct'] for r in rs), 'su_max': max(r['su_pct'] for r in rs),
             'csr_all_pct': _mean(all_box(r) for r in rs),
             'csr_placed_pct': _mean(r['csr_pct'] for r in rs),
+            # each rule C3-C6: share of loaded boxes, and of all boxes (a box
+            # left out counts as not following it)
+            **{f'{k}_pct': _mean(r[f'{k}_pct'] for r in rs) for k in ('C3', 'C4', 'C5', 'C6')},
+            **{f'{k}_all_pct': _mean(r[f'{k}_pct'] * r['placed'] / r['n_items'] for r in rs)
+               for k in ('C3', 'C4', 'C5', 'C6')},
             'placed': _mean(r['placed'] for r in rs), 'n_items': rs[0]['n_items'],
             'cpu_ms': _mean(r.get('cpu_time_ms') for r in rs),
             'wall_ms': _mean(r['exec_time_ms'] for r in rs),

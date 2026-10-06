@@ -10,7 +10,7 @@ saved history); nothing is typed into the components.
 |---|---|---|
 | `/` | `LandingPage.jsx` | public landing page |
 | `/login` | `auth/LoginPage.jsx` | email + password |
-| `/register` | `auth/RegisterPage.jsx` | name, email, password, and "I am a…" (researcher or logistics manager) |
+| `/register` | `auth/RegisterPage.jsx` | name, email, password, recovery question and answer |
 | `/app` | `Shell.jsx` | signed-in only; anyone else is sent to `/login` |
 
 Sign-in is a JWT in an httpOnly cookie (`server/auth.js`).
