@@ -9,3 +9,4 @@
 instrumentation is observation-only
 0 of 60 runs already on disk; 60 to go
 [ 1/60] DGWO  BR1 i413 s1 SU= 70.97 CSR= 40.00 placed=80/105     50s div0=0.497 divT=0.000 validator=AGREE
+[ 2/60] MOGWO BR1 i413 s1 SU= 64.69 CSR= 44.59 placed=74/105     49s div0=0.497 divT=0.000 validator=AGREE
