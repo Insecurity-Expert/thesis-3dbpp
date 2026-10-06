@@ -15,7 +15,6 @@ import ThingsToKnow from "./ThingsToKnow";
 import TradeoffsChart from "./TradeoffsChart";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import StudyResults, { StudyProgress } from "../study/StudyResults";
-import { StudySelect } from "../study/CompareTab";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
 import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
 
@@ -198,9 +197,9 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   }, [rep, loadKey, study]);
   useEffect(() => { if (load && !tradeMethod) setTradeMethod(ordered(load.configurations)[0]); }, [load, tradeMethod]);
 
-  const header = (
+  // Only a multi-load study needs a header (the load picker).
+  const header = rep && rep.loads.length > 1 && (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-      <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
       {rep && rep.loads.length > 1 && (
         <select className="form-input" style={{ width: "auto", paddingLeft: 12 }} value={loadKey} onChange={(e) => { setLoadKey(Number(e.target.value)); setTradeMethod(null); }} aria-label="Which load">
           {rep.loads.map((L, i) => <option key={i} value={i}>{L.instance_id === null ? "Your custom load" : `Test case ${L.instance_id}`}</option>)}

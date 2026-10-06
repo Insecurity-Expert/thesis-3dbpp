@@ -268,6 +268,13 @@ export default function Shell() {
     }
   }, []);
   useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
+  // Results has no study picker: with nothing selected, show the newest
+  // finished study. Another one is opened from Technical details -> Studies.
+  useEffect(() => {
+    if (selectedStudyId !== null) return;
+    const done = studies.filter((s) => s.status === "done" || s.status === "imported");
+    if (done.length) setSelectedStudyId(Math.max(...done.map((s) => s.id)));
+  }, [studies, selectedStudyId]);
 
   // Poll progress while the selected study is running (detached job; survives a reload).
   useEffect(() => {
@@ -997,7 +1004,7 @@ export default function Shell() {
               <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
               <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
               <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
-                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} />
+                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} />
             </div>
           }
           quickTest={finalResult ? (

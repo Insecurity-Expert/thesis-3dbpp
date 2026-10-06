@@ -296,7 +296,7 @@ const SUBTABS = [
   { id: "saved", label: "Saved runs side by side" },
 ];
 
-export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy }) {
+export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, showPicker = true }) {
   const [sub, setSub] = useState("sp1");
   const ready = row && row.status !== "running" && study && stats;
   return (
@@ -306,7 +306,7 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
           <h3 className="font-display" style={{ fontSize: 20, fontWeight: 600 }}>Do the configurations differ?</h3>
           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>These tables show whether the differences are real or just luck. The composite ranking is supplementary to SP1–SP3.</span>
         </div>
-        <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
+        {showPicker && <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />}
       </div>
       {sub !== "saved" && <CustomLoadBanner info={customLoadOf(study) || (row && row.custom_load ? { id: row.custom_load, label: row.custom_load_label } : null)} />}
       <div className="tabs-inline">
