@@ -1,5 +1,13 @@
 # Mock-defense results — instance 350
 
+> **DGWO elitism (branch `defense-prep`).** DGWO and SEQ's DGWO phase now keep
+> best-so-far α, β, δ (Mirjalili et al. 2014) and DGWO returns the best-ever α.
+> Every DGWO and SEQ number below predates that change; MOGWO and REP are
+> unchanged (same hashes). Current live-demo reference (`tools/demo_check.py`,
+> `experiments/results/quick_i350_s42.json`): **DGWO SU 72.0346 / CSR 30.8511 / 94
+> placed**; SEQ SU 70.40 / CSR 30.00 / 90. Until Studies A and B are re-run,
+> their DGWO and SEQ runs are pre-elitism as well.
+
 **Current numbers: generated 2026-10-06 at 4069e08, after the SEQ
 exploration schedule (d3696c9: one schedule a = 2 − t·2/max_iter across both
 phases) and the leader fallback (4069e08: MOGWO, Sequential and Repair-based
