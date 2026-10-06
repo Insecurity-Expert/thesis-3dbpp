@@ -9,7 +9,7 @@ import LineChart from "./LineChart";
 import { SopSummary } from "../components/SopSummary";
 import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
 import { timingValid } from "./timing";
-import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, familySummary, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 
 const { th, td } = cell;
 
@@ -30,8 +30,8 @@ function SP1({ stats }) {
       <Section title="Do the numbers look normal?" desc="A quick check that decides which family of tests is appropriate.">
         <NormalityTable stats={stats} cmp={cmp} />
       </Section>
-      <Section title="Are any of the differences real?" desc="One test asks whether there is any difference at all between the four methods.">
-        <OmnibusCard cmp={cmp} measureCode="SU" />
+      <Section title="Are any of the differences real?" desc="One test asks whether there is any difference at all between the four methods; its p-value is Holm-corrected in the six-test family.">
+        <OmnibusCard cmp={cmp} measureCode="SU" holm={cmp.omnibus.p_holm != null} />
       </Section>
       <Section title="Which methods are different from each other?" desc="Every pair, compared one at a time.">
         <PairsTable stats={stats} cmp={cmp} measureCode="SU" />
@@ -78,7 +78,7 @@ function SP2({ stats }) {
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 8 }}>Holm-Bonferroni across the {blk.holm_family_size} testable measure(s). Click a row to see its details below. {blk.decision}.</p>
+        <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 8 }}>Holm-Bonferroni across the six-test family (SU; CSR, C3, C6; ET, PM): {blk.holm_family_size} testable test(s) in this study. Click a row to see its details below.</p>
       </Section>
       <Section title={`Details — ${MEASURE_PLAIN[measure]} (${DEFINITION_PLAIN[def]})`}>
         <DescriptivesTable stats={{ ...stats, descriptives: stats.descriptives }} measures={[
@@ -128,7 +128,17 @@ function SP3({ stats }) {
         </div>
         <p style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>Each cell: mean time / mean peak memory over the runs of that class.</p>
       </Section>
-      <Section title="Do the methods differ within each class?" desc="Friedman test within each heterogeneity class (its test cases as subjects; at least 2 needed), Holm-corrected across time and memory.">
+      {s3.all_instances && (
+        <Section title="Do the methods differ in time and memory?" desc="Across all test cases (each test case one subject), in the six-test Holm family. These two tests decide SP3.">
+          {["ET", "PM"].map((m) => (
+            <div key={m} style={{ marginBottom: 16 }}>
+              <OmnibusCard cmp={s3.all_instances[m]} measureCode={m} holm />
+              {s3.all_instances[m].omnibus.testable && <div style={{ marginTop: 10 }}><PairsTable stats={stats} cmp={s3.all_instances[m]} measureCode={m} /></div>}
+            </div>
+          ))}
+        </Section>
+      )}
+      <Section title={s3.all_instances ? "Exploratory: within each heterogeneity class" : "Do the methods differ within each class?"} desc={`Friedman test within each heterogeneity class (its test cases as subjects; at least 2 needed), Holm-corrected across time and memory within the class.${s3.all_instances ? " Exploratory: outside the six-test family and not part of the H₀ decision." : ""}`}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={th}>Class</th><th style={th}>Test cases</th><th style={th}>Measure</th><th style={th}>Friedman χ²</th><th style={th}>Raw p</th><th style={th}>Holm-corrected p</th><th style={th}>Mean rank (1 = lowest)</th><th style={th}>Result</th></tr></thead>
@@ -337,6 +347,12 @@ export default function CompareTab({ study, stats, row, runHistory, studies, sel
       ) : (
         <>
           <ProvenanceStrip study={study} stats={stats} />
+          {stats.hypothesis_family && sub !== "overall" && (
+            <div className="card" style={{ padding: "14px 18px" }}>
+              <div className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Hypothesis test (SP1–SP3 together)</div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{familySummary(stats)}</p>
+            </div>
+          )}
           {sub === "sp1" && <SP1 stats={stats} />}
           {sub === "sp2" && <SP2 stats={stats} />}
           {sub === "sp3" && <SP3 stats={stats} />}

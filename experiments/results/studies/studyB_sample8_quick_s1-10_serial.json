@@ -218055,7 +218055,11 @@
      "significant": true,
      "family": "non-parametric",
      "effect_size": "Kendall's W",
-     "effect_value": 0.90625
+     "effect_value": 0.90625,
+     "p_holm": 0.000294117,
+     "significant_holm": true,
+     "holm_family_size": 6,
+     "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
     },
     "posthoc_test": "Wilcoxon signed-rank (Holm)",
     "effect_size": "matched-pairs rank-biserial r",
@@ -218080,7 +218084,7 @@
       "favours": "DGWO",
       "higher": "DGWO",
       "significant": false,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": null,
       "verdict": "no significant difference"
      },
@@ -218104,7 +218108,7 @@
       "favours": "SEQ",
       "higher": "SEQ",
       "significant": true,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": "SEQ",
       "verdict": "Sequential significantly higher than DGWO on space utilisation (|matched-pairs rank-biserial r| = 1.00, large)"
      },
@@ -218128,7 +218132,7 @@
       "favours": "DGWO",
       "higher": "DGWO",
       "significant": true,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": "DGWO",
       "verdict": "DGWO significantly higher than Repair-based on space utilisation (|matched-pairs rank-biserial r| = 1.00, large)"
      },
@@ -218152,7 +218156,7 @@
       "favours": "SEQ",
       "higher": "SEQ",
       "significant": true,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": "SEQ",
       "verdict": "Sequential significantly higher than MOGWO on space utilisation (|matched-pairs rank-biserial r| = 1.00, large)"
      },
@@ -218176,7 +218180,7 @@
       "favours": "MOGWO",
       "higher": "MOGWO",
       "significant": true,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": "MOGWO",
       "verdict": "MOGWO significantly higher than Repair-based on space utilisation (|matched-pairs rank-biserial r| = 1.00, large)"
      },
@@ -218200,13 +218204,15 @@
       "favours": "SEQ",
       "higher": "SEQ",
       "significant": true,
-      "omnibus_gate": "omnibus test",
+      "omnibus_gate": "Holm-corrected omnibus test",
       "outperforms": "SEQ",
       "verdict": "Sequential significantly higher than Repair-based on space utilisation (|matched-pairs rank-biserial r| = 1.00, large)"
      }
     ]
    },
-   "confound_note": "Sequential's DGWO phase receives only part of the iteration budget: 30 of 60 iterations go to DGWO, the rest to the MOGWO phase, so its utilisation is not a like-for-like comparison with standalone DGWO."
+   "confound_note": "Sequential's DGWO phase receives only part of the iteration budget: 30 of 60 iterations go to DGWO, the rest to the MOGWO phase, so its utilisation is not a like-for-like comparison with standalone DGWO.",
+   "h0_rejected": true,
+   "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (SU)"
   },
   "SP2": {
    "measures": [
@@ -218653,9 +218659,10 @@
         "p_uncorrected": 6.75888e-06,
         "effect_size": "partial eta squared",
         "effect_value": 0.712355,
-        "p_holm": 1.35178e-05,
+        "p_holm": 3.37944e-05,
         "significant_holm": true,
-        "holm_family_size": 3
+        "holm_family_size": 6,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "posthoc_test": "paired t-test (Holm)",
        "effect_size": "d_z",
@@ -218950,9 +218957,10 @@
         "p_uncorrected": 6.08436e-18,
         "effect_size": "partial eta squared",
         "effect_value": 0.979782,
-        "p_holm": 8.09298e-09,
+        "p_holm": 1.6186e-08,
         "significant_holm": true,
-        "holm_family_size": 3
+        "holm_family_size": 6,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "posthoc_test": "paired t-test (Holm)",
        "effect_size": "d_z",
@@ -219359,9 +219367,10 @@
         "p_uncorrected": 0.0230676,
         "effect_size": "partial eta squared",
         "effect_value": 0.358278,
-        "p_holm": 0.0230676,
+        "p_holm": 0.0461352,
         "significant_holm": true,
-        "holm_family_size": 3
+        "holm_family_size": 6,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "posthoc_test": "paired t-test (Holm)",
        "effect_size": "d_z",
@@ -219513,7 +219522,7 @@
        ]
       }
      },
-     "holm_family_size": 3,
+     "holm_family_size": 6,
      "significant_measures": [
       "CSR",
       "C3",
@@ -219521,7 +219530,7 @@
      ],
      "h0_rejected": true,
      "testable": true,
-     "decision": "H0 rejected: at least one Holm-corrected omnibus test is significant (CSR, C3, C6)"
+     "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (CSR, C3, C6)"
     }
    },
    "primary": {
@@ -219671,9 +219680,10 @@
        "p_uncorrected": 6.75888e-06,
        "effect_size": "partial eta squared",
        "effect_value": 0.712355,
-       "p_holm": 1.35178e-05,
+       "p_holm": 3.37944e-05,
        "significant_holm": true,
-       "holm_family_size": 3
+       "holm_family_size": 6,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "posthoc_test": "paired t-test (Holm)",
       "effect_size": "d_z",
@@ -219968,9 +219978,10 @@
        "p_uncorrected": 6.08436e-18,
        "effect_size": "partial eta squared",
        "effect_value": 0.979782,
-       "p_holm": 8.09298e-09,
+       "p_holm": 1.6186e-08,
        "significant_holm": true,
-       "holm_family_size": 3
+       "holm_family_size": 6,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "posthoc_test": "paired t-test (Holm)",
       "effect_size": "d_z",
@@ -220377,9 +220388,10 @@
        "p_uncorrected": 0.0230676,
        "effect_size": "partial eta squared",
        "effect_value": 0.358278,
-       "p_holm": 0.0230676,
+       "p_holm": 0.0461352,
        "significant_holm": true,
-       "holm_family_size": 3
+       "holm_family_size": 6,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "posthoc_test": "paired t-test (Holm)",
       "effect_size": "d_z",
@@ -220531,7 +220543,7 @@
       ]
      }
     },
-    "holm_family_size": 3,
+    "holm_family_size": 6,
     "significant_measures": [
      "CSR",
      "C3",
@@ -220539,13 +220551,611 @@
     ],
     "h0_rejected": true,
     "testable": true,
-    "decision": "H0 rejected: at least one Holm-corrected omnibus test is significant (CSR, C3, C6)"
+    "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (CSR, C3, C6)"
    },
    "h0_rejected": true,
-   "decision": "H0 rejected: at least one Holm-corrected omnibus test is significant (CSR, C3, C6)"
+   "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (CSR, C3, C6)"
   },
   "SP3": {
    "available": true,
+   "all_instances": {
+    "ET": {
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "lower_is_better": true,
+     "n_instances": 8,
+     "descriptives": {
+      "DGWO": {
+       "n": 80,
+       "mean": 6045.3,
+       "median": 6292.75,
+       "sd": 902.975,
+       "min": 4190.0,
+       "max": 7818.9
+      },
+      "MOGWO": {
+       "n": 80,
+       "mean": 5948.14,
+       "median": 6195.25,
+       "sd": 984.771,
+       "min": 4130.9,
+       "max": 7775.6
+      },
+      "SEQ": {
+       "n": 80,
+       "mean": 6010.58,
+       "median": 6272.3,
+       "sd": 913.407,
+       "min": 4169.7,
+       "max": 7761.8
+      },
+      "REP": {
+       "n": 80,
+       "mean": 35560.1,
+       "median": 34219.1,
+       "sd": 10563.2,
+       "min": 19587.8,
+       "max": 56479.7
+      }
+     },
+     "instance_means": {
+      "DGWO": 6045.3,
+      "MOGWO": 5948.14,
+      "SEQ": 6010.58,
+      "REP": 35560.1
+     },
+     "normality": {
+      "basis": "within-instance differences (one value per instance)",
+      "pairs": [
+       {
+        "a": "DGWO",
+        "b": "MOGWO",
+        "applicable": true,
+        "reason": null,
+        "W": 0.978343,
+        "p": 0.954246,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "DGWO",
+        "b": "SEQ",
+        "applicable": true,
+        "reason": null,
+        "W": 0.95076,
+        "p": 0.718897,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "DGWO",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.918489,
+        "p": 0.417725,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "MOGWO",
+        "b": "SEQ",
+        "applicable": true,
+        "reason": null,
+        "W": 0.897978,
+        "p": 0.277057,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "MOGWO",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.917241,
+        "p": 0.407876,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "SEQ",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.916183,
+        "p": 0.399666,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       }
+      ],
+      "all_normal": true,
+      "skipped": false
+     },
+     "all_normal": true,
+     "omnibus": {
+      "testable": true,
+      "test": "repeated-measures ANOVA",
+      "statistic_name": "F",
+      "statistic": 65.6155,
+      "df": [
+       1.0,
+       7.001
+      ],
+      "p": 8.40701e-05,
+      "significant": true,
+      "family": "parametric",
+      "sphericity": {
+       "test": "Mauchly",
+       "computable": true,
+       "reason": null,
+       "W": 2.71667e-08,
+       "chi2": 99.6884,
+       "df": 5,
+       "p": 3.22103e-19,
+       "violated": true
+      },
+      "epsilon_gg": 0.3334,
+      "correction": "Greenhouse-Geisser",
+      "df_uncorrected": [
+       3,
+       21
+      ],
+      "p_uncorrected": 7.77669e-11,
+      "effect_size": "partial eta squared",
+      "effect_value": 0.903602,
+      "p_holm": 0.000294117,
+      "significant_holm": true,
+      "holm_family_size": 6,
+      "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
+     },
+     "posthoc_test": "paired t-test (Holm)",
+     "effect_size": "d_z",
+     "pairs": [
+      {
+       "a": "DGWO",
+       "b": "MOGWO",
+       "test": "paired t-test",
+       "statistic": 2.27569,
+       "p_raw": 0.0569973,
+       "p": 0.170992,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": 0.804578,
+        "threshold": 0.5,
+        "magnitude": "large",
+        "practical": true
+       },
+       "mean_a": 6045.3,
+       "mean_b": 5948.14,
+       "favours": "MOGWO",
+       "higher": "DGWO",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "DGWO",
+       "b": "SEQ",
+       "test": "paired t-test",
+       "statistic": 1.2717,
+       "p_raw": 0.244097,
+       "p": 0.488194,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": 0.449616,
+        "threshold": 0.5,
+        "magnitude": "small",
+        "practical": false
+       },
+       "mean_a": 6045.3,
+       "mean_b": 6010.58,
+       "favours": "SEQ",
+       "higher": "DGWO",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "DGWO",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": -8.06959,
+       "p_raw": 8.62416e-05,
+       "p": 0.000475158,
+       "posthoc_significant": true,
+       "effect": {
+        "name": "d_z",
+        "value": -2.85303,
+        "threshold": 0.5,
+        "magnitude": "large",
+        "practical": true
+       },
+       "mean_a": 6045.3,
+       "mean_b": 35560.1,
+       "favours": "DGWO",
+       "higher": "REP",
+       "significant": true,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": "DGWO",
+       "verdict": "Repair-based significantly higher than DGWO on execution time (|d_z| = 2.85, large)"
+      },
+      {
+       "a": "MOGWO",
+       "b": "SEQ",
+       "test": "paired t-test",
+       "statistic": -1.05088,
+       "p_raw": 0.328232,
+       "p": 0.488194,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": -0.371544,
+        "threshold": 0.5,
+        "magnitude": "small",
+        "practical": false
+       },
+       "mean_a": 5948.14,
+       "mean_b": 6010.58,
+       "favours": "MOGWO",
+       "higher": "SEQ",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "MOGWO",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": -8.17778,
+       "p_raw": 7.91929e-05,
+       "p": 0.000475158,
+       "posthoc_significant": true,
+       "effect": {
+        "name": "d_z",
+        "value": -2.89128,
+        "threshold": 0.5,
+        "magnitude": "large",
+        "practical": true
+       },
+       "mean_a": 5948.14,
+       "mean_b": 35560.1,
+       "favours": "MOGWO",
+       "higher": "REP",
+       "significant": true,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": "MOGWO",
+       "verdict": "Repair-based significantly higher than MOGWO on execution time (|d_z| = 2.89, large)"
+      },
+      {
+       "a": "SEQ",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": -8.05667,
+       "p_raw": 8.71298e-05,
+       "p": 0.000475158,
+       "posthoc_significant": true,
+       "effect": {
+        "name": "d_z",
+        "value": -2.84846,
+        "threshold": 0.5,
+        "magnitude": "large",
+        "practical": true
+       },
+       "mean_a": 6010.58,
+       "mean_b": 35560.1,
+       "favours": "SEQ",
+       "higher": "REP",
+       "significant": true,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": "SEQ",
+       "verdict": "Repair-based significantly higher than Sequential on execution time (|d_z| = 2.85, large)"
+      }
+     ]
+    },
+    "PM": {
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "lower_is_better": true,
+     "n_instances": 8,
+     "descriptives": {
+      "DGWO": {
+       "n": 80,
+       "mean": 203.892,
+       "median": 203.824,
+       "sd": 0.308381,
+       "min": 203.32,
+       "max": 204.785
+      },
+      "MOGWO": {
+       "n": 80,
+       "mean": 203.882,
+       "median": 203.797,
+       "sd": 0.325355,
+       "min": 203.445,
+       "max": 204.965
+      },
+      "SEQ": {
+       "n": 80,
+       "mean": 203.902,
+       "median": 203.85,
+       "sd": 0.293643,
+       "min": 203.324,
+       "max": 204.781
+      },
+      "REP": {
+       "n": 80,
+       "mean": 203.886,
+       "median": 203.834,
+       "sd": 0.293275,
+       "min": 203.438,
+       "max": 204.797
+      }
+     },
+     "instance_means": {
+      "DGWO": 203.892,
+      "MOGWO": 203.882,
+      "SEQ": 203.902,
+      "REP": 203.886
+     },
+     "normality": {
+      "basis": "within-instance differences (one value per instance)",
+      "pairs": [
+       {
+        "a": "DGWO",
+        "b": "MOGWO",
+        "applicable": true,
+        "reason": null,
+        "W": 0.923732,
+        "p": 0.460869,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "DGWO",
+        "b": "SEQ",
+        "applicable": true,
+        "reason": null,
+        "W": 0.985887,
+        "p": 0.986019,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "DGWO",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.963264,
+        "p": 0.840556,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "MOGWO",
+        "b": "SEQ",
+        "applicable": true,
+        "reason": null,
+        "W": 0.94483,
+        "p": 0.659133,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "MOGWO",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.945968,
+        "p": 0.670574,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       },
+       {
+        "a": "SEQ",
+        "b": "REP",
+        "applicable": true,
+        "reason": null,
+        "W": 0.955107,
+        "p": 0.762419,
+        "normal": true,
+        "test": "Shapiro-Wilk"
+       }
+      ],
+      "all_normal": true,
+      "skipped": false
+     },
+     "all_normal": true,
+     "omnibus": {
+      "testable": true,
+      "test": "repeated-measures ANOVA",
+      "statistic_name": "F",
+      "statistic": 0.254976,
+      "df": [
+       3.0,
+       21.0
+      ],
+      "p": 0.85691,
+      "significant": false,
+      "family": "parametric",
+      "sphericity": {
+       "test": "Mauchly",
+       "computable": true,
+       "reason": null,
+       "W": 0.534174,
+       "chi2": 3.58802,
+       "df": 5,
+       "p": 0.614803,
+       "violated": false
+      },
+      "epsilon_gg": 0.6894,
+      "correction": null,
+      "df_uncorrected": [
+       3,
+       21
+      ],
+      "p_uncorrected": 0.85691,
+      "effect_size": "partial eta squared",
+      "effect_value": 0.035145,
+      "p_holm": 0.85691,
+      "significant_holm": false,
+      "holm_family_size": 6,
+      "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
+     },
+     "posthoc_test": "paired t-test (Holm)",
+     "effect_size": "d_z",
+     "pairs": [
+      {
+       "a": "DGWO",
+       "b": "MOGWO",
+       "test": "paired t-test",
+       "statistic": 0.53763,
+       "p_raw": 0.607493,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": 0.190081,
+        "threshold": 0.5,
+        "magnitude": "negligible",
+        "practical": false
+       },
+       "mean_a": 203.892,
+       "mean_b": 203.882,
+       "favours": "MOGWO",
+       "higher": "DGWO",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "DGWO",
+       "b": "SEQ",
+       "test": "paired t-test",
+       "statistic": -0.358325,
+       "p_raw": 0.730663,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": -0.126687,
+        "threshold": 0.5,
+        "magnitude": "negligible",
+        "practical": false
+       },
+       "mean_a": 203.892,
+       "mean_b": 203.902,
+       "favours": "DGWO",
+       "higher": "SEQ",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "DGWO",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": 0.351958,
+       "p_raw": 0.735227,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": 0.124436,
+        "threshold": 0.5,
+        "magnitude": "negligible",
+        "practical": false
+       },
+       "mean_a": 203.892,
+       "mean_b": 203.886,
+       "favours": "REP",
+       "higher": "DGWO",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "MOGWO",
+       "b": "SEQ",
+       "test": "paired t-test",
+       "statistic": -0.619651,
+       "p_raw": 0.555112,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": -0.21908,
+        "threshold": 0.5,
+        "magnitude": "small",
+        "practical": false
+       },
+       "mean_a": 203.882,
+       "mean_b": 203.902,
+       "favours": "MOGWO",
+       "higher": "SEQ",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "MOGWO",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": -0.185679,
+       "p_raw": 0.857962,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": -0.0656475,
+        "threshold": 0.5,
+        "magnitude": "negligible",
+        "practical": false
+       },
+       "mean_a": 203.882,
+       "mean_b": 203.886,
+       "favours": "MOGWO",
+       "higher": "REP",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      },
+      {
+       "a": "SEQ",
+       "b": "REP",
+       "test": "paired t-test",
+       "statistic": 0.609454,
+       "p_raw": 0.561475,
+       "p": 1.0,
+       "posthoc_significant": false,
+       "effect": {
+        "name": "d_z",
+        "value": 0.215475,
+        "threshold": 0.5,
+        "magnitude": "small",
+        "practical": false
+       },
+       "mean_a": 203.902,
+       "mean_b": 203.886,
+       "favours": "REP",
+       "higher": "SEQ",
+       "significant": false,
+       "omnibus_gate": "Holm-corrected omnibus test",
+       "outperforms": null,
+       "verdict": "no significant difference"
+      }
+     ]
+    }
+   },
    "profiles": [
     {
      "br_class": "BR1",
@@ -220757,6 +221367,7 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     },
     {
@@ -220969,6 +221580,7 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     },
     {
@@ -221181,6 +221793,7 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     },
     {
@@ -221829,6 +222442,7 @@
        }
       }
      },
+     "exploratory": true,
      "testable": true
     },
     {
@@ -222041,6 +222655,7 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     },
     {
@@ -222253,6 +222868,7 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     },
     {
@@ -222465,12 +223081,114 @@
        "pairs": []
       }
      },
+     "exploratory": true,
      "testable": false
     }
    ],
+   "profiles_exploratory": true,
+   "profiles_note": "Per-BR-class Friedman tests (Holm across ET and PM within the class) are exploratory: outside the six-test family and not part of the H0 decision.",
    "n_classes": 7,
    "n_classes_testable": 1,
-   "note": "6 of 7 BR class(es) have fewer than 2 instances; the within-class Friedman test needs at least 2"
+   "note": "6 of 7 BR class(es) have fewer than 2 instances; the within-class Friedman test needs at least 2",
+   "h0_rejected": true,
+   "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (ET)"
+  },
+  "hypothesis_family": {
+   "members": [
+    "SU",
+    "CSR",
+    "C3",
+    "C6",
+    "ET",
+    "PM"
+   ],
+   "correction": "Holm-Bonferroni",
+   "holm_family_size": 6,
+   "tests": [
+    {
+     "sp": "SP1",
+     "measure": "SU",
+     "label": "space utilisation (%)",
+     "testable": true,
+     "test": "Friedman",
+     "statistic": 21.75,
+     "p": 7.35293e-05,
+     "p_holm": 0.000294117,
+     "significant_holm": true,
+     "reason": null
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "testable": true,
+     "test": "repeated-measures ANOVA",
+     "statistic": 17.3355,
+     "p": 6.75888e-06,
+     "p_holm": 3.37944e-05,
+     "significant_holm": true,
+     "reason": null
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "testable": true,
+     "test": "repeated-measures ANOVA",
+     "statistic": 339.232,
+     "p": 2.69766e-09,
+     "p_holm": 1.6186e-08,
+     "significant_holm": true,
+     "reason": null
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "testable": true,
+     "test": "repeated-measures ANOVA",
+     "statistic": 3.90815,
+     "p": 0.0230676,
+     "p_holm": 0.0461352,
+     "significant_holm": true,
+     "reason": null
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "testable": true,
+     "test": "repeated-measures ANOVA",
+     "statistic": 65.6155,
+     "p": 8.40701e-05,
+     "p_holm": 0.000294117,
+     "significant_holm": true,
+     "reason": null
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "testable": true,
+     "test": "repeated-measures ANOVA",
+     "statistic": 0.254976,
+     "p": 0.85691,
+     "p_holm": 0.85691,
+     "significant_holm": false,
+     "reason": null
+    }
+   ],
+   "significant_measures": [
+    "SU",
+    "CSR",
+    "C3",
+    "C6",
+    "ET"
+   ],
+   "h0_rejected": true,
+   "testable": true,
+   "decision": "H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant (SU, CSR, C3, C6, ET)",
+   "note": "Untestable members (fewer than 2 instances, no variance, or concurrent timing for ET/PM) are excluded from the family. Per-BR-class Friedman tests are exploratory."
   },
   "composite": {
    "available": true,

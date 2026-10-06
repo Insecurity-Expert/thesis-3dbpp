@@ -199,13 +199,16 @@ export function testedModel({ stats, codes, nameOf = (c) => c, timingOk = true }
   const sp2 = stats.SP2 && stats.SP2.by_definition && stats.SP2.by_definition[primary];
   const sp3 = stats.SP3;
   const sp3Classes = sp3 && sp3.available ? (sp3.profiles || []) : [];
+  const sp3All = sp3 && sp3.available ? sp3.all_instances : null;
   const src = {
     su:      { desc: d.SU, cmps: [stats.SP1 && stats.SP1.comparison] },
     csr_all: { desc: d.CSR && d.CSR[primary], cmps: [sp2 && sp2.per_measure.CSR] },
     c3_all:  { desc: d.C3 && d.C3[primary], cmps: [sp2 && sp2.per_measure.C3] },
     c6_all:  { desc: d.C6 && d.C6[primary], cmps: [sp2 && sp2.per_measure.C6] },
-    time:    { desc: d.ET, cmps: sp3Classes.map((p) => p.friedman && p.friedman.ET) },
-    mem:     { desc: d.PM, cmps: sp3Classes.map((p) => p.friedman && p.friedman.PM) },
+    // SP3 is judged on the all-instance tests of the six-test family; files
+    // analysed before that fall back to the per-class Friedman verdicts.
+    time:    { desc: d.ET, cmps: sp3All ? [sp3All.ET] : sp3Classes.map((p) => p.friedman && p.friedman.ET) },
+    mem:     { desc: d.PM, cmps: sp3All ? [sp3All.PM] : sp3Classes.map((p) => p.friedman && p.friedman.PM) },
   };
   const nInst = stats.provenance ? stats.provenance.n_instances : null;
   const rows = SOP_ROWS.map((row) => {
@@ -227,11 +230,11 @@ export function testedModel({ stats, codes, nameOf = (c) => c, timingOk = true }
       if (!timingOk) sentence = TIMING_NOT_COMPARED;
       else if (!sp3 || !sp3.available) sentence = `Time and memory were not tested${sp3 && sp3.reason ? `: ${sp3.reason}` : ""}.`;
       else {
-        const why = "the within-class test needs at least 2 test cases per heterogeneity class";
+        const why = sp3All ? "needs at least 2 test cases" : "the within-class test needs at least 2 test cases per heterogeneity class";
         const a = testedSentence("time", verdicts.time, nameOf, false, why);
         const b = testedSentence("mem", verdicts.mem, nameOf, false, why);
         const tested = sp3Classes.filter((p) => p.testable).map((p) => p.br_class);
-        const scope = tested.length && tested.length < sp3Classes.length
+        const scope = !sp3All && tested.length && tested.length < sp3Classes.length
           ? ` Tested within ${list(tested)} only; the other heterogeneity classes have one test case each.` : "";
         sentence = [a, b].filter(Boolean).join(" ") + scope;
       }

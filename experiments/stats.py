@@ -22,23 +22,27 @@ effect size; nothing is ever reported as NaN - an untestable case says why):
   over-placed figures are reported descriptively.
 * Descriptives per configuration and measure over runs: mean, median, sd,
   min, max, n.
-* SP1 (SU): Shapiro-Wilk on the within-instance differences of every pair.
-  All normal -> repeated-measures ANOVA (Mauchly's sphericity test; the
+* The hypothesis family (manuscript): ONE Holm-Bonferroni family of six
+  omnibus tests, each across all instances (instances as subjects) - SU (SP1);
+  CSR, C3 and C6 over all boxes (SP2); ET and PM (SP3, serial timing only).
+  H0 is rejected iff at least one Holm-corrected test is significant
+  (out["hypothesis_family"]); SP1, SP2 and SP3 also report the decision over
+  their own members of that same family. Untestable members (fewer than 2
+  instances, no variance, concurrent timing for ET / PM) leave the family.
+  Every pair verdict is gated on its measure's Holm-corrected omnibus result.
+* Each of the six: Shapiro-Wilk on the within-instance differences of every
+  pair. All normal -> repeated-measures ANOVA (Mauchly's sphericity test; the
   Greenhouse-Geisser correction when sphericity is violated or cannot be
   checked), paired t-tests and d_z. Otherwise -> Friedman, Wilcoxon
   signed-rank and the matched-pairs rank-biserial r = (W+ - W-) / (W+ + W-).
   Post-hoc p-values Holm-corrected across the six pairs. Two-tailed,
   alpha = 0.05.
-* SP2 (CSR, C3, C6 over all boxes): the same per measure, Holm-Bonferroni
-  across the testable omnibus p-values (family of 3); H0 is rejected iff at
-  least one Holm-corrected omnibus test is significant, and a pair's verdict
-  needs its measure's Holm-corrected omnibus test to be significant. C4 and C5
-  are enforced by the decoder (over all boxes each equals the share of boxes
-  placed) and are reported descriptively. The decision is output explicitly.
-* SP3 (ET, PM; serial timing only): Friedman within each BR class (the class's
-  instances as subjects, >= 2 needed), Holm across ET and PM within the class;
-  a pair's verdict needs the class's Holm-corrected Friedman result for that
-  measure to be significant; per-class descriptives for the profile chart.
+* SP2: C4 and C5 are enforced by the decoder (over all boxes each equals the
+  share of boxes placed) and are reported descriptively, outside the family.
+* SP3 exploratory: Friedman within each BR class (the class's instances as
+  subjects, >= 2 needed), Holm across ET and PM within the class; outside the
+  six-test family and not part of the H0 decision; per-class descriptives for
+  the profile chart.
 * Composite (serial timing, >= 2 instances): CS = 0.25 SU~ + 0.25 CSR~ +
   0.25 (1 - CC~) + 0.25 (1 - Rob~), ~ = min-max across the four configurations
   within an instance, CC = (z_ET + z_PM) / 2, Rob = sd of SU across the runs
@@ -113,6 +117,11 @@ DECODER_ENFORCED = {"C4": "enforce_fragility", "C5": "enforce_support"}
 # descriptively and are not separate tests.
 SP2_FAMILY = ("CSR", "C3", "C6")
 SP2_DESCRIPTIVE = ("C4", "C5")
+# The manuscript's hypothesis family: ONE Holm-Bonferroni family of six omnibus
+# tests, every one across all instances (instances as subjects). H0 is rejected
+# iff at least one Holm-corrected test is significant. The per-BR-class
+# Friedman tests of SP3 are exploratory and outside the family.
+HYPOTHESIS_FAMILY = (("SP1", "SU"), ("SP2", "CSR"), ("SP2", "C3"), ("SP2", "C6"), ("SP3", "ET"), ("SP3", "PM"))
 COMPOSITE_LABEL = "Supplementary composite ranking (Chapter 3)"
 SUPPLEMENTARY_LABEL = "Supplementary comparison with the non-search baselines (Chapter 3)"
 GREEDY_LABEL = "Weight-Sorted Greedy"
@@ -547,25 +556,8 @@ def analyse(study):
                                       "significant_holm": False,
                                       "reason": "descriptive only - the hypothesis is tested on compliance over all boxes"}}
         if d == PRIMARY_COMPLIANCE:
-            raw = [per[m]["omnibus"]["p"] if per[m]["omnibus"].get("testable") else None for m in SP2_FAMILY]
-            adj, fam = holm(raw)
-            for m, pa in zip(SP2_FAMILY, adj):
-                per[m]["omnibus"]["p_holm"] = _f(pa)
-                per[m]["omnibus"]["significant_holm"] = bool(pa is not None and pa < ALPHA)
-                per[m]["omnibus"]["holm_family_size"] = fam
-                # Pair verdicts are gated on the Holm-corrected omnibus result.
-                apply_verdicts(per[m], per[m]["omnibus"]["significant_holm"], "Holm-corrected omnibus test")
-            rejected = [m for m in SP2_FAMILY if per[m]["omnibus"]["significant_holm"]]
-            untestable_all = all(not per[m]["omnibus"]["testable"] for m in SP2_FAMILY)
-            if rejected:
-                decision = "H0 rejected: at least one Holm-corrected omnibus test is significant (" + ", ".join(rejected) + ")"
-            elif fam:
-                decision = "H0 not rejected: no Holm-corrected omnibus test is significant"
-            elif n_inst < 2:
-                decision = "H0 not testable: requires >= 2 instances"
-            else:
-                decision = "H0 not testable: every compliance measure is constant"
-            testable = not untestable_all
+            # Holm correction and the decision come from the six-test family below.
+            fam, rejected, decision, testable = 0, [], None, None
         else:
             fam, rejected, decision, testable = 0, [], "descriptive only", False
         sp2["by_definition"][d] = {"definition": d, "per_measure": per, "holm_family_size": fam,
@@ -579,8 +571,20 @@ def analyse(study):
     # ── SP3 ──────────────────────────────────────────────────────────────────
     # Friedman within each BR class (instances of the class as subjects), Holm
     # across ET and PM within the class.
+    # The confirmatory SP3 tests are ET and PM across ALL instances (members of
+    # the six-test family); the per-BR-class Friedman tests are exploratory.
+    sp3_reason = "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+    if timing_valid:
+        sp3_all = {m: compare_rm(get_mat(m), configs, m, lower_is_better=True,
+                                 run_groups=group_values(rows, m, configs)) for m in ("ET", "PM")}
+    else:
+        sp3_all = {m: {"measure": m, "label": MEASURE_LABELS[m], "lower_is_better": True, "n_instances": n_inst,
+                       "pairs": [], "normality": {"basis": "within-instance differences", "pairs": [], "all_normal": False},
+                       "all_normal": False,
+                       "omnibus": {"testable": False, "significant": False, "p": None, "reason": sp3_reason}}
+                   for m in ("ET", "PM")}
     if not timing_valid:
-        out["SP3"] = {"available": False, "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"}
+        out["SP3"] = {"available": False, "reason": sp3_reason, "all_instances": sp3_all}
     else:
         classes = {}
         for inst in study.get("instances", []):
@@ -615,14 +619,65 @@ def analyse(study):
                 # (Holm across ET and PM within the class; Chapter 3 Table 3a).
                 apply_verdicts(per[m], per[m]["omnibus"]["significant_holm"], "Holm-corrected omnibus test")
             entry["friedman"] = per
+            entry["exploratory"] = True
             entry["testable"] = fam > 0
             prof.append(entry)
         n_testable = sum(1 for e in prof if e["testable"])
-        out["SP3"] = {"available": True, "profiles": prof, "n_classes": len(prof),
-                      "n_classes_testable": n_testable,
+        out["SP3"] = {"available": True, "all_instances": sp3_all,
+                      "profiles": prof, "profiles_exploratory": True,
+                      "profiles_note": "Per-BR-class Friedman tests (Holm across ET and PM within the class) are "
+                                       "exploratory: outside the six-test family and not part of the H0 decision.",
+                      "n_classes": len(prof), "n_classes_testable": n_testable,
                       "note": None if n_testable == len(prof) else
                               f"{len(prof) - n_testable} of {len(prof)} BR class(es) have fewer than 2 instances; "
                               "the within-class Friedman test needs at least 2"}
+
+    # ── the six-test hypothesis family ───────────────────────────────────────
+    members = {"SU": sp1, "ET": sp3_all["ET"], "PM": sp3_all["PM"],
+               **{m: sp2["primary"]["per_measure"][m] for m in SP2_FAMILY}}
+    raw = [members[m]["omnibus"]["p"] if members[m]["omnibus"].get("testable") else None for _, m in HYPOTHESIS_FAMILY]
+    adj, fam = holm(raw)
+    tests = []
+    for (sp, m), pr, pa in zip(HYPOTHESIS_FAMILY, raw, adj):
+        o = members[m]["omnibus"]
+        o["p_holm"] = _f(pa)
+        o["significant_holm"] = bool(pa is not None and pa < ALPHA)
+        o["holm_family_size"] = fam
+        o["holm_family"] = "six-test family (SU; CSR, C3, C6; ET, PM)"
+        # Every pair verdict is gated on its measure's Holm-corrected omnibus result.
+        apply_verdicts(members[m], o["significant_holm"], "Holm-corrected omnibus test")
+        tests.append({"sp": sp, "measure": m, "label": MEASURE_LABELS[m], "testable": bool(o.get("testable")),
+                      "test": o.get("test"), "statistic": o.get("statistic"), "p": o.get("p"), "p_holm": _f(pa),
+                      "significant_holm": o["significant_holm"], "reason": None if o.get("testable") else o.get("reason")})
+
+    def decide(ms):
+        sig = [m for m in ms if members[m]["omnibus"]["significant_holm"]]
+        testable = [m for m in ms if members[m]["omnibus"].get("testable")]
+        if sig:
+            return sig, f"H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant ({', '.join(sig)})"
+        if testable:
+            return sig, f"H0 not rejected: no Holm-corrected omnibus test of the six-test family is significant ({', '.join(testable)} tested)"
+        if n_inst < 2:
+            return sig, "H0 not testable: requires >= 2 instances"
+        return sig, "H0 not testable: " + "; ".join(f"{m}: {members[m]['omnibus']['reason']}" for m in ms)
+
+    rejected, decision = decide([m for _, m in HYPOTHESIS_FAMILY])
+    out["hypothesis_family"] = {"members": [m for _, m in HYPOTHESIS_FAMILY], "correction": "Holm-Bonferroni",
+                                "holm_family_size": fam, "tests": tests, "significant_measures": rejected,
+                                "h0_rejected": bool(rejected), "testable": fam > 0, "decision": decision,
+                                "note": "Untestable members (fewer than 2 instances, no variance, or concurrent timing for ET/PM) "
+                                        "are excluded from the family. Per-BR-class Friedman tests are exploratory."}
+    for key, ms in (("SP1", ["SU"]), ("SP2", list(SP2_FAMILY)), ("SP3", ["ET", "PM"])):
+        sig, dec = decide(ms)
+        if key == "SP2":
+            blk = sp2["primary"]
+            if n_inst >= 2 and not any(members[m]["omnibus"].get("testable") for m in ms):
+                dec = "H0 not testable: every compliance measure is constant"
+            blk.update(holm_family_size=fam, significant_measures=sig, h0_rejected=bool(sig),
+                       testable=any(members[m]["omnibus"].get("testable") for m in ms), decision=dec)
+            sp2["h0_rejected"], sp2["decision"] = bool(sig), dec
+        else:
+            out[key]["h0_rejected"], out[key]["decision"] = bool(sig), dec
 
     # ── composite ────────────────────────────────────────────────────────────
     if n_inst < 2:
@@ -870,10 +925,16 @@ def summary_lines(st):
     pv = st["provenance"]
     L.append(f"provenance: {pv['n_instances']} instance(s), preset {pv['preset']}, {len(pv['seeds'])} seeds, mode {pv['mode']}, commit {pv['commit']}"
              + (" [PRELIMINARY: " + pv["preliminary_reason"] + "]" if pv["preliminary"] else ""))
+    hf = st.get("hypothesis_family")
+    if hf:
+        L.append(f"HYPOTHESIS FAMILY (Holm across {hf['holm_family_size']} testable of 6): {hf['decision']}")
+        for t in hf["tests"]:
+            L.append(f"   {t['sp']} {t['measure']}: " + (f"{t['test']} p={t['p']} p_holm={t['p_holm']} sig_holm={t['significant_holm']}"
+                                                       if t["testable"] else t["reason"]))
     c = st["SP1"]["comparison"]
     o = c["omnibus"]
     L.append("SP1 SU: " +
-             (f"{o['test']} {o['statistic_name']}={o['statistic']} df={o['df']} p={o['p']} sig={o['significant']}"
+             (f"{o['test']} {o['statistic_name']}={o['statistic']} df={o['df']} p={o['p']} p_holm={o.get('p_holm')} sig_holm={o.get('significant_holm')}"
               + (f" [{o['correction']}, eps={o['epsilon_gg']}]" if o.get("correction") else "")
               if o.get("testable") else o["reason"]))
     for pr in c.get("pairs", []):
@@ -892,8 +953,12 @@ def summary_lines(st):
     if not s3.get("available"):
         L.append(f"SP3: {s3.get('reason', 'N/A')}")
     else:
+        for m in ("ET", "PM"):
+            o = s3["all_instances"][m]["omnibus"]
+            L.append(f"SP3 {m} (all instances): " + (f"{o['test']} stat={o['statistic']} p={o['p']} p_holm={o['p_holm']} sig_holm={o['significant_holm']}"
+                                                     if o.get("testable") else o["reason"]))
         for p in s3["profiles"]:
-            L.append(f"SP3 {p['br_class']} ({len(p['instances'])} instance(s)):")
+            L.append(f"SP3 {p['br_class']} ({len(p['instances'])} instance(s)) [exploratory]:")
             if True:
                 for m in ("ET", "PM"):
                     cmp = p["friedman"][m]
