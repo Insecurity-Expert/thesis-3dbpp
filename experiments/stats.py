@@ -54,6 +54,18 @@ effect size; nothing is ever reported as NaN - an untestable case says why):
 * Outcome pattern (Chapter 3): A both hybrids outperform both baselines on the
   primary metrics, B exactly one does, C neither does, D mixed / trade-off;
   "not determinable" when SU or CSR cannot be tested.
+* Supplementary (Chapter 3), outside SP1-SP3 and their Holm families, from the
+  study's per-instance baselines (experiments/baselines.py):
+  - each configuration vs the Weight-Sorted Greedy on CSR over all boxes,
+    one-tailed (H1: configuration > greedy), instances as subjects: the
+    configuration's per-instance mean minus the greedy's one value. Shapiro-Wilk
+    on those differences; normal -> one-tailed paired t-test and d_z,
+    otherwise one-tailed Wilcoxon signed-rank and the matched-pairs
+    rank-biserial r. Holm across the four configurations (its own family).
+  - the Random Order baseline (30 one-pass shuffled orders per instance):
+    descriptive only, on CSR over all boxes, SU and execution time.
+* Timing validity: a parallel study's execution times and peak memory are
+  flagged invalid (out["timing"]); SP3 and the composite are refused on it.
 
 Edge cases: a measure constant across ALL configurations is "not testable -
 no variance"; a pair whose differences are constant (or N < 3) gets no
@@ -102,6 +114,9 @@ DECODER_ENFORCED = {"C4": "enforce_fragility", "C5": "enforce_support"}
 SP2_FAMILY = ("CSR", "C3", "C6")
 SP2_DESCRIPTIVE = ("C4", "C5")
 COMPOSITE_LABEL = "Supplementary composite ranking (Chapter 3)"
+SUPPLEMENTARY_LABEL = "Supplementary comparison with the non-search baselines (Chapter 3)"
+GREEDY_LABEL = "Weight-Sorted Greedy"
+RANDOM_LABEL = "Random Order"
 LOWER_IS_BETTER = {"ET", "PM"}
 
 D_THRESHOLD = 0.5       # Cohen's d practical threshold
@@ -475,6 +490,7 @@ def analyse(study):
         desc[m] = {d: {c: descriptives(v) for c, v in group_values(rows, f"{m}_{d}", configs).items()}
                    for d in COMPLIANCE_DEFS}
     out["descriptives"] = desc
+    out["timing"] = timing_flags(study, timing_valid)
 
     # Robustness = run-to-run sd of SU within an instance, averaged over instances.
     out["robustness"] = {}
@@ -618,7 +634,112 @@ def analyse(study):
 
     # ── outcome pattern ──────────────────────────────────────────────────────
     out["outcome"] = outcome_pattern(sp1, sp2["primary"]["per_measure"]["CSR"], configs)
+
+    # ── supplementary: non-search baselines (outside SP1-SP3) ─────────────────
+    out["supplementary"] = supplementary(study, rows, configs, instances)
     return out
+
+
+def timing_flags(study, timing_valid):
+    """Every time / memory / composite figure of a parallel study is invalid:
+    the runs shared the CPU. Readers mark the figures listed in `affects`."""
+    return {"valid": bool(timing_valid), "mode": study.get("mode"),
+            "note": study.get("timing_note") or ("serial" if timing_valid else "concurrent"),
+            "affects": ["descriptives.ET", "descriptives.PM", "SP3", "composite"],
+            "label": None if timing_valid else
+                     "INVALID - parallel runs shared the CPU; time, memory and the composite are not comparable"}
+
+
+# ─── supplementary: non-search baselines ─────────────────────────────────────
+def one_tailed_greater(diff):
+    """H1: mean(diff) > 0, one value per instance. Normal differences -> one-tailed
+    paired t-test (d_z); otherwise one-tailed Wilcoxon signed-rank (rank-biserial r)."""
+    diff = np.asarray(diff, float)
+    sw = shapiro(diff)
+    if diff.size < 2:
+        return {"testable": False, "reason": "requires >= 2 instances (each instance is one subject)",
+                "normality": sw, "p_raw": None}
+    if np.all(diff == 0):
+        return {"testable": False, "reason": "not testable - no difference from the greedy on any instance",
+                "normality": sw, "p_raw": None}
+    if sw["normal"]:
+        t = sps.ttest_1samp(diff, 0.0, alternative="greater")
+        eff, name, thr, kind = d_z(diff), "d_z", D_THRESHOLD, "d"
+        test, stat, p = "paired t-test (one-tailed)", _f(t.statistic), float(t.pvalue)
+    else:
+        w = sps.wilcoxon(diff, alternative="greater")
+        eff, name, thr, kind = rank_biserial_paired(diff), "matched-pairs rank-biserial r", R_THRESHOLD, "r"
+        test, stat, p = "Wilcoxon signed-rank (one-tailed)", _f(w.statistic), float(w.pvalue)
+    return {"testable": True, "test": test, "statistic": stat, "p_raw": p, "normality": sw,
+            "effect": {"name": name, "value": _f(eff), "threshold": thr, "magnitude": magnitude(kind, eff),
+                       "practical": bool(eff is not None and eff > 0 and abs(eff) >= thr)}}
+
+
+def supplementary(study, rows, configs, instances):
+    base = study.get("baselines")
+    if not base:
+        return {"available": False, "title": SUPPLEMENTARY_LABEL,
+                "reason": "no baselines in this study file (python experiments/baselines.py --study <file>)"}
+    per_inst = {b["instance_id"]: b for b in base["per_instance"]}
+    insts = [i for i in instances if i in per_inst]
+    key = f"CSR_{PRIMARY_COMPLIANCE}"
+    greedy = np.array([per_inst[i]["weight_sorted"]["csr_all_pct"] for i in insts], float)
+    mat = _block_matrix(rows, key, configs, insts)
+
+    per_cfg, raw = {}, []
+    for j, c in enumerate(configs):
+        diff = mat[:, j] - greedy
+        res = one_tailed_greater(diff)
+        res.update(configuration=c, mean=_f(mat[:, j].mean()), greedy_mean=_f(greedy.mean()),
+                   mean_difference=_f(diff.mean()), instances_above=int((diff > 0).sum()),
+                   n_instances=len(insts))
+        per_cfg[c] = res
+        raw.append(res["p_raw"])
+    adj, fam = holm(raw)
+    for c, pa in zip(configs, adj):
+        r = per_cfg[c]
+        r["p"] = _f(pa)
+        r["p_raw"] = _f(r["p_raw"])
+        r["significant"] = bool(pa is not None and pa < ALPHA)
+        if not r["testable"]:
+            r["verdict"] = r["reason"]
+        elif not r["significant"]:
+            r["verdict"] = f"not significantly higher than the {GREEDY_LABEL}"
+        elif not r["effect"]["practical"]:
+            r["verdict"] = (f"significantly higher than the {GREEDY_LABEL}, but not practically meaningful "
+                            f"(|{r['effect']['name']}| = {abs(r['effect']['value']):.2f})")
+        else:
+            r["verdict"] = (f"{LABELS[c]} significantly higher than the {GREEDY_LABEL} on CSR over all boxes "
+                            f"(one-tailed, Holm p = {r['p']:.3g}; |{r['effect']['name']}| = "
+                            f"{abs(r['effect']['value']):.2f}, {r['effect']['magnitude']})")
+    vs_greedy = {"measure": "CSR", "definition": PRIMARY_COMPLIANCE, "baseline": GREEDY_LABEL,
+                 "alternative": "configuration > Weight-Sorted Greedy (one-tailed)", "alpha": ALPHA,
+                 "family": "these comparisons only (Holm across the configurations); not part of SP1-SP3",
+                 "holm_family_size": fam, "n_instances": len(insts),
+                 "greedy_per_instance": {str(i): _f(g) for i, g in zip(insts, greedy)},
+                 "per_configuration": per_cfg,
+                 "significant": [c for c in configs if per_cfg[c]["significant"]]}
+
+    def pooled(k):
+        return descriptives([d[k] for i in insts for d in per_inst[i]["random_order"]])
+    random = {"baseline": RANDOM_LABEL, "descriptive_only": True, "n_draws_per_instance": base.get("n_random"),
+              "n_instances": len(insts),
+              "measures": {"CSR_all_boxes": pooled("csr_all_pct"), "SU": pooled("su_pct"),
+                           "ET": pooled("exec_time_ms"), "placed": pooled("placed")},
+              "per_instance": {str(i): {"CSR_all_boxes": descriptives([d["csr_all_pct"] for d in per_inst[i]["random_order"]]),
+                                        "SU": descriptives([d["su_pct"] for d in per_inst[i]["random_order"]]),
+                                        "ET": descriptives([d["exec_time_ms"] for d in per_inst[i]["random_order"]])}
+                               for i in insts},
+              "timing_valid": bool(base.get("timing_valid")), "timing_note": base.get("timing_note")}
+    greedy_desc = {"CSR_all_boxes": descriptives(greedy),
+                   "SU": descriptives([per_inst[i]["weight_sorted"]["su_pct"] for i in insts]),
+                   "ET": descriptives([per_inst[i]["weight_sorted"]["exec_time_ms"] for i in insts]),
+                   "placed": descriptives([per_inst[i]["weight_sorted"]["placed"] for i in insts])}
+    return {"available": True, "title": SUPPLEMENTARY_LABEL, "separate_from": "SP1-SP3",
+            "vs_greedy": vs_greedy, "greedy": greedy_desc, "random_order": random,
+            "baseline_timing_valid": bool(base.get("timing_valid")),
+            "note": "Supplementary to SP1-SP3: these tests are not in the SP1-SP3 Holm families and do "
+                    "not change the outcome pattern. The baselines ran serially in one process."}
 
 
 def friedman_block(mat, configs, lower_is_better=False):
@@ -787,6 +908,25 @@ def summary_lines(st):
         top = cs['recommendation']
         L.append(f"   {COMPOSITE_LABEL}: " + (f"highest mean composite score {top['label']} ({top['mean_cs']})" if top else cs['recommendation_note']))
     L.append(f"outcome pattern: {st['outcome']['pattern'] or '-'} - {st['outcome']['description']}")
+    tm = st.get("timing")
+    if tm and not tm["valid"]:
+        L.append(f"TIMING {tm['label']} ({tm['note']})")
+    sp = st.get("supplementary")
+    if sp:
+        L.append(f"{SUPPLEMENTARY_LABEL} - separate from SP1-SP3:")
+        if not sp.get("available"):
+            L.append(f"   {sp['reason']}")
+        else:
+            vg = sp["vs_greedy"]
+            L.append(f"   vs {GREEDY_LABEL}, CSR over all boxes, one-tailed, Holm across {vg['holm_family_size']}: "
+                     f"greedy mean {sp['greedy']['CSR_all_boxes']['mean']}")
+            for c, r in vg["per_configuration"].items():
+                L.append(f"      {c}: mean {r['mean']} diff {r['mean_difference']} ({r['instances_above']}/{r['n_instances']} above) "
+                         + (f"{r['test']} p_raw={r['p_raw']} p_holm={r['p']} -> " if r['testable'] else "") + r["verdict"])
+            rm = sp["random_order"]["measures"]
+            L.append(f"   {RANDOM_LABEL} (descriptive, {sp['random_order']['n_draws_per_instance']} draws x "
+                     f"{sp['random_order']['n_instances']} instances): CSR(all) {rm['CSR_all_boxes']['mean']} "
+                     f"sd {rm['CSR_all_boxes']['sd']}; SU {rm['SU']['mean']} sd {rm['SU']['sd']}; ET {rm['ET']['mean']} ms")
     return L
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

@@ -74,7 +74,11 @@ def representatives(study):
             keys.append(r.get('instance_id'))
     loads = [load_entry(k, [(i, r) for i, r in enumerate(runs) if r.get('instance_id') == k]) for k in keys]
     split = study.get('seq_budget_split') or {}
+    timing_valid = study.get('timing_valid', study.get('mode') == 'serial')
     return {'study': study.get('name'), 'mode': study.get('mode'), 'custom_load': study.get('custom_load'),
+            # wall_ms / cpu_ms / peak_mem_mb are not comparable when runs were parallel
+            'timing_valid': bool(timing_valid),
+            'timing_note': None if timing_valid else 'invalid: parallel runs shared the CPU',
             'representative_rule': RULE, 'seq_budget_split': split, 'loads': loads}
 
 
