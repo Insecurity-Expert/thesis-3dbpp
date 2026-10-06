@@ -247,6 +247,9 @@ class StandaloneMOGWO(ThesisOptimizerBase):
         return max(archive, key=lambda w: w.su)
 
     def _update_archive(self, archive, wolf):
+        # Observation only: the archive the run ends with (pruning mutates and
+        # returns this same list), for reporting the trade-off it found.
+        self.final_archive = archive
         dominated = []
         is_dominated = False
         for i, a_wolf in enumerate(archive):
