@@ -19,8 +19,9 @@ import json
 import math
 import time
 import argparse
-import tracemalloc
 from pathlib import Path
+
+import psutil
 
 # Repo root on the path so `preprocessing` resolves when run from optimizer/
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -32,6 +33,27 @@ from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid,
 from thesis_metrics import (evaluate_constraints,
                             space_utilization as thesis_space_utilization)
 from arrangement_view import wtpack_entry, annotate
+
+
+# M-3 / M-4 as in experiments/study.py (Chapter 3): numba warmed untimed, M-3 =
+# wall-clock (time.perf_counter) of opt.run(), M-4 = the process's peak working
+# set (psutil; ru_maxrss on POSIX). Runs saved before this carry no
+# metrics.timing_method and were timed under tracemalloc (~2.7x slower).
+TIMING_METHOD = ("numba warmed untimed; M-3 = time.perf_counter wall-clock of opt.run(); "
+                 "M-4 = process peak working set (psutil)")
+
+
+def _peak_mb():
+    mi = psutil.Process().memory_info()
+    peak = getattr(mi, 'peak_wset', None)          # Windows
+    if peak is None:                                # POSIX: ru_maxrss
+        try:
+            import resource
+            ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            peak = ru * (1 if sys.platform == 'darwin' else 1024)
+        except Exception:
+            peak = mi.rss
+    return peak / (1024 * 1024)
 
 
 def lower_bound(items, container):
@@ -161,8 +183,11 @@ def main():
         })
 
     # ── Run optimizer ──────────────────────────────────────────────────────────
-    tracemalloc.start()
-    _start_time = time.perf_counter()
+    # Warm every compiled kernel (decode + evaluate + repair) untimed, exactly as
+    # experiments/study.py does, so M-3 never includes numba cache loading.
+    RepairBasedHybrid(items=items, container=container, pop_size=3, max_iter=1,
+                      enforce_support=params["enforce_support"],
+                      enforce_fragility=params["enforce_fragility"], seed=0).run()
     opt_class = {
         "DGWO": StandaloneDGWO,
         "MOGWO": StandaloneMOGWO,
@@ -184,11 +209,10 @@ def main():
         stream_cb=emit if streaming else None,
     )
 
+    _start_time = time.perf_counter()
     best = optimizer.run()
     exec_time_ms = (time.perf_counter() - _start_time) * 1000.0   # M-3
-    _, peak_bytes = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    peak_mem_mb = peak_bytes / (1024 * 1024)                      # M-4
+    peak_mem_mb = _peak_mb()                                      # M-4
 
     # ── Build final result ─────────────────────────────────────────────────────
     packed_items = []
@@ -221,6 +245,7 @@ def main():
         "M2_constraint_satisfaction_pct": round(csr_pct, 2),
         "M3_execution_time_ms":          round(exec_time_ms, 1),
         "M4_peak_memory_mb":             round(peak_mem_mb, 2),
+        "timing_method":                 TIMING_METHOD,
         "M5_robustness_su_std":          None,   # needs >1 run; see experiments/study.py
         "weight_capacity":               None,
         "constraint_detail":             csr_detail,

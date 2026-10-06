@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import { CustomLoadBadge, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { methodLabel, methodOf } from "../methods";
+import { isOldMeasurement, OLD_MEASUREMENT, OLD_MEASUREMENT_NOTE } from "../measurement";
 
 function formatDate(dateStr) {
   if (!dateStr) return "N/A";
@@ -53,7 +54,7 @@ const CSV_COLS = [
   ["rules_all_boxes_pct", (r) => { const v = allBoxCompliance(r); return v === null ? "" : v; }],
   ["C3_pct", (r) => r.c3_pct ?? ""], ["C4_pct", (r) => r.c4_pct ?? ""], ["C5_pct", (r) => r.c5_pct ?? ""], ["C6_pct", (r) => r.c6_pct ?? ""],
   ["boxes", (r) => r.n_items ?? ""], ["loaded", (r) => r.placed ?? ""], ["not_loaded", (r) => r.unplaced ?? ""],
-  ["time_s", (r) => r.runtime_s ?? ""], ["status", (r) => runStatus(r).text], ["error", (r) => r.error ?? ""],
+  ["time_s", (r) => r.runtime_s ?? ""], ["time_measurement", (r) => (r.runtime_s == null ? "" : isOldMeasurement(r) ? OLD_MEASUREMENT : "current")], ["status", (r) => runStatus(r).text], ["error", (r) => r.error ?? ""],
   ["saved_at", (r) => r.created_at ?? ""],
 ];
 
@@ -243,7 +244,8 @@ export default function RunHistoryTab({
                       <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtPct(allBoxCompliance(run))}</td>
                       {["c3_pct", "c4_pct", "c5_pct", "c6_pct"].map((k) => <td key={k} style={{ textAlign: "right" }}>{fmtPct(run[k])}</td>)}
                       <td style={{ textAlign: "right" }}>{run.unplaced != null && run.n_items ? `${run.unplaced} of ${run.n_items}` : "—"}</td>
-                      <td style={{ textAlign: "right" }}>{run.runtime_s != null ? `${Number(run.runtime_s).toFixed(1)}s` : "—"}</td>
+                      <td style={{ textAlign: "right" }}>{run.runtime_s != null ? `${Number(run.runtime_s).toFixed(1)}s` : "—"}
+                        {run.runtime_s != null && isOldMeasurement(run) && <div><span className="badge badge-neutral" style={{ textTransform: "none" }} title={OLD_MEASUREMENT_NOTE}>{OLD_MEASUREMENT}</span></div>}</td>
                       <td>{(() => { const s = runStatus(run); return <span className={`badge ${s.cls}`} title={s.title}>{s.text}</span>; })()}</td>
                       <td style={{ textAlign: "right", color: "var(--text-dim)" }}>{formatDate(run.created_at)}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
