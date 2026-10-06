@@ -60,7 +60,7 @@ def main():
     hash1, data1, et1, pm1 = run_and_hash(args)
     print(f"Run 1: Hash = {hash1}, ET = {et1} ms, PM = {pm1} MB")
 
-    print(f"Running again to verify determinism...")
+    print("Running again to verify determinism...")
     hash2, data2, et2, pm2 = run_and_hash(args)
     print(f"Run 2: Hash = {hash2}, ET = {et2} ms, PM = {pm2} MB")
 

@@ -5,7 +5,7 @@ Wraps loader + fragility + stop_assignment into one call that returns
 a fully-augmented instance ready for the algorithms.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 from pathlib import Path
 
 from preprocessing.loader import parse_wtpack

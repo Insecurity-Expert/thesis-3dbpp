@@ -1,6 +1,5 @@
 import math
 import numpy as np
-from geometry_3d import get_dims
 
 def sigmoid(x):
     """Sigmoid transfer function: sigma(x) = 1 / (1 + e^-x)"""

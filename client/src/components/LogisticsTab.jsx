@@ -12,6 +12,7 @@ import LoadSources from "./LoadSources";
 import { CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { fmt as vfmt } from "../study/verdicts";
 import { useToast } from "./ui";
+import { isOldMeasurement } from "../measurement";
 
 const n1 = (v, d = 1) => Number(v).toLocaleString(undefined, { maximumFractionDigits: d });
 
@@ -21,6 +22,7 @@ function timingNote(runs, pop, iter) {
   const by = {};
   for (const r of runs || []) {
     if (r.status === "failed" || r.pop_size !== pop || r.max_iter !== iter || r.runtime_s == null) continue;
+    if (isOldMeasurement(r)) continue;      // timed the old way (tracemalloc, no warm-up)
     const m = methodOf(r.strategy_code || r.strategy);
     if (!m) continue;
     (by[m.code] = by[m.code] || []).push(Number(r.runtime_s));

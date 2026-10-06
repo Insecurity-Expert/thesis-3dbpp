@@ -11,7 +11,6 @@ is feasible by construction: S(X_feas) == 1.0 is asserted, not hoped for.
 Constraint checks here must mirror thesis_metrics.evaluate_constraints exactly
 or the final assertion cannot hold.
 """
-import math
 from collections import Counter
 
 import numpy as np

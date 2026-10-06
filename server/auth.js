@@ -119,6 +119,9 @@ function runSummary(row) {
     pop_size: p && p.pop_size != null ? p.pop_size : null,
     max_iter: p && p.max_iter != null ? p.max_iter : null,
     has_problem_view: !!(r && r.problem_view),
+    // Saved before main_optimizer.py measured M-3 / M-4 as experiments/study.py
+    // does (tracemalloc, no warm-up): no metrics.timing_method in the envelope.
+    old_measurement: r ? !(r.metrics && r.metrics.timing_method) : row.runtime_s != null,
     // Custom loads (preprocessing/custom_load.py) are never thesis data.
     custom_load: row.dataset === "custom" ? {
       id: (r && r.custom_load && r.custom_load.id) || row.instance, label: (r && r.custom_load && r.custom_load.label) || "Custom load — not part of the thesis dataset",

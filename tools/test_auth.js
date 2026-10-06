@@ -155,6 +155,26 @@ async function main() {
   r = await post("/login", { email: "a@b.c", password: "old-pass" });
   check("a file without users / runs lists is also refused", r.status === 500, r.status);
 
+  console.log("[run history: old measurement]");
+  const hh = bcrypt.hashSync("pw-123456", 4);
+  const env = (method) => ({ metrics: { M3_execution_time_ms: 1, ...(method ? { timing_method: method } : {}) } });
+  fresh({ users: [{ id: 1, email: "t@x.c", name: "T", pass_hash: hh }], studies: [], custom_loads: [], runs: [
+    { id: 1, user_id: 1, runtime_s: 13.1, result: env(null), status: "ok" },              // timed under tracemalloc
+    { id: 2, user_id: 1, runtime_s: 3.3, result: env("psutil"), status: "ok" },           // after the fix
+    { id: 3, user_id: 1, runtime_s: 9.0, result: null, status: "ok" },                    // pre-capture row with a time
+    { id: 4, user_id: 1, runtime_s: null, result: null, status: "failed" },              // no time at all
+  ] });
+  const lr = await fetch(base + "/login", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ email: "t@x.c", password: "pw-123456" }) });
+  const cookie = (lr.headers.get("set-cookie") || "").split(";")[0];
+  const list = await (await fetch(base + "/runs", { headers: { Cookie: cookie } })).json();
+  const flag = Object.fromEntries(list.map((x) => [x.id, x.old_measurement]));
+  check("run without timing_method -> old measurement", flag[1] === true, JSON.stringify(flag));
+  check("run with timing_method -> current", flag[2] === false, JSON.stringify(flag));
+  check("pre-capture row with a time -> old measurement", flag[3] === true, JSON.stringify(flag));
+  check("failed run without a time is not flagged", flag[4] === false, JSON.stringify(flag));
+  check("rows are kept, not deleted", list.length === 4, list.length);
+
   server.close();
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log(`\n${failed ? "FAIL" : "PASS"} - ${failed} failed`);

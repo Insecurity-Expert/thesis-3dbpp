@@ -4,7 +4,7 @@ used in docs/MOCK_DEFENSE_RESULTS.md from the result JSONs.
     python experiments/summarize_results.py            # print tables, write summary
     python experiments/summarize_results.py --old DIR  # also diff against an older results dir
 """
-import argparse, json, statistics as st, sys
+import argparse, json, statistics as st
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

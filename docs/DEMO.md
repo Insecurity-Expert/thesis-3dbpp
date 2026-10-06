@@ -106,19 +106,21 @@ shows its stop and fragility.
 
 ## 5. Measured durations (instance 350)
 
-Optimizer runtime (M-3), measured 2026-10-03 on a 4-vCPU cloud container,
+Optimizer runtime (M-3), measured 2026-10-06 on a 4-vCPU cloud container,
 one process at a time (`experiments/results/environment.txt`). Quick row from
 `experiments/results/quick_i350_s42.json` (seed 42); Standard row from
 `slide_i350_s{1..5}.json` (mean ± sd over seeds 1–5). The earlier laptop
 measurements ran several processes at once and were 2–9× slower; time your
 own machine before the session. Add ~10 s in the browser for streaming and
-rendering.
+rendering. The UI's Quick Test now times a run the same way (untimed numba
+warm-up, then `time.perf_counter` around the run; peak memory from psutil);
+runs saved before that change are marked "old measurement" in Run History.
 
 | preset | pop × iter | DGWO | MOGWO | Sequential | Repair-based |
 |---|---|---|---|---|---|
-| **Quick demo** (seed 42) | 10 × 60 | 4.2 s | 4.3 s | 4.0 s | **21.6 s** |
-| Standard (slide runs) | 10 × 300 | 21 ± 1 s | 21 ± 1 s | 21 ± 1 s | **115 ± 5 s** |
-| Full | 30 × 500 | est. ~2 min | est. ~2 min | est. ~2 min | **est. ~10 min — do not run live** |
+| **Quick demo** (seed 42) | 10 × 60 | 3.4 s | 3.2 s | 3.2 s | **19.9 s** |
+| Standard (slide runs) | 10 × 300 | 18 ± 0 s | 18 ± 2 s | 17 ± 0 s | **96 ± 4 s** |
+| Full | 30 × 500 | est. ~1.5 min | est. ~1.5 min | est. ~1.5 min | **est. ~8 min — do not run live** |
 | *custom, for a faster live REP* | 5 × 15 | — | — | — | est. ~3 s |
 
 Full-preset rows are estimated as 5× Standard (3× the population, 5/3 the
@@ -131,7 +133,7 @@ confirms DGWO's row before the session.
 ### Repair-based is the slow one
 
 Repair (R1–R3) runs on every candidate every iteration, so REP takes about
-5× as long as the others (**~22 s at the Quick preset** on the measurement
+5× as long as the others (**~20 s at the Quick preset** on the measurement
 machine; several minutes on a slower or busy laptop). Options for the live
 session if it is slow on yours:
 

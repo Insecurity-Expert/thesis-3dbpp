@@ -1,5 +1,6 @@
 import React from "react";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
+import { isOldMeasurement, OLD_MEASUREMENT, OLD_MEASUREMENT_NOTE } from "../measurement";
 
 function StatChip({ label, value, color, subtitle, title }) {
   return (
@@ -107,8 +108,12 @@ export default function ResultsTab({
                   title="Denominator: all n boxes of the instance. A box left unplaced counts as non-compliant. Exact: CSR × placed / n."
                 />
                 <StatChip label="Boxes placed" value={`${placed} / ${total}`} color={placed === total ? "var(--green)" : "var(--amber)"} subtitle={`${(100 * placed / Math.max(total, 1)).toFixed(0)}% of the load`} />
-                <StatChip label="Execution time (ET, M-3)" value={`${Math.round(finalResult.runtime_s * 1000)} ms`} color="var(--text-muted)" subtitle={`pop ${shownPop ?? "—"} × ${shownIter} iterations`} />
-                <StatChip label="Peak memory (M-4)" value={`${(m.M4_peak_memory_mb ?? 0).toFixed(1)} MB`} color="var(--text-muted)" subtitle="tracemalloc peak" />
+                <StatChip label="Execution time (ET, M-3)" value={`${Math.round(finalResult.runtime_s * 1000)} ms`} color="var(--text-muted)"
+                  subtitle={isOldMeasurement(finalResult) ? OLD_MEASUREMENT : `pop ${shownPop ?? "—"} × ${shownIter} iterations`}
+                  title={isOldMeasurement(finalResult) ? OLD_MEASUREMENT_NOTE : "Wall-clock of the optimizer run after an untimed numba warm-up (as in the studies)."} />
+                <StatChip label="Peak memory (M-4)" value={`${(m.M4_peak_memory_mb ?? 0).toFixed(1)} MB`} color="var(--text-muted)"
+                  subtitle={isOldMeasurement(finalResult) ? `${OLD_MEASUREMENT} (tracemalloc)` : "process peak (psutil)"}
+                  title={isOldMeasurement(finalResult) ? OLD_MEASUREMENT_NOTE : "Peak working set of the optimizer process (psutil), as in the studies."} />
               </div>
             );
           })()}

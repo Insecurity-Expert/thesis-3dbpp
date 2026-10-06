@@ -91878,6 +91878,18 @@
     }
    }
   },
+  "timing": {
+   "valid": false,
+   "mode": "parallel",
+   "note": "concurrent - not valid for SP3 (several optimizers shared the CPU)",
+   "affects": [
+    "descriptives.ET",
+    "descriptives.PM",
+    "SP3",
+    "composite"
+   ],
+   "label": "INVALID - parallel runs shared the CPU; time, memory and the composite are not comparable"
+  },
   "robustness": {
    "DGWO": {
     "sd_su": 3.14025,
@@ -92906,6 +92918,11 @@
     "CSR (all_boxes)"
    ],
    "table": {}
+  },
+  "supplementary": {
+   "available": false,
+   "title": "Supplementary comparison with the non-search baselines (Chapter 3)",
+   "reason": "no baselines in this study file (python experiments/baselines.py --study <file>)"
   }
  }
 }

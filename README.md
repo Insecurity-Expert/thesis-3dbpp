@@ -105,7 +105,14 @@ complete result page and can replay it, labelled as a saved run.
 python experiments/runner.py --instance 350 --all --seed 1 --pop-size 10 --max-iter 300 --out out.json
 python experiments/baselines.py --instance 350 --out baselines.json
 python experiments/summarize_results.py          # tables from experiments/results/
+python experiments/study.py --size multi         # a study: configurations x seeds x instances, baselines, stats (docs/STUDIES.md)
+python experiments/baselines.py --study <study.json>   # add the Weight-Sorted Greedy / Random Order baselines to a study
+python experiments/stats.py <study.json> --print # re-apply the Chapter 3 statistics
+python tools/export_appendix.py <study.json> appendix1.csv   # Appendix 1 data sheet
 ```
+
+The server and the client's guide test run Python as `python`; set
+`PYTHON=/path/to/venv/bin/python` to use a virtual environment instead.
 
 The demo runbook is [docs/DEMO.md](docs/DEMO.md).
 
@@ -124,6 +131,12 @@ python tools/test_representative.py     # representative run = closest to the me
 python -m pytest preprocessing/test_pipeline.py -q   # loader, fragility and stop augmentation (31 tests)
 python tools/test_stats.py          # the Chapter 3 statistics (repeated measures) against hand-checked values
 python tools/compare_validators.py experiments/results/slide_i350_s1.json   # independent validator vs the optimizer's evaluator
+python tools/test_custom_load.py        # custom-load conversion and storage
+python tools/test_custom_load_aliases.py   # column aliases ("Delivery Sequence" -> stop) and the 3-stop limit
+python tools/test_run_settings.py       # every run uses the calibrated λ and C4/C5 enforcement of Studies A and B
+python tools/check_cpu_timing.py        # numba compile / cache-load time stays out of a run's CPU time
+python tools/check_problem_view.py      # the viewer's per-box problem flags equal the independent validator
+cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, trade-offs, timing
 ```
 
 `tools/validate_arrangement.py` is a checker written from the Chapter 3

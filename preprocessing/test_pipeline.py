@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Anchor data paths to the repo, not the cwd, so the suite passes from anywhere.
 RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
 
-import numpy as np
 import pytest
 
 from preprocessing.loader import parse_wtpack
