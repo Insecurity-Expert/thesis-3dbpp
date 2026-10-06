@@ -1,13 +1,14 @@
-// Results — the comparison of one Run STACKR study on one load.
-//   Default view: the two hybrids (Sequential, Repair-Based). "View full
-//   comparison (4 configurations)" adds the two baselines. Fixed order,
-//   nothing ranked or recommended: per measure the configurations are
-//   "level" (gap under 2 percentage points / 2 boxes) or highest / lowest
-//   (viewer/comparison.js). Results that follow from a configuration's design
-//   are labelled "by design". Each card shows the means over the load's runs
-//   and opens its representative run (closest to the median container fill;
-//   experiments/representative.py). The statistics are in Technical details.
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// Results and Technical Details — one Run STACKR study on one load.
+//   Results (default export) answers the Statement of the Problem first: the
+//   SOP Summary (SP1–SP3, viewer/sopSummary.js), a small chart, and each
+//   configuration's arrangement and guide. Technical Details
+//   (TechnicalDetailsPanel) holds everything else, unchanged: the cards with
+//   placed-box compliance and per-constraint rates, the measure-by-measure
+//   tables ("level" / highest / lowest, viewer/comparison.js), every run's
+//   numbers, the trade-offs chart, the thesis statistics and the Quick Test.
+//   Both views show the two hybrids (Sequential, Repair-Based) by default;
+//   "View full comparison (4 configurations)" adds the two baselines.
+import React, { useEffect, useMemo, useState } from "react";
 import { studiesApi } from "../services/api";
 import { methodOf } from "../methods";
 import { Modal } from "./ui";
@@ -18,6 +19,8 @@ import StudyResults, { StudyProgress } from "../study/StudyResults";
 import { StudySelect } from "../study/CompareTab";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
 import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
+import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
+import { SopSummary, SopChart } from "./SopSummary";
 
 const f1 = (v, d = 1) => (v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
 const nameOf = (c) => (methodOf(c) ? methodOf(c).name : c);
@@ -167,23 +170,19 @@ function RunTable({ runs, timingOk = true }) {
   );
 }
 
-export default function ResultsPanel({ studies = [], selectedStudyId, onSelectStudy, studyDoc, progress, onViewArrangement, onExportGuide,
-                                       compare = null, quickTest = null, openNumbers = false }) {
+
+// The selected study, its representative runs and the chosen load.
+function useStudyLoad(studyDoc) {
   const [rep, setRep] = useState(null);
   const [repErr, setRepErr] = useState(null);
   const [loadKey, setLoadKey] = useState(0);
-  const [full, setFull] = useState(false);
-  const [showThings, setShowThings] = useState(false);
-  const [numbers, setNumbers] = useState(openNumbers);
-  const [tradeMethod, setTradeMethod] = useState(null);
-  const numbersRef = useRef(null);
   const row = studyDoc ? studyDoc.row : null;
   const study = studyDoc ? studyDoc.study : null;
   const stats = studyDoc ? studyDoc.stats : null;
   const done = row && (row.status === "done" || row.status === "imported") && study && stats;
 
   useEffect(() => {
-    setRep(null); setRepErr(null); setLoadKey(0); setFull(false);
+    setRep(null); setRepErr(null); setLoadKey(0);
     if (!done) return;
     let alive = true;
     studiesApi.representatives(row.id).then((r) => alive && setRep(r)).catch((e) => alive && setRepErr(e.message));
@@ -196,24 +195,29 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
     const runs = (study.runs || []).filter((r) => (r.instance_id ?? null) === (L.instance_id ?? null));
     return { ...L, runs, runsOf: (c) => runs.filter((r) => r.configuration === c) };
   }, [rep, loadKey, study]);
-  useEffect(() => { if (load && !tradeMethod) setTradeMethod(ordered(load.configurations)[0]); }, [load, tradeMethod]);
+  return { rep, repErr, loadKey, setLoadKey, load, row, study, stats, done };
+}
 
-  const header = (
+function Header({ studies, selectedStudyId, onSelectStudy, rep, loadKey, onLoad }) {
+  return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
       <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />
       {rep && rep.loads.length > 1 && (
-        <select className="form-input" style={{ width: "auto", paddingLeft: 12 }} value={loadKey} onChange={(e) => { setLoadKey(Number(e.target.value)); setTradeMethod(null); }} aria-label="Which load">
+        <select className="form-input" style={{ width: "auto", paddingLeft: 12 }} value={loadKey} onChange={(e) => onLoad(Number(e.target.value))} aria-label="Which load">
           {rep.loads.map((L, i) => <option key={i} value={i}>{L.instance_id === null ? "Your custom load" : `Test case ${L.instance_id}`}</option>)}
         </select>
       )}
     </div>
   );
+}
 
+// Shared states before a study's numbers are available. null when they are.
+function notReady({ row, progress, study, done, header, emptyExtra = null }) {
   if (!row) {
     return (<>{header}<div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
       <div className="card-title" style={{ marginBottom: 6 }}>No results yet</div>
       <div className="card-desc">Go to Start analysis, add your boxes and click Run STACKR. The comparison of the configurations appears here.</div>
-    </div></>);
+    </div>{emptyExtra}</>);
   }
   if (row.status === "running" || (progress && progress.status === "running")) {
     return (<>{header}<StudyProgress progress={progress} study={study} /></>);
@@ -221,11 +225,128 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   if (!done) {
     return (<>{header}<div className="alert-danger">This comparison did not finish{progress && progress.error ? `: ${progress.error}` : "."}</div></>);
   }
+  return null;
+}
 
-  const cl = customLoadOf(study);
+function shownCodes(load, full) {
   const all = load ? ordered(load.configurations) : [];
   const hybridsHere = HYBRIDS.every((c) => all.includes(c));
-  const shown = full || !hybridsHere ? all : HYBRIDS;
+  return { all, hybridsHere, shown: full || !hybridsHere ? all : HYBRIDS };
+}
+
+function ViewToggle({ all, hybridsHere, full, setFull }) {
+  if (!hybridsHere) return null;
+  return (
+    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFull((f) => !f)} aria-pressed={full}>
+      {full ? "Back to the hybrid view (2 configurations)" : `View full comparison (${all.length} configurations)`}
+    </button>
+  );
+}
+
+// ── Results: the SOP first ───────────────────────────────────────────────────
+export default function ResultsPanel({ studies = [], selectedStudyId, onSelectStudy, studyDoc, progress, onViewArrangement, onExportGuide,
+                                       full = false, setFull = () => {}, onOpenTechnical = null, hasQuickTest = false }) {
+  const [showThings, setShowThings] = useState(false);
+  const { rep, repErr, loadKey, setLoadKey, load, row, study, stats, done } = useStudyLoad(studyDoc);
+  const header = <Header studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={onSelectStudy} rep={rep} loadKey={loadKey} onLoad={setLoadKey} />;
+  const quickHint = hasQuickTest && onOpenTechnical ? (
+    <div className="card" style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div className="card-desc" style={{ margin: 0 }}>Your Quick Test result (one run, one seed) is in Technical Details.</div>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details</button>
+    </div>
+  ) : null;
+  const early = notReady({ row, progress, study, done, header, emptyExtra: quickHint });
+  if (early) return early;
+
+  const cl = customLoadOf(study);
+  const { all, hybridsHere, shown } = shownCodes(load, full);
+  const timingOk = timingValid(study, stats);
+  const tested = isTestedStudy(stats);
+  const model = load ? (tested
+    ? testedModel({ stats, codes: shown, nameOf, timingOk })
+    : descriptiveModel({ runs: load.runs, codes: shown, nameOf, timingOk })) : null;
+
+  return (
+    <div>
+      {header}
+      {cl && <div style={{ marginBottom: 16 }}><CustomLoadBanner info={cl} /></div>}
+      {repErr && <div className="alert-danger" style={{ marginBottom: 16 }}>Could not read the comparison: {repErr}</div>}
+      {!rep && !repErr && <div className="card" style={{ marginBottom: 16 }}><div className="field-hint">Reading the comparison…</div></div>}
+
+      {load && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="card-title" style={{ fontSize: 18 }}>
+                {full || !hybridsHere ? `Full comparison (${all.length} configurations)` : "Hybrid configurations: Sequential and Repair-Based"}
+              </div>
+              <div className="card-desc" style={{ margin: 0 }}>
+                {tested
+                  ? `Means over every run of the study's ${stats.provenance.n_instances} test cases; marks follow the statistical tests.`
+                  : `Means over ${model.runsEach} run${model.runsEach === 1 ? "" : "s"} per configuration on this load.`}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings(true)}>Things to know</button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+            <SopSummary model={model} nameOf={nameOf}
+              desc="The answers to the Statement of the Problem (SP1–SP3), one row per specific problem." />
+            <SopChart model={model} nameOf={nameOf} />
+          </div>
+
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-title">See each arrangement</div>
+            <div className="card-desc" style={{ marginBottom: 10 }}>Each configuration's representative run (the one closest to its median container fill) in the 3D viewer, or as a printable loading guide.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {shown.map((c) => (
+                <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--border)" }}>
+                  <div><b style={{ color: "var(--text-main)" }}>{nameOf(c)}</b> <span className="field-hint" style={{ marginLeft: 6 }}>{nickOf(c)}</span></div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c })}>View Arrangement</button>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey })}>Export Guide</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {onOpenTechnical && (
+        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div className="card-title">Technical details</div>
+            <div className="card-desc">Placed-box compliance, each rule on both bases, CPU time and memory, run-to-run spread, every run's numbers and the thesis statistics.</div>
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details</button>
+        </div>
+      )}
+
+      <Modal open={showThings} onClose={() => setShowThings(false)} title="Things to know" desc="How STACKR works, and what it does not model"
+        footer={<button type="button" className="btn btn-primary" onClick={() => setShowThings(false)}>Understood</button>}>
+        <ThingsToKnow bare studies={studies.filter((s) => s.id === row.id)} />
+      </Modal>
+    </div>
+  );
+}
+
+// ── Technical Details: everything the summary leaves out, unchanged ─────────
+export function TechnicalDetailsPanel({ studies = [], selectedStudyId, onSelectStudy, studyDoc, progress, onViewArrangement, onExportGuide,
+                                        full = false, setFull = () => {}, compare = null, quickTest = null }) {
+  const [tradeMethod, setTradeMethod] = useState(null);
+  const { rep, repErr, loadKey, setLoadKey, load, row, study, stats, done } = useStudyLoad(studyDoc);
+  useEffect(() => { if (load && !tradeMethod) setTradeMethod(ordered(load.configurations)[0]); }, [load, tradeMethod]);
+  const header = <Header studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={onSelectStudy} rep={rep} loadKey={loadKey}
+    onLoad={(k) => { setLoadKey(k); setTradeMethod(null); }} />;
+  const early = notReady({ row, progress, study, done, header, emptyExtra: quickTest ? <div style={{ marginTop: 20 }}>{quickTest}</div> : null });
+  if (early) return early;
+
+  const cl = customLoadOf(study);
+  const { all, hybridsHere, shown } = shownCodes(load, full);
   const runsPer = load ? Math.round(load.n_runs / Math.max(1, load.configurations.length)) : null;
   const note = load && hybridsHere && !full ? baselineNote(load.means, nameOf) : null;
   const seqSplit = (rep && rep.seq_budget_split) || (study && study.seq_budget_split);
@@ -246,17 +367,10 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
               </div>
               <div className="card-desc" style={{ margin: 0 }}>
                 Averages over {runsPer} run{runsPer === 1 ? "" : "s"} per configuration on this load. "Level" means the gap is under 2 percentage points (fill, compliance) or 2 boxes;
-                a display rule, not a statistical test (the tests are in Technical details).
+                a display rule, not a statistical test (the tests are in Studies).
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {hybridsHere && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFull((f) => !f)} aria-pressed={full}>
-                  {full ? "Back to the hybrid view (2 configurations)" : `View full comparison (${all.length} configurations)`}
-                </button>
-              )}
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings(true)}>Things to know</button>
-            </div>
+            <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />
           </div>
 
           {note && <div className="card-desc" role="note" style={{ marginBottom: 14 }}>{note}</div>}
@@ -288,48 +402,33 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
         </>
       )}
 
-      <div ref={numbersRef} className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: numbers ? 18 : 0 }}>
-        <div>
-          <div className="card-title">Technical details</div>
-          <div className="card-desc">Every run's numbers, the trade-offs chart and the thesis statistics (SP1–SP3).</div>
-        </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setNumbers((n) => !n)} aria-expanded={numbers}>{numbers ? "Hide all numbers" : "Show all numbers"}</button>
-      </div>
-
-      {numbers && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {load && <div className="card"><div className="card-desc" style={{ margin: 0 }}>Representative run of each configuration (cards, 3D viewer, Loading Guide): {rep.representative_rule}.</div></div>}
-          {load && <RunTable runs={load.runs} timingOk={timingValid(study, stats)} />}
-          {load && (
-            <div className="card">
-              <div className="card-head">
-                <div>
-                  <div className="card-title">Trade-offs within {nameOf(tradeMethod)}</div>
-                  <div className="card-desc">Each dot is one run of this configuration on this load. Further right = fuller container; higher = more boxes following the rules. Pick a configuration to see its runs; configurations are not compared on this chart.</div>
-                </div>
-                <div className="tabs-inline">
-                  {all.map((c) => <button key={c} type="button" className={tradeMethod === c ? "active" : ""} onClick={() => setTradeMethod(c)}>{nameOf(c)}</button>)}
-                </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {load && <div className="card"><div className="card-desc" style={{ margin: 0 }}>Representative run of each configuration (cards, 3D viewer, Loading Guide): {rep.representative_rule}.</div></div>}
+        {load && <RunTable runs={load.runs} timingOk={timingValid(study, stats)} />}
+        {load && (
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Trade-offs within {nameOf(tradeMethod)}</div>
+                <div className="card-desc">Each dot is one run of this configuration on this load. Further right = fuller container; higher = more boxes following the rules. Pick a configuration to see its runs; configurations are not compared on this chart.</div>
               </div>
-              {tradeMethod && <TradeoffsChart runs={load.runsOf(tradeMethod)} methodName={nameOf(tradeMethod)} />}
+              <div className="tabs-inline">
+                {all.map((c) => <button key={c} type="button" className={tradeMethod === c ? "active" : ""} onClick={() => setTradeMethod(c)}>{nameOf(c)}</button>)}
+              </div>
             </div>
-          )}
-          <div>
-            <div className="card-title" style={{ marginBottom: 4 }}>The thesis statistics for this comparison</div>
-            <div className="card-desc" style={{ marginBottom: 12 }}>
-              The Chapter 3 tests (experiments/stats.py). They need at least two test cases{stats.provenance && stats.provenance.n_instances < 2 ? " — this comparison has one, so it is described, not tested" : ""}.
-            </div>
-            <StudyResults row={row} study={study} stats={stats} progress={progress} onOpenCompare={null} />
+            {tradeMethod && <TradeoffsChart runs={load.runsOf(tradeMethod)} methodName={nameOf(tradeMethod)} />}
           </div>
-          {compare}
-          {quickTest}
+        )}
+        <div>
+          <div className="card-title" style={{ marginBottom: 4 }}>The thesis statistics for this comparison</div>
+          <div className="card-desc" style={{ marginBottom: 12 }}>
+            The Chapter 3 tests (experiments/stats.py). They need at least two test cases{stats.provenance && stats.provenance.n_instances < 2 ? " — this comparison has one, so it is described, not tested" : ""}.
+          </div>
+          <StudyResults row={row} study={study} stats={stats} progress={progress} onOpenCompare={null} />
         </div>
-      )}
-
-      <Modal open={showThings} onClose={() => setShowThings(false)} title="Things to know" desc="How STACKR works, and what it does not model"
-        footer={<button type="button" className="btn btn-primary" onClick={() => setShowThings(false)}>Understood</button>}>
-        <ThingsToKnow bare studies={studies.filter((s) => s.id === row.id)} />
-      </Modal>
+        {compare}
+        {quickTest}
+      </div>
     </div>
   );
 }

@@ -94,8 +94,9 @@ reachable by others (it warns at start when it is not set; see docs/DEMO.md).
 
 In the app: pick a wtpack instance, a configuration and a preset
 (Quick = pop 10 × 60 iterations, Standard = 10 × 300, Full = 30 × 500), set
-the seed, and run. The Results tab shows the metrics, the parameters the
-optimizer actually ran with, and the per-constraint bars; the 3D viewer
+the seed, and run. The Results tab opens on the SOP Summary (SP1–SP3); the
+Technical Details tab shows the metrics, the parameters the optimizer actually
+ran with, and the per-constraint bars; the 3D viewer
 draws the packing (fragile boxes have an amber edge); Run History saves the
 complete result page and can replay it, labelled as a saved run.
 

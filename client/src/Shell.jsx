@@ -11,7 +11,7 @@ import DashboardTab from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import HowToModal from "./components/HowToModal";
-import ResultsPanel from "./components/ResultsPanel";
+import ResultsPanel, { TechnicalDetailsPanel } from "./components/ResultsPanel";
 import ProcessingPanel from "./components/ProcessingPanel";
 import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
@@ -26,7 +26,7 @@ export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, guide, compare, visualization, history, account
+  const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, technical, guide, compare (Studies), visualization, history, account
   const [showHowTo, setShowHowTo] = useState(false);
   // "How to use" opens by itself once: on a new account's first login (the
   // account records that it has), unless "Don't show this again" is ticked.
@@ -126,6 +126,9 @@ export default function Shell() {
   // Requests from Results: open a study run in the 3D viewer / a method's guide.
   const [vizRequest, setVizRequest] = useState(null);
   const [guideRequest, setGuideRequest] = useState(null);
+  // Results and Technical Details: the two hybrids by default, all four on request.
+  const [showAllConfigs, setShowAllConfigs] = useState(false);
+  useEffect(() => { setShowAllConfigs(false); }, [selectedStudyId]);
   const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
@@ -652,7 +655,7 @@ export default function Shell() {
       label: row.label || null,
       legacy,
     });
-    setActiveTab("results");
+    setActiveTab("technical");
   }, [running]);
 
   const handleLabelRun = useCallback(async (run, label) => {
@@ -794,8 +797,9 @@ export default function Shell() {
     { id: "home", group: "Get started", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
     { id: "logistics", group: "Get started", label: "Start analysis", title: "Start analysis", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
     { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
+    { id: "technical", group: "Get started", label: "Technical Details", title: "Technical Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
-    { id: "compare", group: "Advanced tools", label: "Technical details", title: "Technical details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
+    { id: "compare", group: "Advanced tools", label: "Studies", title: "Studies", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
     { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
@@ -826,7 +830,7 @@ export default function Shell() {
             >
               {n.icon}
               <span>{n.label}</span>
-              {n.id === "results" && replay && <span className="badge badge-warn" style={{ marginLeft: "auto" }}>saved</span>}
+              {n.id === "technical" && replay && <span className="badge badge-warn" style={{ marginLeft: "auto" }}>saved</span>}
               {n.id === "visualization" && running && <span className="badge badge-primary" style={{ marginLeft: "auto" }}>live</span>}
             </button>
             </React.Fragment>
@@ -985,7 +989,7 @@ export default function Shell() {
         />
       )}
 
-      {/* ── RESULTS TAB ── */}
+      {/* ── RESULTS TAB: the SOP Summary first ── */}
       {activeTab === "results" && (
         <ResultsPanel
           studies={studies}
@@ -995,6 +999,25 @@ export default function Shell() {
           progress={studyProgress}
           onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
           onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          full={showAllConfigs}
+          setFull={setShowAllConfigs}
+          onOpenTechnical={() => setActiveTab("technical")}
+          hasQuickTest={!!finalResult}
+        />
+      )}
+
+      {/* ── TECHNICAL DETAILS TAB: everything else from Results, unchanged ── */}
+      {activeTab === "technical" && (
+        <TechnicalDetailsPanel
+          studies={studies}
+          selectedStudyId={selectedStudyId}
+          onSelectStudy={setSelectedStudyId}
+          studyDoc={studyDoc}
+          progress={studyProgress}
+          onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          full={showAllConfigs}
+          setFull={setShowAllConfigs}
           compare={
             <div>
               <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
@@ -1011,7 +1034,6 @@ export default function Shell() {
                 maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
           ) : null}
-          openNumbers={!!replay}
         />
       )}
 
@@ -1047,6 +1069,7 @@ export default function Shell() {
           studies={studies}
           selectedStudyId={selectedStudyId}
           onSelectStudy={setSelectedStudyId}
+          summary
         />
       )}
 
