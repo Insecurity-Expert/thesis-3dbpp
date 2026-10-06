@@ -1,1 +1,1 @@
-DGWO pop=30 seed=1 inst=350 final SU=82.45 CSR=67.00 placed=100 296s (592 ms/iter) -> DGWO_pop30_s1_i350.csv
+DGWO pop=30 seed=1 inst=350 final SU=82.38 CSR=56.86 placed=102 92s (185 ms/iter) -> DGWO_pop30_s1_i350.csv

@@ -115,7 +115,9 @@ repeatability within one commit).
 - `python tools/test_reference_hashes.py`: **PASS, 8 / 8**.
 - The 8 hashes equal those computed independently at bbed351 and 3f4392b before
   this item (`DGWO 5e73df02 / 28e5f3a0, MOGWO 5bcb2b85 / 3afc1b61,
-  SEQ 3c5c044c / b150c53a, REP a965e2d5 / 681939bc`, seeds 1 / 42).
+  SEQ 3c5c044c / b150c53a, REP a965e2d5 / 681939bc`, seeds 1 / 42). (Superseded by 4069e08 (leader fallback) and d3696c9 (SEQ schedule): the
+  reference was rewritten in 044333b; DGWO is unchanged, now `MOGWO aff19275 / 40bbf8a2,
+  SEQ ccf010e1 / 4d816a75, REP 33de9876 / 152cf6c1`, 8 / 8 PASS.)
 - (Corrected later: the row edited here was in the doc's superseded section; it
   was restored and the new row moved to the current table. See the summary.)
 
@@ -254,6 +256,7 @@ Key hunk (study.py):
 - `tools/test_stats.py`: **PASS** (including the 11 new checks in 12a).
 - Study A / B re-analysis: everything outside `stats` is identical. In Study B, SP1, SP3, the outcome pattern and the composite numbers are identical once the new text fields are ignored, and no SP2 pair changed `significant` or `outperforms`.
 - Rendered UI text for Study B (verdicts.js on the stored stats): banner "Outcome pattern D (Chapter 3)"; SP1 "Sequential significantly higher than DGWO (|d_z| = 1.84, large); …"; SP2 "… C4 and C5 are reported descriptively, outside the Holm family … differ on overall rule compliance, weight limit on each box (C3)"; composite "… (significant). Highest mean composite score: MOGWO, 3.36 / 5. Nemenyi separates it from Repair-based. Nemenyi does not separate it from DGWO and Sequential."
+  (Superseded by the Study B file regenerated in 044333b: banner still "Outcome pattern D (Chapter 3)"; SP1 is now a Friedman test (p < 0.0001), "Sequential significantly higher than DGWO (|matched-pairs rank-biserial r| = 1.00, large); …"; SP2 "… differ on overall rule compliance, weight limit on each box (C3), unload in stop order (C6)"; composite "Friedman χ² = 9.45, p = 0.0239 over 8 test cases (significant). Highest mean composite score: DGWO, 3.38 / 5. Nemenyi separates it from Repair-based. Nemenyi does not separate it from MOGWO and Sequential.")
 - Full suite: test_reference_hashes **8 / 8**, test_geometry 89, test_recommend, test_sample_guard, test_study_provenance, test_run_settings, test_custom_load, test_custom_load_aliases, test_determinism, pytest test_pipeline 31: all PASS. Client: `react-scripts build` compiles with no warnings; **Jest 12 / 12** (run with `PYTHON` set to the venv; the guide test calls Python).
 
 ### Left as is (outside the agreed item; flagging only)

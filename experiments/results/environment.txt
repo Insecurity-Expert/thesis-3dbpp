@@ -1,13 +1,14 @@
 # experiments/results/environment.txt — reproduction environment for the current reference numbers
-generated: 2026-10-03 (Study A, Study B, quick_i350_s42 and slide_i350_s{1..5} regenerated after PR #3's
-           behaviour: highest-SU archive member, repair R1-R3, stop seed fixed at 42)
-commit:    6ff5f08 (optimizer behaviour identical from d772fc5 onward)
+generated: 2026-10-06 (slide_i350_s{1..5}, quick_i350_s42, campaign_dgwo_i350_s{1..5}, experiments/convergence/
+           and validator_report.txt regenerated after the SEQ schedule d3696c9 and leader fallback 4069e08;
+           Study A and Study B regenerated at 4069e08 in 044333b; stop seed fixed at 42)
+commit:    4069e08 (optimizer behaviour); previous stamp 2026-10-03 at 6ff5f08
 
 ## machine
 cpu:       Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU (cloud container)
 ram:       15.7 GB
 os:        Linux 6.18.44
-note:      Study B, quick and slide runs ran serially with nothing else on the CPU, so their wall-clock is
+note:      Study B, quick, slide, campaign and convergence runs ran serially with nothing else on the CPU, so their wall-clock is
            reportable for THIS machine; Study A ran 3 workers in parallel (flagged concurrent). Timings are
            not comparable with the earlier laptop numbers below. SU, CSR and placed counts are deterministic
            and machine-independent.

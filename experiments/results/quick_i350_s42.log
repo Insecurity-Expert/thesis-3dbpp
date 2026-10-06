@@ -1,7 +1,7 @@
-[inst 350] DGWO   placed= 78/129 SU= 63.21% CSR= 43.59% C3= 91.03 C4=100.00 C5=100.00 C6= 46.15 budget_exhausted=False 4235ms
-[inst 350] GREEDY placed= 74/129 SU= 69.74% CSR= 48.65% C3= 91.89 C4=100.00 C5=100.00 C6= 54.05 budget_exhausted=False 5ms
-[inst 350] MOGWO  placed= 86/129 SU= 65.57% CSR= 36.05% C3= 86.05 C4=100.00 C5=100.00 C6= 43.02 budget_exhausted=False 4251ms
-[inst 350] RANDOM placed= 79/129 SU= 59.10% CSR= 30.38% C3= 73.42 C4=100.00 C5=100.00 C6= 39.24 budget_exhausted=False 178ms
-[inst 350] REP    placed= 38/129 SU= 29.31% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 21629ms
-[inst 350] SEQ    placed= 87/129 SU= 66.38% CSR= 39.08% C3= 88.51 C4=100.00 C5=100.00 C6= 41.38 budget_exhausted=False 4023ms
-wrote /tmp/claude-0/-home-user-thesis-3dbpp/07f0e7ca-4be2-513a-97f3-2f53dfd0422d/scratchpad/studies/quick_i350_s42.json
+[inst 350] DGWO   placed= 78/129 SU= 63.21% CSR= 43.59% C3= 91.03 C4=100.00 C5=100.00 C6= 46.15 budget_exhausted=False 3433ms
+[inst 350] GREEDY placed= 74/129 SU= 69.74% CSR= 48.65% C3= 91.89 C4=100.00 C5=100.00 C6= 54.05 budget_exhausted=False 3ms
+[inst 350] MOGWO  placed= 86/129 SU= 65.40% CSR= 38.37% C3= 88.37 C4=100.00 C5=100.00 C6= 43.02 budget_exhausted=False 3248ms
+[inst 350] RANDOM placed= 79/129 SU= 59.10% CSR= 30.38% C3= 73.42 C4=100.00 C5=100.00 C6= 39.24 budget_exhausted=False 161ms
+[inst 350] REP    placed= 32/129 SU= 25.11% CSR=100.00% C3=100.00 C4=100.00 C5=100.00 C6=100.00 budget_exhausted=False 19934ms
+[inst 350] SEQ    placed= 84/129 SU= 66.81% CSR= 42.86% C3= 86.90 C4=100.00 C5=100.00 C6= 46.43 budget_exhausted=False 3216ms
+wrote experiments/results/quick_i350_s42.json
