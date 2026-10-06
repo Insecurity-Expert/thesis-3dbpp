@@ -12,7 +12,7 @@ import { checkPlan, buildPlan } from "./loadingPlan";
 
 const ROOT = path.join(__dirname, "..", "..", "..");
 const STUDY = path.join(ROOT, "experiments", "results", "studies", "studyB_sample8_quick_s1-10_serial.json");
-const PY = process.env.PYTHON || "python3";
+const PY = process.env.PYTHON || "python";   // same default as the server (server/python.js)
 const py = (args) => JSON.parse(execFileSync(PY, args, { cwd: ROOT, maxBuffer: 64 << 20 }).toString());
 
 const METHOD = "SEQ";   // the Guide has no default; a configuration is chosen

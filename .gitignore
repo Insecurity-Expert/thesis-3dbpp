@@ -1,7 +1,5 @@
 # Node
 node_modules/
-client/node_modules/
-server/node_modules/
 # React build output
 client/build/
 optimizer/*_results.txt
@@ -12,7 +10,6 @@ preprocessing_report.txt
 __pycache__/
 *.pyc
 *.pyo
-optimizer/__pycache__/
 # Environment
 .env
 .env.local
@@ -23,7 +20,6 @@ Thumbs.db
 .vscode/
 data/train/instances.json
 data/held_out/instances.json
-node_modules/
 data/app.db
 data/app.db-*
 # Datasets

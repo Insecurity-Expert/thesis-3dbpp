@@ -20,6 +20,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { spawn, execFile } = require("child_process");
+const { PYTHON } = require("./python");
 const db = require("./db");
 const { authRequired } = require("./auth");
 
@@ -53,7 +54,7 @@ router.post("/custom-load", authRequired, express.json({ limit: "5mb" }), (req, 
   const id = "cl_" + crypto.randomBytes(8).toString("hex");
   if (!fs.existsSync(LOADS_DIR)) fs.mkdirSync(LOADS_DIR, { recursive: true });
   const file = path.join(LOADS_DIR, id + ".json");
-  const child = spawn("python", [CONVERTER, "convert", "--out", file], {
+  const child = spawn(PYTHON, [CONVERTER, "convert", "--out", file], {
     cwd: ROOT, windowsHide: true,
     env: { ...process.env, STACKR_CUSTOM_LOADS_DIR: LOADS_DIR, PYTHONIOENCODING: "utf-8" },
   });
@@ -112,7 +113,7 @@ router.delete("/custom-load/:id", authRequired, (req, res) => {
 
 router.get("/custom-load-template/:mode", (req, res) => {
   const mode = req.params.mode === "advanced" ? "advanced" : "simple";
-  execFile("python", [CONVERTER, "template", mode], { cwd: ROOT, windowsHide: true }, (e, stdout) => {
+  execFile(PYTHON, [CONVERTER, "template", mode], { cwd: ROOT, windowsHide: true }, (e, stdout) => {
     if (e) return res.status(500).json({ error: e.message });
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="stackr_boxes_${mode}.csv"`);
@@ -125,7 +126,7 @@ let samplesCache = null;
 // The columns and rules the converter accepts (load_info.py reads them from
 // custom_load.py), so the upload screen's format explanation cannot drift.
 router.get("/custom-load-schema", (req, res) => {
-  execFile("python", [LOAD_INFO, "schema"], { cwd: ROOT, windowsHide: true, env: { ...process.env, PYTHONIOENCODING: "utf-8" } }, (e, stdout) => {
+  execFile(PYTHON, [LOAD_INFO, "schema"], { cwd: ROOT, windowsHide: true, env: { ...process.env, PYTHONIOENCODING: "utf-8" } }, (e, stdout) => {
     if (e) return res.status(500).json({ error: "could not read the converter's schema: " + e.message });
     try { res.json(JSON.parse(stdout)); } catch { res.status(500).json({ error: "the converter's schema is not JSON" }); }
   });
@@ -138,7 +139,7 @@ router.get("/wtpack-totals/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 0) return res.status(400).json({ error: "bad instance id" });
   if (totalsCache.has(id)) return res.json(totalsCache.get(id));
-  execFile("python", [LOAD_INFO, "totals", String(id)], { cwd: ROOT, windowsHide: true }, (e, stdout) => {
+  execFile(PYTHON, [LOAD_INFO, "totals", String(id)], { cwd: ROOT, windowsHide: true }, (e, stdout) => {
     if (e) return res.status(500).json({ error: "could not read that test case: " + e.message });
     try { const t = JSON.parse(stdout); totalsCache.set(id, t); res.json(t); } catch { res.status(500).json({ error: "bad totals output" }); }
   });
@@ -146,7 +147,7 @@ router.get("/wtpack-totals/:id", (req, res) => {
 
 router.get("/samples", (req, res) => {
   if (samplesCache) return res.json(samplesCache);
-  execFile("python", [CONVERTER, "samples"], { cwd: ROOT, windowsHide: true, maxBuffer: 8 << 20 }, (e, stdout) => {
+  execFile(PYTHON, [CONVERTER, "samples"], { cwd: ROOT, windowsHide: true, maxBuffer: 8 << 20 }, (e, stdout) => {
     if (e) return res.status(500).json({ error: e.message });
     try { samplesCache = JSON.parse(stdout); } catch (err) { return res.status(500).json({ error: err.message }); }
     res.json(samplesCache);

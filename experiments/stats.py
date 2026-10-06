@@ -872,7 +872,7 @@ def summary_lines(st):
              + (" [PRELIMINARY: " + pv["preliminary_reason"] + "]" if pv["preliminary"] else ""))
     c = st["SP1"]["comparison"]
     o = c["omnibus"]
-    L.append(f"SP1 SU: " +
+    L.append("SP1 SU: " +
              (f"{o['test']} {o['statistic_name']}={o['statistic']} df={o['df']} p={o['p']} sig={o['significant']}"
               + (f" [{o['correction']}, eps={o['epsilon_gg']}]" if o.get("correction") else "")
               if o.get("testable") else o["reason"]))

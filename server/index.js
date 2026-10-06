@@ -12,6 +12,7 @@ const { jsonErrors } = require("./errors");
 const { router: customLoadsRouter, ownedLoad } = require("./customLoads");
 const { router: studiesRouter } = require("./studies");
 const { CAL, calibratedArgs } = require("./runSettings");
+const { PYTHON } = require("./python");
 
 const app     = express();
 const PORT    = 3001;
@@ -42,7 +43,7 @@ function warmOptimizer() {
   warmup.state = "warming";
   warmup.startedAt = Date.now();
   // REP exercises decode + evaluate + repair, so every compiled kernel is touched.
-  const proc = spawn("python", [
+  const proc = spawn(PYTHON, [
     OPTIMIZER, "350", "--dataset", "wtpack", "--raw-dir", RAW_DIR,
     "--strategy", "REP", "--pop-size", "3", "--max-iter", "1", "--seed", "0",
   ], { windowsHide: true, env: { ...process.env, PYTHONMALLOC: "malloc" } });
@@ -167,7 +168,7 @@ wss.on("connection", (ws, req) => {
         seed: msg.seed !== undefined && msg.seed !== null ? Number(msg.seed) : null,
         argv: argv.slice(1),
       };
-      childProc = spawn("python", argv, { cwd: path.join(__dirname, ".."), windowsHide: true,
+      childProc = spawn(PYTHON, argv, { cwd: path.join(__dirname, ".."), windowsHide: true,
                                           env: { ...process.env, PYTHONMALLOC: "malloc" } });
       const proc = childProc;
       childInfo = { strategy: spawned.strategy, instance: spawned.instance };

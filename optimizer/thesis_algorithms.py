@@ -1,10 +1,8 @@
-import math
-import sys
 import numpy as np
 
 from thesis_math import decode_position
 from thesis_metrics import validate_items, evaluate_constraints, space_utilization
-from geometry_3d import place_container_dblf, get_dims
+from geometry_3d import place_container_dblf
 
 class WolfContinuous:
     def __init__(self, n, lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,

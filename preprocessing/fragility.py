@@ -9,7 +9,6 @@ conservative choice for a constraint that forbids stacking.
 """
 
 import numpy as np
-from scipy import stats
 from typing import List, Dict, Any
 
 # Chapter 3 target is 25%; greedy type selection lands within +/-5pp for the

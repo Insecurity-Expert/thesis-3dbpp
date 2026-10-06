@@ -30,6 +30,7 @@ const router = express.Router();
 const ROOT = path.join(__dirname, "..");
 const STUDY_PY = path.join(ROOT, "experiments", "study.py");
 const { calibratedArgs } = require("./runSettings");
+const { PYTHON } = require("./python");
 // One run's arrangement for the viewer and the Loading Guide: arrangement_view.py's
 // verified payload plus the sizes of the boxes not loaded (experiments/run_view.py).
 const VIEW_PY = path.join(ROOT, "experiments", "run_view.py");
@@ -98,7 +99,7 @@ let DEFAULTS = null;
 function studyDefaults() {
   if (DEFAULTS) return DEFAULTS;
   try {
-    DEFAULTS = JSON.parse(execFileSync("python", [STUDY_PY, "--print-defaults"], { cwd: ROOT, windowsHide: true }).toString());
+    DEFAULTS = JSON.parse(execFileSync(PYTHON, [STUDY_PY, "--print-defaults"], { cwd: ROOT, windowsHide: true }).toString());
   } catch (err) {
     console.error("study defaults unavailable:", err.message);
     DEFAULTS = { error: err.message };
@@ -264,7 +265,7 @@ router.post("/", authRequired, (req, res) => {
   const fd = fs.openSync(log, "a");
   let child;
   try {
-    child = spawn("python", argv, { cwd: ROOT, detached: true, stdio: ["pipe", fd, fd], windowsHide: true,
+    child = spawn(PYTHON, argv, { cwd: ROOT, detached: true, stdio: ["pipe", fd, fd], windowsHide: true,
                                     env: { ...process.env, PYTHONMALLOC: "malloc" } });
     child.stdin.end();
     child.unref();
@@ -309,7 +310,7 @@ router.get("/:id/representatives", authRequired, (req, res) => {
   if (!row.file || !fs.existsSync(row.file)) return res.status(404).json({ error: "the study file is missing on disk" });
   const key = row.file + "|" + fs.statSync(row.file).mtimeMs;
   if (recCache.has(key)) return res.json(recCache.get(key));
-  require("child_process").execFile("python", [REPRESENTATIVE_PY, row.file], { cwd: ROOT, windowsHide: true, maxBuffer: 16 << 20 }, (e, stdout, stderr) => {
+  require("child_process").execFile(PYTHON, [REPRESENTATIVE_PY, row.file], { cwd: ROOT, windowsHide: true, maxBuffer: 16 << 20 }, (e, stdout, stderr) => {
     if (e) return res.status(500).json({ error: "could not read the comparison: " + (String(stderr).trim().split(/\r?\n/).pop() || e.message) });
     try { const doc = JSON.parse(stdout); recCache.set(key, doc); res.json(doc); }
     catch { res.status(500).json({ error: "the comparison output is not JSON" }); }
@@ -322,7 +323,7 @@ router.get("/:id/runs/:idx/view", authRequired, (req, res) => {
   const idx = Number(req.params.idx);
   if (!Number.isInteger(idx) || idx < 0) return res.status(400).json({ error: "run index must be a non-negative integer" });
   if (!row.file || !fs.existsSync(row.file)) return res.status(404).json({ error: "the study file is missing on disk" });
-  const child = spawn("python", [VIEW_PY, "--study", row.file, "--run", String(idx)], { cwd: ROOT, windowsHide: true });
+  const child = spawn(PYTHON, [VIEW_PY, "--study", row.file, "--run", String(idx)], { cwd: ROOT, windowsHide: true });
   let out = "", err = "";
   child.stdout.on("data", (c) => { out += c.toString(); });
   child.stderr.on("data", (c) => { err += c.toString(); });
