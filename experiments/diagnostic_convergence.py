@@ -329,7 +329,8 @@ def build_summary():
         by.setdefault((r['br_class'], r['configuration']), []).append(r)
     summary = {'settings': {'pop_size': POP_SIZE, 'max_iter': MAX_ITER, 'seeds': SEEDS,
                             'instances': INSTANCES, 'stop_seed': STOP_SEED, 'stop_count': STOP_COUNT,
-                            'calibration': _calibration(), 'mode': 'serial, one fresh process per run'},
+                            'calibration': _calibration(), 'mode': 'serial, one fresh process per run',
+                            'environment': _environment()},
                'n_runs': len(runs),
                'validator_disagreements': sum(not r['validator_agree'] for r in runs),
                'instances': {}}
@@ -415,6 +416,12 @@ def build_summary():
     return summary
 
 
+def _environment():
+    import os, platform, numpy, numba
+    return {'platform': platform.platform(), 'cpu_count': os.cpu_count(),
+            'python': platform.python_version(), 'numba': numba.__version__, 'numpy': numpy.__version__}
+
+
 def _fmt(v, d=2):
     return f"{v:.{d}f}"
 
@@ -436,7 +443,11 @@ def write_report(s):
       '(185 and 174 are also Study B instances). Serial, one fresh process per run, numba warmed untimed. '
       f"{s['n_runs']} runs; independent validator disagreements: {s['validator_disagreements']}. "
       'The instrumented classes reproduce all 8 reference hashes (`--check`), so the runs are the '
-      'unmodified methods.\n')
+      'unmodified methods. '
+      f"Environment: {st['environment']['platform']}, {st['environment']['cpu_count']} vCPU, Python "
+      f"{st['environment']['python']}, numba {st['environment']['numba']}, NumPy {st['environment']['numpy']} "
+      '(Studies A and B used Python 3.11.15; the hashes match on both). Run times are instrumented '
+      'and serial on this container, for relative comparison only.\n')
     w('**Definitions.** *Best-so-far SU* = running maximum, per seed, of the SU of the solution the '
       f'configuration would return if stopped at that iteration (DGWO: α by scalar fitness; MOGWO, SEQ, '
       f'REP: highest-SU archive member), then averaged over the {len(st["seeds"])} seeds. *Stops improving* = last '

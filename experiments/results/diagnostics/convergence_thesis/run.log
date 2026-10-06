@@ -1,0 +1,81 @@
+  PASS  DGWO  seed  1  5e73df025be162d9
+  PASS  DGWO  seed 42  28e5f3a0ce5062cf
+  PASS  MOGWO seed  1  aff19275cd5c90a7
+  PASS  MOGWO seed 42  40bbf8a2690471ab
+  PASS  SEQ   seed  1  ccf010e1d8b3463c
+  PASS  SEQ   seed 42  4d816a75b1c24954
+  PASS  REP   seed  1  33de9876a66233ad
+  PASS  REP   seed 42  152cf6c178c15561
+instrumentation is observation-only
+0 of 60 runs already on disk; 60 to go
+[ 1/60] DGWO  BR1 i413 s1 SU= 70.97 CSR= 40.00 placed=80/105     50s div0=0.497 divT=0.000 validator=AGREE
+[ 2/60] MOGWO BR1 i413 s1 SU= 64.69 CSR= 44.59 placed=74/105     49s div0=0.497 divT=0.000 validator=AGREE
+[ 3/60] SEQ   BR1 i413 s1 SU= 69.81 CSR= 44.30 placed=79/105     51s div0=0.497 divT=0.000 validator=AGREE
+[ 4/60] REP   BR1 i413 s1 SU= 35.16 CSR=100.00 placed=41/105    273s div0=0.497 divT=0.000 validator=AGREE
+[ 5/60] DGWO  BR1 i413 s2 SU= 61.74 CSR= 67.61 placed=71/105     54s div0=0.501 divT=0.000 validator=AGREE
+[ 6/60] MOGWO BR1 i413 s2 SU= 64.76 CSR= 51.35 placed=74/105     51s div0=0.501 divT=0.000 validator=AGREE
+[ 7/60] SEQ   BR1 i413 s2 SU= 64.55 CSR= 51.35 placed=74/105     50s div0=0.501 divT=0.000 validator=AGREE
+[ 8/60] REP   BR1 i413 s2 SU= 37.82 CSR=100.00 placed=44/105    227s div0=0.501 divT=0.000 validator=AGREE
+[ 9/60] DGWO  BR1 i413 s3 SU= 65.58 CSR= 55.41 placed=74/105     52s div0=0.501 divT=0.000 validator=AGREE
+[10/60] MOGWO BR1 i413 s3 SU= 64.69 CSR= 54.05 placed=74/105     51s div0=0.501 divT=0.000 validator=AGREE
+[11/60] SEQ   BR1 i413 s3 SU= 67.72 CSR= 42.86 placed=77/105     53s div0=0.501 divT=0.000 validator=AGREE
+[12/60] REP   BR1 i413 s3 SU= 29.95 CSR=100.00 placed=37/105    213s div0=0.501 divT=0.001 validator=AGREE
+[13/60] DGWO  BR1 i413 s4 SU= 66.49 CSR= 57.89 placed=76/105     51s div0=0.499 divT=0.000 validator=AGREE
+[14/60] MOGWO BR1 i413 s4 SU= 64.00 CSR= 43.06 placed=72/105     50s div0=0.499 divT=0.000 validator=AGREE
+[15/60] SEQ   BR1 i413 s4 SU= 66.56 CSR= 53.95 placed=76/105     51s div0=0.499 divT=0.000 validator=AGREE
+[16/60] REP   BR1 i413 s4 SU= 35.80 CSR=100.00 placed=39/105    240s div0=0.499 divT=0.000 validator=AGREE
+[17/60] DGWO  BR1 i413 s5 SU= 70.03 CSR= 46.84 placed=79/105     52s div0=0.500 divT=0.000 validator=AGREE
+[18/60] MOGWO BR1 i413 s5 SU= 66.48 CSR= 45.21 placed=73/105     53s div0=0.500 divT=0.000 validator=AGREE
+[19/60] SEQ   BR1 i413 s5 SU= 67.72 CSR= 41.56 placed=77/105     53s div0=0.500 divT=0.000 validator=AGREE
+[20/60] REP   BR1 i413 s5 SU= 35.56 CSR=100.00 placed=43/105    245s div0=0.500 divT=0.000 validator=AGREE
+[21/60] DGWO  BR4 i185 s1 SU= 70.48 CSR= 51.72 placed=87/119     70s div0=0.499 divT=0.000 validator=AGREE
+[22/60] MOGWO BR4 i185 s1 SU= 71.35 CSR= 40.00 placed=90/119     74s div0=0.499 divT=0.000 validator=AGREE
+[23/60] SEQ   BR4 i185 s1 SU= 71.65 CSR= 41.76 placed=91/119     74s div0=0.499 divT=0.000 validator=AGREE
+[24/60] REP   BR4 i185 s1 SU= 34.77 CSR=100.00 placed=40/119    460s div0=0.499 divT=0.000 validator=AGREE
+[25/60] DGWO  BR4 i185 s2 SU= 78.34 CSR= 43.43 placed=99/119     79s div0=0.501 divT=0.000 validator=AGREE
+[26/60] MOGWO BR4 i185 s2 SU= 71.06 CSR= 34.78 placed=92/119     74s div0=0.501 divT=0.000 validator=AGREE
+[27/60] SEQ   BR4 i185 s2 SU= 73.60 CSR= 33.68 placed=95/119     73s div0=0.501 divT=0.000 validator=AGREE
+[28/60] REP   BR4 i185 s2 SU= 29.16 CSR=100.00 placed=43/119    438s div0=0.501 divT=0.000 validator=AGREE
+[29/60] DGWO  BR4 i185 s3 SU= 75.67 CSR= 53.06 placed=98/119     71s div0=0.502 divT=0.000 validator=AGREE
+[30/60] MOGWO BR4 i185 s3 SU= 68.21 CSR= 39.56 placed=91/119     67s div0=0.502 divT=0.000 validator=AGREE
+[31/60] SEQ   BR4 i185 s3 SU= 74.04 CSR= 44.68 placed=94/119     70s div0=0.502 divT=0.000 validator=AGREE
+[32/60] REP   BR4 i185 s3 SU= 31.45 CSR=100.00 placed=48/119    439s div0=0.502 divT=0.000 validator=AGREE
+[33/60] DGWO  BR4 i185 s4 SU= 76.40 CSR= 52.08 placed=96/119     78s div0=0.501 divT=0.000 validator=AGREE
+[34/60] MOGWO BR4 i185 s4 SU= 63.09 CSR= 32.22 placed=90/119     73s div0=0.501 divT=0.000 validator=AGREE
+[35/60] SEQ   BR4 i185 s4 SU= 76.70 CSR= 43.75 placed=96/119     75s div0=0.501 divT=0.000 validator=AGREE
+[36/60] REP   BR4 i185 s4 SU= 39.00 CSR=100.00 placed=53/119    509s div0=0.501 divT=0.000 validator=AGREE
+[37/60] DGWO  BR4 i185 s5 SU= 74.15 CSR= 46.32 placed=95/119     76s div0=0.500 divT=0.000 validator=AGREE
+[38/60] MOGWO BR4 i185 s5 SU= 69.50 CSR= 37.78 placed=90/119     70s div0=0.500 divT=0.000 validator=AGREE
+[39/60] SEQ   BR4 i185 s5 SU= 74.47 CSR= 38.14 placed=97/119     74s div0=0.500 divT=0.000 validator=AGREE
+[40/60] REP   BR4 i185 s5 SU= 39.94 CSR=100.00 placed=55/119    504s div0=0.500 divT=0.000 validator=AGREE
+[41/60] DGWO  BR7 i174 s1 SU= 67.30 CSR= 41.57 placed=89/130     71s div0=0.500 divT=0.000 validator=AGREE
+[42/60] MOGWO BR7 i174 s1 SU= 55.31 CSR= 39.74 placed=78/130     67s div0=0.500 divT=0.000 validator=AGREE
+[43/60] SEQ   BR7 i174 s1 SU= 64.68 CSR= 38.82 placed=85/130     69s div0=0.500 divT=0.000 validator=AGREE
+[44/60] REP   BR7 i174 s1 SU= 28.62 CSR=100.00 placed=38/130    260s div0=0.500 divT=0.001 validator=AGREE
+[45/60] DGWO  BR7 i174 s2 SU= 64.61 CSR= 40.96 placed=83/130     64s div0=0.496 divT=0.000 validator=AGREE
+[46/60] MOGWO BR7 i174 s2 SU= 61.98 CSR= 42.86 placed=84/130     66s div0=0.496 divT=0.000 validator=AGREE
+[47/60] SEQ   BR7 i174 s2 SU= 61.79 CSR= 35.00 placed=80/130     62s div0=0.496 divT=0.000 validator=AGREE
+[48/60] REP   BR7 i174 s2 SU= 26.61 CSR=100.00 placed=37/130    281s div0=0.496 divT=0.000 validator=AGREE
+[49/60] DGWO  BR7 i174 s3 SU= 63.49 CSR= 49.40 placed=83/130     68s div0=0.498 divT=0.000 validator=AGREE
+[50/60] MOGWO BR7 i174 s3 SU= 58.85 CSR= 41.56 placed=77/130     65s div0=0.498 divT=0.001 validator=AGREE
+[51/60] SEQ   BR7 i174 s3 SU= 62.87 CSR= 36.59 placed=82/130     66s div0=0.498 divT=0.000 validator=AGREE
+[52/60] REP   BR7 i174 s3 SU= 31.89 CSR=100.00 placed=45/130    263s div0=0.498 divT=0.000 validator=AGREE
+[53/60] DGWO  BR7 i174 s4 SU= 67.68 CSR= 39.53 placed=86/130     71s div0=0.503 divT=0.000 validator=AGREE
+[54/60] MOGWO BR7 i174 s4 SU= 63.77 CSR= 39.29 placed=84/130     67s div0=0.503 divT=0.001 validator=AGREE
+[55/60] SEQ   BR7 i174 s4 SU= 64.41 CSR= 41.67 placed=84/130     67s div0=0.503 divT=0.000 validator=AGREE
+  PASS  DGWO  seed  1  5e73df025be162d9
+  PASS  DGWO  seed 42  28e5f3a0ce5062cf
+  PASS  MOGWO seed  1  aff19275cd5c90a7
+  PASS  MOGWO seed 42  40bbf8a2690471ab
+  PASS  SEQ   seed  1  ccf010e1d8b3463c
+  PASS  SEQ   seed 42  4d816a75b1c24954
+  PASS  REP   seed  1  33de9876a66233ad
+  PASS  REP   seed 42  152cf6c178c15561
+instrumentation is observation-only
+55 of 60 runs already on disk; 5 to go
+[ 1/5] REP   BR7 i174 s4 SU= 30.20 CSR=100.00 placed=41/130    308s div0=0.503 divT=0.000 validator=AGREE
+[ 2/5] DGWO  BR7 i174 s5 SU= 66.23 CSR= 42.05 placed=88/130     72s div0=0.497 divT=0.000 validator=AGREE
+[ 3/5] MOGWO BR7 i174 s5 SU= 59.55 CSR= 35.44 placed=79/130     63s div0=0.497 divT=0.001 validator=AGREE
+[ 4/5] SEQ   BR7 i174 s5 SU= 64.42 CSR= 40.48 placed=84/130     70s div0=0.497 divT=0.000 validator=AGREE
+[ 5/5] REP   BR7 i174 s5 SU= 29.91 CSR=100.00 placed=40/130    308s div0=0.497 divT=0.000 validator=AGREE
+wrote /home/user/thesis-3dbpp/experiments/results/diagnostics/convergence_thesis/summary.json and /home/user/thesis-3dbpp/docs/DIAGNOSTIC_CONVERGENCE.md
