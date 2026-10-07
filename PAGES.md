@@ -61,7 +61,7 @@ The sidebar groups the pages:
 
 Under **Advanced** on Review & run:
 
-- **Quick Test** is one method, one repeat code. It streams over the WebSocket and opens the 3D Viewer.
+- **Quick Test** runs all four configurations once each with the repeat code from Settings → Advanced and the chosen preset (Quick demo / Standard / Thesis, the same for all four), one at a time. It is a one-seed study (`POST /api/studies` with `preset`, `seeds`, `mode: serial`, name "Quick Test"), so it goes through the Processing screen to the normal Results page (hybrids first, Compare All Methods for all four) and is listed in Run History → Studies. Its time estimate is the sum of the four configurations' median times at that preset on this machine (saved runs and earlier Quick Tests), or "no estimate yet".
 - **Full Comparison** (`study/StudyLauncher.jsx`) is the larger study sizes.
 
 Precomputed study files are imported from Run History → Studies.

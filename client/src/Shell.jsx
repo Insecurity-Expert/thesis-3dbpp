@@ -80,33 +80,14 @@ export default function Shell() {
   const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
 
-  // Algorithm Settings & Constraints
-  const [strategy, setStrategy] = useState("DGWO");
-  const [preset, setPresetState] = useState("quick");
-  const [wolfSize, setWolfSize] = useState(10);
-  const [maxIter, setMaxIter] = useState(60);
-
-  // Presets drive pop_size / max_iter; editing either field switches to "custom".
-  const PRESETS = useMemo(() => ({
-    quick:    { pop: 10, iter: 60 },
-    standard: { pop: 10, iter: 300 },
-    full:     { pop: 30, iter: 500 },
-  }), []);
-  const setPreset = useCallback((name) => {
-    setPresetState(name);
-    const p = PRESETS[name];
-    if (p) { setWolfSize(p.pop); setMaxIter(p.iter); }
-  }, [PRESETS]);
-  const setWolfSizeCustom = useCallback((v) => { setWolfSize(v); setPresetState("custom"); }, []);
-  const setMaxIterCustom  = useCallback((v) => { setMaxIter(v);  setPresetState("custom"); }, []);
-
-  // Optimizer parameters that reach main_optimizer.py verbatim (see params echo)
+  // The repeat code (seed) of a Quick Test; Run STACKR uses its own fixed seeds.
   const [seed, setSeed] = useState(42);
   // λ and the C4/C5 placement switches are not user settings: runs use the
   // optimizer's own defaults (shown read-only in Test settings).
 
-  // WebSocket & Live optimization run states
-  const [wsConnected, setWsConnected] = useState(false);
+  // WebSocket & live single-run states. The UI no longer starts a single run
+  // (Quick Test is a one-seed study); the socket still delivers run events.
+  const [, setWsConnected] = useState(false);
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
@@ -272,6 +253,25 @@ export default function Shell() {
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
 
+  // Timed runs of finished Quick Tests (one-seed studies), shaped like Run
+  // History rows, so the Quick Test card can estimate its time from them too.
+  const [quickTimings, setQuickTimings] = useState({});   // study id -> rows
+  useEffect(() => {
+    const todo = studies.filter((s) => s.name === "Quick Test" && s.status === "done" && !s.imported && !(s.id in quickTimings)).slice(0, 20);
+    if (!todo.length) return;
+    let alive = true;
+    Promise.all(todo.map((s) => studiesApi.get(s.id).then((doc) => {
+      const st = doc.study;
+      const rows = st && st.preset && Array.isArray(st.runs) && st.mode === "serial"
+        ? st.runs.filter((r) => r.exec_time_ms != null).map((r) => ({ strategy_code: r.configuration, pop_size: st.preset.pop_size,
+            max_iter: st.preset.max_iter, runtime_s: r.exec_time_ms / 1000, old_measurement: false }))
+        : [];
+      return [s.id, rows];
+    }).catch(() => [s.id, []]))).then((pairs) => { if (alive) setQuickTimings((q) => ({ ...q, ...Object.fromEntries(pairs) })); });
+    return () => { alive = false; };
+  }, [studies, quickTimings]);
+  const timedRuns = useMemo(() => runHistory.concat(...Object.values(quickTimings)), [runHistory, quickTimings]);
+
   // Load the selected study's file (stats attached) whenever the selection changes.
   const loadStudy = useCallback(async (id) => {
     if (id === null || id === undefined) { setStudyDoc(null); setStudyProgress(null); return; }
@@ -320,7 +320,7 @@ export default function Shell() {
       setProcessing((p) => ({ ...p, state: "error", error: msg }));
       const L = processing.label || {};
       runsApi.saveRun({
-        strategy: "Run STACKR (all four methods)", strategy_code: null,
+        strategy: `${processing.what || "Run STACKR"} (all four methods)`, strategy_code: null,
         instance: L.custom ? `Custom load (${L.text})` : L.text || "—", dataset: L.custom ? "custom" : "wtpack",
         seed: null, n_items: L.n_boxes ?? null, space_util: null, csr: null, placed: null, dissipation: null, runtime_s: null,
         bins_used: null, placements: null, container: null, result: null, convergence: null, status: "failed", error: msg,
@@ -341,26 +341,41 @@ export default function Shell() {
     setStopping(false);
   }, [processing, fetchStudies, toast]);
 
-  const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom }) => {
+  // `extra` (preset, seeds, mode, name) is what a Quick Test sets instead of a size.
+  const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom, what = "Run STACKR", ...extra }) => {
     setStudyBusy(true);
     setError(null);
     try {
-      let payload = { size, instanceId };
+      let payload = { size, instanceId, ...extra };
       if (useCustom) {
         const id = await ensureCustomLoad();
-        if (!id) { setStudyBusy(false); setError("Fix the problems listed under your load, then run the Full Comparison again."); return; }
-        payload = { size, customLoad: id };
+        if (!id) { setStudyBusy(false); setError(`Fix the problems listed under your load, then run the ${what === "Quick Test" ? "Quick Test" : "Full Comparison"} again.`); return; }
+        payload = { size, customLoad: id, ...extra };
       }
       const r = await studiesApi.create(payload);
       fetchStudies();
       setSelectedStudyId(r.id);
       // The Processing screen (wizard) follows it; Results opens when it is done.
-      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current });
+      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current, what });
       setWizStep(4);
       setActiveTab("logistics");
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
+
+  // Quick Test: all four configurations, one run each with the repeat code,
+  // the chosen preset, one at a time. It is a study of one seed, so it goes
+  // through the same path as Run STACKR and opens the normal Results page.
+  const handleQuickTest = useCallback((presetKey) => {
+    let code = Number(seed);
+    if (seed === "" || !Number.isInteger(code) || code < 0) {
+      code = Math.floor(Math.random() * 1e6);     // "random": pick one, and show it
+      setSeed(code);
+    }
+    const L = selectedLoadRef.current || {};
+    handleLaunchStudy({ what: "Quick Test", preset: presetKey, seeds: String(code), mode: "serial", name: "Quick Test",
+                        ...(L.custom ? { useCustom: true } : { instanceId: L.instanceId }) });
+  }, [seed, handleLaunchStudy]);
 
   const handleImportStudy = useCallback(async (file) => {
     try {
@@ -557,59 +572,6 @@ export default function Shell() {
     return () => clearInterval(t);
   }, [running]);
 
-  // Run handler
-  const handleStartRun = useCallback(async () => {
-    if (running || !wsConnected) return;
-    setRunning(true);
-    setInstanceInfo(null);
-    setPlacements(null);
-    setBinsUsed(0);
-    setChartData([]);
-    chartRef.current = [];
-    setStats(null);
-    setFinalResult(null);
-    setError(null);
-    setReplay(null);
-
-    const tuning = {
-      strategy,
-      popSize: wolfSize,
-      maxIter,
-      seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
-    };
-
-    // Custom load (typed / CSV): converted and stored by the server first.
-    if (source === "typed" || source === "csv") {
-      const id = await ensureCustomLoad();
-      if (!id) {
-        setRunning(false);
-        setError("Fix the problems listed under your load, then run again.");
-        setActiveTab("logistics");
-        return;
-      }
-      wsRef.current.send(JSON.stringify({ action: "run", dataset: "custom", customLoadId: id, ...tuning }));
-      setActiveTab("visualization");
-      return;
-    }
-
-    // OR-Library: the standard test case or a ready-made sample, both wtpack ids.
-    if (dataset === "wtpack") {
-      const id = source === "sample" ? sampleId : wtpackId;
-      if (id === null) {
-        setError(source === "sample" ? "Pick a ready-made sample first." : "Select a wtpack instance first.");
-        setRunning(false);
-        return;
-      }
-      wsRef.current.send(JSON.stringify({ action: "run", dataset: "wtpack", instanceId: id, ...tuning }));
-      setActiveTab("visualization");
-    }
-  }, [running, wsConnected, strategy, source, sampleId, ensureCustomLoad,
-      dataset, wtpackId, wolfSize, maxIter, seed]);
-
-  const handleStopRun = useCallback(() => {
-    wsRef.current?.send(JSON.stringify({ action: "stop" }));
-  }, []);
-
   // Exporters
   const handleExportResultsCSV = () => {
     if (!finalResult || !finalResult.items) return;
@@ -770,13 +732,6 @@ export default function Shell() {
       z: Math.round(Math.min(100, (maxZ / D) * 100)),
     };
   }, [finalResult]);
-
-  const canRun = wsConnected && !running && (
-    source === "typed" ? typedRows.length > 0
-    : source === "csv" ? !!csvFile
-    : source === "sample" ? sampleId !== null
-    : source === "standard" && dataset === "wtpack" && wtpackId !== null
-  );
 
   // What the footer, the top chip and the study launcher say about the chosen load.
   const sampleMeta = samples && samples.samples ? samples.samples.find((x) => x.instance_id === sampleId) : null;
@@ -955,21 +910,10 @@ export default function Shell() {
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
           running={running}
-          elapsed={elapsed}
-          strategy={strategy}
-          setStrategy={setStrategy}
-          preset={preset}
-          setPreset={setPreset}
-          wolfSize={wolfSize}
-          maxIter={maxIter}
-          setWolfSizeCustom={setWolfSizeCustom}
-          setMaxIterCustom={setMaxIterCustom}
           seed={seed}
           setSeed={setSeed}
-          handleStartRun={handleStartRun}
-          handleStopRun={handleStopRun}
-          canRun={canRun}
-          runHistory={runHistory}
+          onQuickTest={handleQuickTest}
+          runHistory={timedRuns}
           optimizerReady={optimizerReady}
           wtpackInstances={wtpackInstances}
           wtpackId={wtpackId}
@@ -1041,10 +985,10 @@ export default function Shell() {
           runHistory={runHistory}
           quickTest={finalResult ? (
             <div>
-              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>Preview: one run, one seed</span></div>
-              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. One run of one configuration, so nothing is compared or concluded from it.</div>
-              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} strategy={strategy} stats={stats} axisUtil={axisUtil}
-                maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
+              <div className="card-title" style={{ marginBottom: 4 }}>Saved run <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>One run, one seed</span></div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>A saved run opened from Run History. One run of one configuration, so nothing is compared or concluded from it.</div>
+              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} stats={stats} axisUtil={axisUtil}
+                handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
           ) : null}
         />
