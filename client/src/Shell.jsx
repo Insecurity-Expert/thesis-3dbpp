@@ -19,7 +19,6 @@ import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/ap
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
-import CompareTab from "./study/CompareTab";
 
 
 const PAGES = ["home", "logistics", "results", "technical", "guide", "visualization", "history", "account"];
@@ -1027,7 +1026,7 @@ export default function Shell() {
         />
       )}
 
-      {/* ── TECHNICAL DETAILS TAB: everything else from Results, unchanged ── */}
+      {/* ── TECHNICAL DETAILS TAB: the study detail view (SOP Summary, then "Show all numbers") ── */}
       {activeTab === "technical" && (
         <TechnicalDetailsPanel
           studies={studies}
@@ -1039,14 +1038,7 @@ export default function Shell() {
           onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
-          compare={
-            <div>
-              <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
-              <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
-              <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
-                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} summary />
-            </div>
-          }
+          runHistory={runHistory}
           quickTest={finalResult ? (
             <div>
               <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>Preview: one run, one seed</span></div>

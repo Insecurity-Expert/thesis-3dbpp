@@ -37,7 +37,7 @@ export const SOP_ROWS = [
 ];
 
 export const singleInstanceNote = (runsEach) =>
-  `One instance, ${runsEach ?? "N"} runs each; differences are not tested for significance. See Technical Details for statistical tests.`;
+  `One instance, ${runsEach ?? "N"} runs each; differences are not tested for significance. Every statistic is under Show all numbers.`;
 
 // ── values ───────────────────────────────────────────────────────────────────
 const share = (r) => (r.n_items ? r.placed / r.n_items : 0);

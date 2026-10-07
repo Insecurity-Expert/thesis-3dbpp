@@ -106,7 +106,7 @@ describe("descriptiveModel (one instance)", () => {
     const text = modelText(m);
     expect(text).not.toMatch(/\bsignificant(ly)?\b/i);
     expect(text).not.toMatch(FORBIDDEN);
-    expect(m.note).toBe("One instance, 3 runs each; differences are not tested for significance. See Technical Details for statistical tests.");
+    expect(m.note).toBe("One instance, 3 runs each; differences are not tested for significance. Every statistic is under Show all numbers.");
   });
 
   test("parallel timing: time and memory shown but not compared", () => {

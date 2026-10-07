@@ -1,11 +1,13 @@
-// client/src/study/StudyResults.jsx — the Results view of a study (four
-// configurations x N runs). Layout follows design/Updated_Prototype.html;
-// every number and sentence is computed from the study file's stats block.
+// client/src/study/StudyResults.jsx — the thesis statistics of a study (four
+// configurations x N runs) as sections: outcome banner, provenance, composite,
+// compliance, performance, baselines, SP3 note and extra numbers. Every number
+// and sentence is computed from the study file's stats block. Technical Details
+// lays them out under "Show all numbers" (study/StudyDetails.jsx).
 import React from "react";
-import { Section, Empty, ConfigName, cell, ConfoundNote } from "./StatsTables";
+import { Section, ConfigName, cell, ConfoundNote } from "./StatsTables";
 import { timingValid, TIMING_INVALID_NOTE } from "./timing";
 import { fmt, label, outcomeBanner, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, sp1Summary, sp2Summary, sp3Summary, provenanceItems, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
-import CustomLoadBanner, { customLoadOf, CustomLoadBadge } from "../components/CustomLoadBanner";
+import { customLoadOf, CustomLoadBadge } from "../components/CustomLoadBanner";
 
 const { th, td } = cell;
 
@@ -57,7 +59,7 @@ export function StudyProgress({ progress, study }) {
   );
 }
 
-function Banner({ stats }) {
+export function Banner({ stats }) {
   const b = outcomeBanner(stats);
   if (!b) return null;
   return (
@@ -71,7 +73,7 @@ function Banner({ stats }) {
   );
 }
 
-function ScoreTable({ stats }) {
+export function ScoreTable({ stats }) {
   const cs = stats.composite;
   if (!cs || !cs.available) return null;
   // Fixed configuration order; the composite never highlights a configuration.
@@ -108,7 +110,7 @@ function ScoreTable({ stats }) {
   );
 }
 
-function ComplianceTable({ stats }) {
+export function ComplianceTable({ stats }) {
   const sp2 = stats.SP2;
   const configs = stats.configurations;
   const primary = stats.primary_compliance;
@@ -148,7 +150,7 @@ function ComplianceTable({ stats }) {
   );
 }
 
-function PerformanceTable({ stats }) {
+export function PerformanceTable({ stats }) {
   const configs = stats.configurations;
   const d = stats.descriptives;
   const primary = stats.primary_compliance;
@@ -183,7 +185,7 @@ function PerformanceTable({ stats }) {
 }
 
 // Chapter 3 supplementary analysis: non-search baselines, outside SP1–SP3.
-function SupplementaryBaselines({ stats }) {
+export function SupplementaryBaselines({ stats }) {
   const sp = stats.supplementary;
   if (!sp || !sp.available) return null;
   const vg = sp.vs_greedy;
@@ -224,13 +226,13 @@ function SupplementaryBaselines({ stats }) {
   );
 }
 
-function ExtraNumbers({ stats, study }) {
+export function ExtraNumbers({ stats, study, alwaysOpen = false }) {
   const configs = stats.configurations;
   const d = stats.descriptives;
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(alwaysOpen);
   const flag = timingValid(study, stats) ? "" : " *";
   return (
-    <Section title="Extra technical numbers" desc="For reference only — not part of the overall score." right={<button className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show"}</button>}>
+    <Section title="Extra technical numbers" desc="For reference only — not part of the overall score." right={alwaysOpen ? null : <button className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show"}</button>}>
       {open && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -259,41 +261,12 @@ function ExtraNumbers({ stats, study }) {
   );
 }
 
-export default function StudyResults({ study, stats, progress, row, onOpenCompare }) {
-  if (!row) return <Empty title="No study selected" text="Run a Full Comparison from Start analysis, or import a precomputed study, to see results here." />;
-  if (row.status === "running" || (progress && progress.status === "running")) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <CustomLoadBanner info={customLoadOf(study) || (row.params && row.params.customLoad ? { id: row.params.customLoad, label: row.custom_load_label } : null)} />
-        <StudyProgress progress={progress} study={study} />
-        <p style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Container fill (SP1) and safety rules (SP2) appear here when every run has finished. {row.n_instances === 1 || (row.params && row.params.instanceId !== null && row.params.instanceId !== undefined) ? "The composite ranking needs ≥ 2 test cases, so this study will not have one." : ""}</p>
-      </div>
-    );
-  }
-  if (row.status === "error") {
-    return <Empty title="This study did not finish" text={(progress && progress.error) || "The study process stopped before writing results."} />;
-  }
-  if (!study || !stats) return <Empty title="No results yet" text="The study file has no statistics attached." />;
+// SP3 in one paragraph (serial studies only).
+export function Sp3Note({ stats }) {
+  if (!(stats.SP3 && stats.SP3.available)) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <CustomLoadBanner info={customLoadOf(study)} />
-      <Banner stats={stats} />
-      <ProvenanceStrip study={study} stats={stats} />
-      <ScoreTable stats={stats} />
-      <ComplianceTable stats={stats} />
-      <PerformanceTable stats={stats} />
-      <SupplementaryBaselines stats={stats} />
-      {stats.SP3 && stats.SP3.available && (
-        <Section title="Time and memory" desc="Serial study — timing is valid.">
-          <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{sp3Summary(stats)}</p>
-        </Section>
-      )}
-      <ExtraNumbers stats={stats} study={study} />
-      {onOpenCompare && (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn btn-primary" onClick={onOpenCompare}>Are the differences real? Open Compare →</button>
-        </div>
-      )}
-    </div>
+    <Section title="Time and memory" desc="Serial study — timing is valid.">
+      <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{sp3Summary(stats)}</p>
+    </Section>
   );
 }

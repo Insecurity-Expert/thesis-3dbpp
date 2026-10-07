@@ -1,10 +1,11 @@
-// client/src/study/CompareTab.jsx — "Do the configurations differ?" Four
-// sub-tabs (SP1 / SP2 / SP3 / supplementary composite) over a study's stats
-// block, plus a side-by-side view of saved single runs.
+// client/src/study/StatsSections.jsx — the Chapter 3 statistics of a study,
+// one section per specific problem (SP1 / SP2 / SP3), the supplementary
+// composite, the hypothesis-family verdict, the SOP Summary, and a side-by-side
+// view of saved single runs. Technical Details shows the SOP Summary and puts
+// the rest under "Show all numbers" (study/StudyDetails.jsx).
 import React, { useState, useMemo } from "react";
-import CustomLoadBanner, { customLoadOf, CustomLoadBadge, CUSTOM_LOAD_LABEL } from "../components/CustomLoadBanner";
+import { CustomLoadBadge } from "../components/CustomLoadBanner";
 import { Section, Empty, DescriptivesTable, NormalityTable, OmnibusCard, PairsTable, ConfoundNote, cell, ConfigName } from "./StatsTables";
-import { ProvenanceStrip } from "./StudyResults";
 import LineChart from "./LineChart";
 import { SopSummary } from "../components/SopSummary";
 import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
@@ -13,7 +14,7 @@ import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, famil
 
 const { th, td } = cell;
 
-function SP1({ stats }) {
+export function SP1({ stats }) {
   const cmp = stats.SP1.comparison;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -40,7 +41,7 @@ function SP1({ stats }) {
   );
 }
 
-function SP2({ stats }) {
+export function SP2({ stats }) {
   const [def, setDef] = useState(stats.primary_compliance);
   const [measure, setMeasure] = useState("CSR");
   const blk = stats.SP2.by_definition[def];
@@ -92,7 +93,7 @@ function SP2({ stats }) {
   );
 }
 
-function SP3({ stats }) {
+export function SP3({ stats }) {
   const s3 = stats.SP3;
   const [metric, setMetric] = useState("ET");
   if (!s3.available) {
@@ -178,7 +179,7 @@ function SP3({ stats }) {
   );
 }
 
-function Overall({ stats }) {
+export function Overall({ stats }) {
   const cs = stats.composite;
   if (!cs.available) return <Empty title="No composite ranking for this study" text={`${cs.reason}.`} />;
   const fr = cs.friedman;
@@ -259,7 +260,7 @@ function Overall({ stats }) {
 }
 
 // ── side-by-side saved runs (single Quick Test runs from Run history) ────────
-function SavedRuns({ runHistory }) {
+export function SavedRuns({ runHistory }) {
   const [picked, setPicked] = useState([]);
   const rows = useMemo(() => runHistory.filter((r) => picked.includes(r.id)), [runHistory, picked]);
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 4 ? [...p, id] : p));
@@ -301,15 +302,7 @@ function SavedRuns({ runHistory }) {
   );
 }
 
-const SUBTABS = [
-  { id: "sp1", label: "Container full" },
-  { id: "sp2", label: "Safety rules" },
-  { id: "sp3", label: "Time & memory" },
-  { id: "overall", label: "Composite (supplementary)" },
-  { id: "saved", label: "Saved runs side by side" },
-];
-
-// SP1–SP3 at the top of the Studies page. With >= 2 test cases every mark is
+// The SOP Summary (SP1–SP3) of a study. With >= 2 test cases every mark is
 // a stats.py verdict; with one test case the values are described, not tested.
 export function StudySopSummary({ study, stats }) {
   const codes = CONFIG_ORDER.filter((c) => (stats.configurations || []).includes(c));
@@ -321,56 +314,17 @@ export function StudySopSummary({ study, stats }) {
     : descriptiveModel({ runs: study.runs || [], codes, nameOf, timingOk });
   return <SopSummary model={model} nameOf={nameOf} title="SOP Summary"
     desc={tested
-      ? `All ${codes.length} configurations over the study's ${stats.provenance.n_instances} test cases. "Significantly higher / lower" only where the Holm-corrected test and the effect-size threshold both support it; the full statistics are below.`
+      ? `All ${codes.length} configurations over the study's ${stats.provenance.n_instances} test cases. "Significantly higher / lower" only where the Holm-corrected test and the effect-size threshold both support it; the full statistics are under Show all numbers.`
       : "All configurations on this study's one test case. Described only: with one test case nothing is tested."} />;
 }
 
-export default function CompareTab({ study, stats, row, runHistory, studies, selectedStudyId, onSelectStudy, summary = false, showPicker = true }) {
-  const [sub, setSub] = useState("sp1");
-  const ready = row && row.status !== "running" && study && stats;
+// The verdict on H0 over the six-test family (SP1–SP3 together).
+export function HypothesisFamily({ stats }) {
+  if (!stats.hypothesis_family) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h3 className="font-display" style={{ fontSize: 20, fontWeight: 600 }}>Do the configurations differ?</h3>
-          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>These tables show whether the differences are real or just luck. The composite ranking is supplementary to SP1–SP3.</span>
-        </div>
-        {showPicker && <StudySelect studies={studies} value={selectedStudyId} onChange={onSelectStudy} />}
-      </div>
-      {sub !== "saved" && <CustomLoadBanner info={customLoadOf(study) || (row && row.custom_load ? { id: row.custom_load, label: row.custom_load_label } : null)} />}
-      {summary && ready && <StudySopSummary study={study} stats={stats} />}
-      <div className="tabs-inline">
-        {SUBTABS.map((t) => <button key={t.id} className={sub === t.id ? "active" : ""} onClick={() => setSub(t.id)}>{t.label}</button>)}
-      </div>
-      {sub === "saved" ? <SavedRuns runHistory={runHistory} /> : !ready ? (
-        <Empty title={row && row.status === "running" ? "This study is still running" : "No study selected"} text={row && row.status === "running" ? "Come back when every run has finished." : "Run a Full Comparison or import a precomputed study to compare the four configurations."} />
-      ) : (
-        <>
-          <ProvenanceStrip study={study} stats={stats} />
-          {stats.hypothesis_family && sub !== "overall" && (
-            <div className="card" style={{ padding: "14px 18px" }}>
-              <div className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Hypothesis test (SP1–SP3 together)</div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{familySummary(stats)}</p>
-            </div>
-          )}
-          {sub === "sp1" && <SP1 stats={stats} />}
-          {sub === "sp2" && <SP2 stats={stats} />}
-          {sub === "sp3" && <SP3 stats={stats} />}
-          {sub === "overall" && <Overall stats={stats} />}
-        </>
-      )}
+    <div className="card" style={{ padding: "14px 18px" }}>
+      <div className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Hypothesis test (SP1–SP3 together)</div>
+      <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{familySummary(stats)}</p>
     </div>
-  );
-}
-
-export function StudySelect({ studies, value, onChange }) {
-  return (
-    <select className="field-input" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-      style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, minWidth: 260 }}>
-      <option value="">— {studies.length ? "select a study" : "no studies yet"} —</option>
-      {studies.map((s) => (
-        <option key={s.id} value={s.id}>#{s.id} {s.name} · {s.status}{s.n_runs ? ` · ${s.n_runs} runs` : ""}{s.custom_load ? ` · ${CUSTOM_LOAD_LABEL}` : ""}</option>
-      ))}
-    </select>
   );
 }
