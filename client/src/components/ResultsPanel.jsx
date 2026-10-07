@@ -4,17 +4,20 @@
 //   safety and delivery order, SP3 computational resources), the two hybrids
 //   as cards by default and all four in a table with ?view=all. Numbers, best
 //   values and the (descriptive) ranking come from viewer/resultsMetrics.js.
-//   Technical Details (TechnicalDetailsPanel) holds everything else: the cards
-//   with placed-box compliance and per-constraint rates, the measure-by-measure
-//   tables, every run's numbers, the trade-offs chart, the thesis statistics
-//   and the Quick Test.
+//   Technical Details (TechnicalDetailsPanel) is the study's detail view
+//   (study/StudyDetails.jsx): the SOP Summary first, and under "Show all
+//   numbers" everything else — the thesis statistics, the cards with
+//   placed-box compliance and per-constraint rates, the measure-by-measure
+//   tables, every run's numbers and the trade-offs chart. A saved single run
+//   opened from Run History is shown below it.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { studiesApi } from "../services/api";
 import { methodOf } from "../methods";
 import TradeoffsChart from "./TradeoffsChart";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
-import StudyResults, { StudyProgress } from "../study/StudyResults";
+import { StudyProgress } from "../study/StudyResults";
+import StudyDetails, { Disclosure } from "../study/StudyDetails";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
 import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
 import MethodCard from "./results/MethodCard";
@@ -242,7 +245,7 @@ function useStudyLoad(studyDoc) {
 }
 
 function Header({ studies, selectedStudyId, onSelectStudy, rep, loadKey, onLoad }) {
-  // No study picker on Results (Technical details -> Studies opens another
+  // No study picker on Results (Run History -> Studies opens another
   // study); only a multi-load study needs this header, for the load picker.
   if (!(rep && rep.loads.length > 1)) return null;
   return (
@@ -431,9 +434,9 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   );
 }
 
-// ── Technical Details: everything the summary leaves out, unchanged ─────────
+// ── Technical Details: the study's detail view ──────────────────────────────
 export function TechnicalDetailsPanel({ studies = [], selectedStudyId, onSelectStudy, studyDoc, progress, onViewArrangement, onExportGuide,
-                                        full = false, setFull = () => {}, compare = null, quickTest = null }) {
+                                        full = false, setFull = () => {}, runHistory = [], quickTest = null }) {
   const [tradeMethod, setTradeMethod] = useState(null);
   const { rep, repErr, loadKey, setLoadKey, load, row, study, stats, done } = useStudyLoad(studyDoc);
   useEffect(() => { if (load && !tradeMethod) setTradeMethod(ordered(load.configurations)[0]); }, [load, tradeMethod]);
@@ -448,84 +451,81 @@ export function TechnicalDetailsPanel({ studies = [], selectedStudyId, onSelectS
   const note = load && hybridsHere && !full ? baselineNote(load.means, nameOf) : null;
   const seqSplit = (rep && rep.seq_budget_split) || (study && study.seq_budget_split);
 
+  // Per load: the configuration cards, every run and the trade-offs chart.
+  const perLoad = !rep && !repErr ? <div className="card"><div className="field-hint">Reading the comparison…</div></div> : load && (
+    <>
+      <Disclosure title={full || !hybridsHere ? `Configuration cards and measures (${all.length} configurations)` : "Configuration cards and measures: Sequential and Repair-Based"}
+        sub="Averages on this load, placed-box compliance, per-rule rates, highest / lowest / level">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div className="card-title" style={{ fontSize: 18 }}>
+              {full || !hybridsHere ? `Full comparison (${all.length} configurations)` : "Hybrid configurations: Sequential and Repair-Based"}
+            </div>
+            <div className="card-desc" style={{ margin: 0 }}>
+              Averages over {runsPer} run{runsPer === 1 ? "" : "s"} per configuration on this load. "Level" means the gap is under 2 percentage points (fill, compliance) or 2 boxes;
+              a display rule, not a statistical test (the tests are in SP1–SP3 above).
+            </div>
+          </div>
+          <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />
+        </div>
+
+        {note && <div className="card-desc" role="note" style={{ marginBottom: 14 }}>{note}</div>}
+
+        <div className={`grid grid-${shown.length}`} style={{ marginBottom: 20 }}>
+          {shown.map((c) => (
+            <SolutionCard key={c} code={c} means={load.means[c]} rep={load.representative[c]} seqSplit={seqSplit} timingOk={timingValid(study, stats)}
+              onView={() => onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c })}
+              onGuide={() => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey })} />
+          ))}
+        </div>
+
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-title">{full || !hybridsHere ? "Measures, configuration by configuration" : "Sequential and Repair-Based, measure by measure"}</div>
+          <div className="card-desc" style={{ marginBottom: 10 }}>
+            {full || !hybridsHere
+              ? "Highest / lowest: within 2 percentage points (2 boxes) of the top / bottom value on that measure. Level: every gap under that."
+              : "Level: the gap is under 2 percentage points (2 boxes)."}
+          </div>
+          {full || !hybridsHere ? <FullTable means={load.means} codes={shown} /> : <HybridTable means={load.means} />}
+        </div>
+
+        {(full || !hybridsHere) && (
+          <div>
+            <div className="card-title" style={{ marginBottom: 8 }}>Where each configuration is highest and lowest</div>
+            <Profiles means={load.means} codes={shown} />
+          </div>
+        )}
+      </Disclosure>
+      <Disclosure title="Every run on this load" sub="Fill, compliance, C3–C6, boxes loaded, CPU, wall-clock, memory, warm-up">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card"><div className="card-desc" style={{ margin: 0 }}>Representative run of each configuration (cards, 3D viewer, Loading Guide): {rep.representative_rule}.</div></div>
+          <RunTable runs={load.runs} timingOk={timingValid(study, stats)} />
+        </div>
+      </Disclosure>
+      <Disclosure title="Trade-offs chart" sub="Each run of one configuration: container fill against rule compliance">
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">Trade-offs within {nameOf(tradeMethod)}</div>
+              <div className="card-desc">Each dot is one run of this configuration on this load. Further right = fuller container; higher = more boxes following the rules. Pick a configuration to see its runs; configurations are not compared on this chart.</div>
+            </div>
+            <div className="tabs-inline">
+              {all.map((c) => <button key={c} type="button" className={tradeMethod === c ? "active" : ""} onClick={() => setTradeMethod(c)}>{nameOf(c)}</button>)}
+            </div>
+          </div>
+          {tradeMethod && <TradeoffsChart runs={load.runsOf(tradeMethod)} methodName={nameOf(tradeMethod)} />}
+        </div>
+      </Disclosure>
+    </>
+  );
+
   return (
     <div>
       {header}
       {cl && <div style={{ marginBottom: 16 }}><CustomLoadBanner info={cl} /></div>}
       {repErr && <div className="alert-danger" style={{ marginBottom: 16 }}>Could not read the comparison: {repErr}</div>}
-      {!rep && !repErr && <div className="card" style={{ marginBottom: 16 }}><div className="field-hint">Reading the comparison…</div></div>}
-
-      {load && (
-        <>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div className="card-title" style={{ fontSize: 18 }}>
-                {full || !hybridsHere ? `Full comparison (${all.length} configurations)` : "Hybrid configurations: Sequential and Repair-Based"}
-              </div>
-              <div className="card-desc" style={{ margin: 0 }}>
-                Averages over {runsPer} run{runsPer === 1 ? "" : "s"} per configuration on this load. "Level" means the gap is under 2 percentage points (fill, compliance) or 2 boxes;
-                a display rule, not a statistical test (the tests are in Studies).
-              </div>
-            </div>
-            <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />
-          </div>
-
-          {note && <div className="card-desc" role="note" style={{ marginBottom: 14 }}>{note}</div>}
-
-          <div className={`grid grid-${shown.length}`} style={{ marginBottom: 20 }}>
-            {shown.map((c) => (
-              <SolutionCard key={c} code={c} means={load.means[c]} rep={load.representative[c]} seqSplit={seqSplit} timingOk={timingValid(study, stats)}
-                onView={() => onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c })}
-                onGuide={() => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey })} />
-            ))}
-          </div>
-
-          <div className="card" style={{ marginBottom: 20 }}>
-            <div className="card-title">{full || !hybridsHere ? "Measures, configuration by configuration" : "Sequential and Repair-Based, measure by measure"}</div>
-            <div className="card-desc" style={{ marginBottom: 10 }}>
-              {full || !hybridsHere
-                ? "Highest / lowest: within 2 percentage points (2 boxes) of the top / bottom value on that measure. Level: every gap under that."
-                : "Level: the gap is under 2 percentage points (2 boxes)."}
-            </div>
-            {full || !hybridsHere ? <FullTable means={load.means} codes={shown} /> : <HybridTable means={load.means} />}
-          </div>
-
-          {(full || !hybridsHere) && (
-            <div style={{ marginBottom: 20 }}>
-              <div className="card-title" style={{ marginBottom: 8 }}>Where each configuration is highest and lowest</div>
-              <Profiles means={load.means} codes={shown} />
-            </div>
-          )}
-        </>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {load && <div className="card"><div className="card-desc" style={{ margin: 0 }}>Representative run of each configuration (cards, 3D viewer, Loading Guide): {rep.representative_rule}.</div></div>}
-        {load && <RunTable runs={load.runs} timingOk={timingValid(study, stats)} />}
-        {load && (
-          <div className="card">
-            <div className="card-head">
-              <div>
-                <div className="card-title">Trade-offs within {nameOf(tradeMethod)}</div>
-                <div className="card-desc">Each dot is one run of this configuration on this load. Further right = fuller container; higher = more boxes following the rules. Pick a configuration to see its runs; configurations are not compared on this chart.</div>
-              </div>
-              <div className="tabs-inline">
-                {all.map((c) => <button key={c} type="button" className={tradeMethod === c ? "active" : ""} onClick={() => setTradeMethod(c)}>{nameOf(c)}</button>)}
-              </div>
-            </div>
-            {tradeMethod && <TradeoffsChart runs={load.runsOf(tradeMethod)} methodName={nameOf(tradeMethod)} />}
-          </div>
-        )}
-        <div>
-          <div className="card-title" style={{ marginBottom: 4 }}>The thesis statistics for this comparison</div>
-          <div className="card-desc" style={{ marginBottom: 12 }}>
-            The Chapter 3 tests (experiments/stats.py). They need at least two test cases{stats.provenance && stats.provenance.n_instances < 2 ? " — this comparison has one, so it is described, not tested" : ""}.
-          </div>
-          <StudyResults row={row} study={study} stats={stats} progress={progress} onOpenCompare={null} />
-        </div>
-        {compare}
-        {quickTest}
-      </div>
+      <StudyDetails study={study} stats={stats} runHistory={runHistory} perLoad={perLoad} />
+      {quickTest && <div style={{ marginTop: 20 }}>{quickTest}</div>}
     </div>
   );
 }

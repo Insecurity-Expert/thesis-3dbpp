@@ -32,16 +32,15 @@ The sidebar groups the pages:
 | Home | `components/DashboardTab.jsx` | the "New here?" banner, three step cards, what you need, and counts of your own runs and studies |
 | Start analysis | `components/LogisticsTab.jsx` | the three-step wizard (below) |
 | Results | `components/ResultsPanel.jsx` (default export), `components/results/*`, `viewer/resultsMetrics.js` | **Performance Overview** of the methods on the selected load (means over its runs): tabs Overall · Packing Efficiency (SP1) · Safety & Delivery Order (SP2) · Computational Resources (SP3). Default: the two hybrids as cards; "Compare All Methods" (`?view=all`) shows all four in a table (one card per method under ~640 px). Best value per metric marked green with ✓ Highest / ✓ Lowest (ties all marked); a descriptive rank (Overall: the equal-weighted composite score; other tabs: the first metric), captioned as not a statistical test. Each method: View Arrangement (3D viewer, representative run) and Export Guide. Time and memory of a parallel study are flagged invalid and neither marked nor ranked |
-| Technical Details | `components/ResultsPanel.jsx` (`TechnicalDetailsPanel`), `components/ResultsTab.jsx` (single run) | everything else from the selected comparison, unchanged: the configuration cards (placed-box compliance, per-constraint rates of the representative run, CPU time, peak memory, SU range, the Sequential iteration split), the measure-by-measure table ("level" / highest / lowest, `viewer/comparison.js`), every run's numbers, the trade-offs chart, the thesis statistics, the SP1–SP3 test tabs, and the last Quick Test or a saved run opened from Run History ("Preview: one run, one seed") |
+| Technical Details | `components/ResultsPanel.jsx` (`TechnicalDetailsPanel`), `study/StudyDetails.jsx`, `study/StatsSections.jsx`, `study/StudyResults.jsx`, `components/ResultsTab.jsx` (single run) | the selected study's detail view. Visible by default: a header line (outcome pattern, test cases, runs, preset) and the SOP Summary: container fill (SU), rule compliance and load-bearing (C3) and stop order (C6) over all boxes, execution time and peak memory, per configuration, with "Best" / "No significant difference" marks (with ≥ 2 test cases only where stats.py's Holm-corrected test and effect-size threshold both support it), the one-sentence finding per SP and the fragility/stability note. Everything else is under **Show all numbers** (closed; nothing mounts until opened), grouped SP1 · SP2 · SP3 · Supplementary · Per load and per run, each part collapsed: summary statistics, normality, omnibus and pairwise tests with effect sizes, the SP3 charts, the composite ranking, the Greedy / Random Order baselines, extra numbers and run settings (λ), saved runs side by side, the configuration cards, every run and the trade-offs chart. A saved run opened from Run History is shown below it |
 | Loading Guide | `components/GuideTab.jsx`, `components/GuideViews.jsx` | a printable loading and unloading guide built from one stored solution (the chosen configuration's representative run; all four selectable, none selected by default): summary, step order, top views per layer, the view from the rear door, and a box-details appendix |
 
 **Advanced tools**
 
 | page | component | what it shows |
 |---|---|---|
-| Studies | `study/StudyLauncher.jsx`, `study/CompareTab.jsx`, `study/StudyResults.jsx`, `study/StatsTables.jsx` | your studies and the import list, then the selected study's SOP Summary (same rows as Results; with ≥ 2 test cases "significantly higher / lower" only where stats.py's Holm-corrected test and effect-size threshold support it, otherwise "no significant difference") and its Chapter 3 statistics: SP1 (space utilisation), SP2 (compliance C3–C6), SP3 (time and memory, serial studies only), the composite score, and saved runs side by side. Every sentence comes from `study/verdicts.js` |
 | 3D Viewer | `components/VisualizationTab.jsx`, `BinViewer.jsx` | the packed container in three.js: colour by delivery stop or by box, filter by stop, "Highlight problems" (boxes breaking C3–C6), orientation guides, box names, the rear door and cab end marked |
-| Run History | `components/RunHistoryTab.jsx` | your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete |
+| Run History | `components/RunHistoryTab.jsx`, `study/StudyList.jsx` | two tabs. **Runs**: your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete, Download as CSV. **Studies** (`?tab=studies`; the old `/studies` link redirects here): your studies (Open → Results, Delete with confirmation) and, collapsed under "Show precomputed studies (N)", the study files in `experiments/results/studies/` to import, newest first, one entry per study (a file computed again on the same commit with the same settings is listed once) |
 
 **Account**
 
@@ -60,11 +59,12 @@ The sidebar groups the pages:
 2. **Settings**: the container (587 × 233 × 220 cm by default), the four methods and the safety rules. The penalty weights λ and the C4/C5 enforcement are fixed to `experiments/calibration.json`; they are shown but can't be edited.
 3. **Review & run**: facts computed from the load, then **Run STACKR**. This launches a comparison of all four methods on the load (`POST /api/studies`). `components/ProcessingPanel.jsx` shows its real progress, and Stop ends every process of the comparison.
 
-Under **Two ways to run this** (`study/StudyLauncher.jsx`):
+Under **Advanced** on Review & run:
 
-- **Quick Test** is one method, one repeat code. It streams over the WebSocket and opens the 3D Viewer.
-- **Full Comparison** is the larger study sizes.
-- **Import a precomputed study** brings in a study file from `experiments/results/studies/`.
+- **Quick Test** runs all four configurations once each with the repeat code from Settings → Advanced and the chosen preset (Quick demo / Standard / Thesis, the same for all four), one at a time. It is a one-seed study (`POST /api/studies` with `preset`, `seeds`, `mode: serial`, name "Quick Test"), so it goes through the Processing screen to the normal Results page (hybrids first, Compare All Methods for all four) and is listed in Run History → Studies. Its time estimate is the sum of the four configurations' median times at that preset on this machine (saved runs and earlier Quick Tests), or "no estimate yet".
+- **Full Comparison** (`study/StudyLauncher.jsx`) is the larger study sizes.
+
+Precomputed study files are imported from Run History → Studies.
 
 The locked test settings shown there are read from `experiments/study.py --print-defaults`.
 

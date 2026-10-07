@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CustomLoadBadge, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { methodLabel, methodOf } from "../methods";
 import { isOldMeasurement, OLD_MEASUREMENT, OLD_MEASUREMENT_NOTE } from "../measurement";
+import { YourStudies, PrecomputedStudies } from "../study/StudyList";
 
 function formatDate(dateStr) {
   if (!dateStr) return "N/A";
@@ -104,7 +106,7 @@ function LabelCell({ run, onLabelRun }) {
   );
 }
 
-export default function RunHistoryTab({
+function RunsPanel({
   runHistory,
   handleExportHistory,
   onLoadRun,
@@ -278,6 +280,48 @@ export default function RunHistoryTab({
         )}
       </div>
 
+    </div>
+  );
+}
+
+// Run History: saved single runs (Runs) and Full Comparisons (Studies). The
+// tab is in the URL (?tab=studies), which is where the old /studies page lands.
+const HISTORY_TABS = [["runs", "Runs"], ["studies", "Studies"]];
+
+export default function RunHistoryTab({
+  studies = [], availableStudies = [], onImportStudy, onOpenStudy, onDeleteStudy, onRefreshStudies, ...runsProps
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "studies" ? "studies" : "runs";
+  const setTab = (t) => {
+    const p = new URLSearchParams(searchParams);
+    if (t === "studies") p.set("tab", t); else p.delete("tab");
+    setSearchParams(p, { replace: true });
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <div className="tabs-inline history-tabs" role="tablist" aria-label="Run History">
+        {HISTORY_TABS.map(([id, text]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
+            {text}{id === "studies" && studies.length ? <span className="tab-count">{studies.length}</span> : null}
+          </button>
+        ))}
+      </div>
+      {tab === "runs" ? <RunsPanel {...runsProps} /> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+            <div>
+              <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Studies</h3>
+              <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+                Full Comparisons (all four configurations, several repeat codes each) and the precomputed study files you can import.
+              </span>
+            </div>
+            {onRefreshStudies && <button type="button" className="btn btn-secondary btn-sm" onClick={onRefreshStudies}>Refresh</button>}
+          </div>
+          <YourStudies studies={studies} onOpenStudy={onOpenStudy} onDeleteStudy={onDeleteStudy} />
+          <PrecomputedStudies available={availableStudies} onImport={onImportStudy} />
+        </div>
+      )}
     </div>
   );
 }

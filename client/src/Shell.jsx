@@ -1,5 +1,6 @@
 // client/src/Shell.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import logoImg from "./logo.png";
 
@@ -18,15 +19,27 @@ import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/ap
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
 import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
-import CompareTab from "./study/CompareTab";
 
+
+const PAGES = ["home", "logistics", "results", "technical", "guide", "visualization", "history", "account"];
 
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, technical, guide, compare (Studies), visualization, history, account
+  // home, logistics, results, technical, guide, visualization, history, account.
+  // The page is mirrored in the URL (?page=) so a refresh, /run-history and the
+  // old /studies link land on the right one.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => (PAGES.includes(searchParams.get("page")) ? searchParams.get("page") : "home"));
+  useEffect(() => {
+    if (searchParams.get("page") === activeTab) return;
+    const p = new URLSearchParams(searchParams);
+    p.set("page", activeTab);
+    if (activeTab !== "history") p.delete("tab");
+    setSearchParams(p, { replace: true });
+  }, [activeTab]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [showHowTo, setShowHowTo] = useState(false);
   // "How to use" opens by itself once: on a new account's first login (the
   // account records that it has).
@@ -67,33 +80,14 @@ export default function Shell() {
   const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
 
-  // Algorithm Settings & Constraints
-  const [strategy, setStrategy] = useState("DGWO");
-  const [preset, setPresetState] = useState("quick");
-  const [wolfSize, setWolfSize] = useState(10);
-  const [maxIter, setMaxIter] = useState(60);
-
-  // Presets drive pop_size / max_iter; editing either field switches to "custom".
-  const PRESETS = useMemo(() => ({
-    quick:    { pop: 10, iter: 60 },
-    standard: { pop: 10, iter: 300 },
-    full:     { pop: 30, iter: 500 },
-  }), []);
-  const setPreset = useCallback((name) => {
-    setPresetState(name);
-    const p = PRESETS[name];
-    if (p) { setWolfSize(p.pop); setMaxIter(p.iter); }
-  }, [PRESETS]);
-  const setWolfSizeCustom = useCallback((v) => { setWolfSize(v); setPresetState("custom"); }, []);
-  const setMaxIterCustom  = useCallback((v) => { setMaxIter(v);  setPresetState("custom"); }, []);
-
-  // Optimizer parameters that reach main_optimizer.py verbatim (see params echo)
+  // The repeat code (seed) of a Quick Test; Run STACKR uses its own fixed seeds.
   const [seed, setSeed] = useState(42);
   // λ and the C4/C5 placement switches are not user settings: runs use the
   // optimizer's own defaults (shown read-only in Test settings).
 
-  // WebSocket & Live optimization run states
-  const [wsConnected, setWsConnected] = useState(false);
+  // WebSocket & live single-run states. The UI no longer starts a single run
+  // (Quick Test is a one-seed study); the socket still delivers run events.
+  const [, setWsConnected] = useState(false);
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
@@ -259,20 +253,44 @@ export default function Shell() {
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
 
+  // Timed runs of finished Quick Tests (one-seed studies), shaped like Run
+  // History rows, so the Quick Test card can estimate its time from them too.
+  const [quickTimings, setQuickTimings] = useState({});   // study id -> rows
+  useEffect(() => {
+    const todo = studies.filter((s) => s.name === "Quick Test" && s.status === "done" && !s.imported && !(s.id in quickTimings)).slice(0, 20);
+    if (!todo.length) return;
+    let alive = true;
+    Promise.all(todo.map((s) => studiesApi.get(s.id).then((doc) => {
+      const st = doc.study;
+      const rows = st && st.preset && Array.isArray(st.runs) && st.mode === "serial"
+        ? st.runs.filter((r) => r.exec_time_ms != null).map((r) => ({ strategy_code: r.configuration, pop_size: st.preset.pop_size,
+            max_iter: st.preset.max_iter, runtime_s: r.exec_time_ms / 1000, old_measurement: false }))
+        : [];
+      return [s.id, rows];
+    }).catch(() => [s.id, []]))).then((pairs) => { if (alive) setQuickTimings((q) => ({ ...q, ...Object.fromEntries(pairs) })); });
+    return () => { alive = false; };
+  }, [studies, quickTimings]);
+  const timedRuns = useMemo(() => runHistory.concat(...Object.values(quickTimings)), [runHistory, quickTimings]);
+
   // Load the selected study's file (stats attached) whenever the selection changes.
+  // A response for a study that is no longer selected is dropped: opening a
+  // study right after the newest one was auto-selected must not show the other.
+  const wantedStudyRef = useRef(null);
   const loadStudy = useCallback(async (id) => {
+    wantedStudyRef.current = id ?? null;
     if (id === null || id === undefined) { setStudyDoc(null); setStudyProgress(null); return; }
     try {
       const doc = await studiesApi.get(id);
+      if (wantedStudyRef.current !== id) return;
       setStudyDoc({ row: doc, study: doc.study, stats: doc.study ? doc.study.stats : null });
       setStudyProgress(doc.progress || null);
     } catch (e) {
-      setError(`Could not load study #${id}: ${e.message}`);
+      if (wantedStudyRef.current === id) setError(`Could not load study #${id}: ${e.message}`);
     }
   }, []);
   useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
   // Results has no study picker: with nothing selected, show the newest
-  // finished study. Another one is opened from Technical details -> Studies.
+  // finished study. Another one is opened from Run History -> Studies.
   useEffect(() => {
     if (selectedStudyId !== null) return;
     const done = studies.filter((s) => s.status === "done" || s.status === "imported");
@@ -289,7 +307,7 @@ export default function Shell() {
         const p = await studiesApi.progress(studyDoc.row.id);
         if (cancelled) return;
         setStudyProgress(p);
-        if (p.status === "done" || p.status === "error") { loadStudy(studyDoc.row.id); fetchStudies(); return; }
+        if (p.status === "done" || p.status === "error") { if (wantedStudyRef.current === studyDoc.row.id) loadStudy(studyDoc.row.id); fetchStudies(); return; }
       } catch { /* keep polling */ }
       if (!cancelled) timer = setTimeout(tick, 2000);
     };
@@ -307,7 +325,7 @@ export default function Shell() {
       setProcessing((p) => ({ ...p, state: "error", error: msg }));
       const L = processing.label || {};
       runsApi.saveRun({
-        strategy: "Run STACKR (all four methods)", strategy_code: null,
+        strategy: `${processing.what || "Run STACKR"} (all four methods)`, strategy_code: null,
         instance: L.custom ? `Custom load (${L.text})` : L.text || "—", dataset: L.custom ? "custom" : "wtpack",
         seed: null, n_items: L.n_boxes ?? null, space_util: null, csr: null, placed: null, dissipation: null, runtime_s: null,
         bins_used: null, placements: null, container: null, result: null, convergence: null, status: "failed", error: msg,
@@ -328,26 +346,41 @@ export default function Shell() {
     setStopping(false);
   }, [processing, fetchStudies, toast]);
 
-  const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom }) => {
+  // `extra` (preset, seeds, mode, name) is what a Quick Test sets instead of a size.
+  const handleLaunchStudy = useCallback(async ({ size, instanceId, useCustom, what = "Run STACKR", ...extra }) => {
     setStudyBusy(true);
     setError(null);
     try {
-      let payload = { size, instanceId };
+      let payload = { size, instanceId, ...extra };
       if (useCustom) {
         const id = await ensureCustomLoad();
-        if (!id) { setStudyBusy(false); setError("Fix the problems listed under your load, then run the Full Comparison again."); return; }
-        payload = { size, customLoad: id };
+        if (!id) { setStudyBusy(false); setError(`Fix the problems listed under your load, then run the ${what === "Quick Test" ? "Quick Test" : "Full Comparison"} again.`); return; }
+        payload = { size, customLoad: id, ...extra };
       }
       const r = await studiesApi.create(payload);
       fetchStudies();
       setSelectedStudyId(r.id);
       // The Processing screen (wizard) follows it; Results opens when it is done.
-      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current });
+      setProcessing({ studyId: r.id, state: "running", error: null, label: selectedLoadRef.current, what });
       setWizStep(4);
       setActiveTab("logistics");
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
+
+  // Quick Test: all four configurations, one run each with the repeat code,
+  // the chosen preset, one at a time. It is a study of one seed, so it goes
+  // through the same path as Run STACKR and opens the normal Results page.
+  const handleQuickTest = useCallback((presetKey) => {
+    let code = Number(seed);
+    if (seed === "" || !Number.isInteger(code) || code < 0) {
+      code = Math.floor(Math.random() * 1e6);     // "random": pick one, and show it
+      setSeed(code);
+    }
+    const L = selectedLoadRef.current || {};
+    handleLaunchStudy({ what: "Quick Test", preset: presetKey, seeds: String(code), mode: "serial", name: "Quick Test",
+                        ...(L.custom ? { useCustom: true } : { instanceId: L.instanceId }) });
+  }, [seed, handleLaunchStudy]);
 
   const handleImportStudy = useCallback(async (file) => {
     try {
@@ -365,6 +398,15 @@ export default function Shell() {
       fetchStudies();
     } catch (e) { setError(`Could not delete study #${s.id}: ${e.message}`); }
   }, [fetchStudies, selectedStudyId]);
+
+  // Run History, on its Runs or Studies tab.
+  const openHistory = useCallback((tab = "runs") => {
+    setActiveTab("history");
+    const p = new URLSearchParams(searchParams);
+    p.set("page", "history");
+    if (tab === "studies") p.set("tab", "studies"); else p.delete("tab");
+    setSearchParams(p, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
@@ -535,59 +577,6 @@ export default function Shell() {
     return () => clearInterval(t);
   }, [running]);
 
-  // Run handler
-  const handleStartRun = useCallback(async () => {
-    if (running || !wsConnected) return;
-    setRunning(true);
-    setInstanceInfo(null);
-    setPlacements(null);
-    setBinsUsed(0);
-    setChartData([]);
-    chartRef.current = [];
-    setStats(null);
-    setFinalResult(null);
-    setError(null);
-    setReplay(null);
-
-    const tuning = {
-      strategy,
-      popSize: wolfSize,
-      maxIter,
-      seed: Number.isFinite(Number(seed)) && seed !== "" ? Number(seed) : null,
-    };
-
-    // Custom load (typed / CSV): converted and stored by the server first.
-    if (source === "typed" || source === "csv") {
-      const id = await ensureCustomLoad();
-      if (!id) {
-        setRunning(false);
-        setError("Fix the problems listed under your load, then run again.");
-        setActiveTab("logistics");
-        return;
-      }
-      wsRef.current.send(JSON.stringify({ action: "run", dataset: "custom", customLoadId: id, ...tuning }));
-      setActiveTab("visualization");
-      return;
-    }
-
-    // OR-Library: the standard test case or a ready-made sample, both wtpack ids.
-    if (dataset === "wtpack") {
-      const id = source === "sample" ? sampleId : wtpackId;
-      if (id === null) {
-        setError(source === "sample" ? "Pick a ready-made sample first." : "Select a wtpack instance first.");
-        setRunning(false);
-        return;
-      }
-      wsRef.current.send(JSON.stringify({ action: "run", dataset: "wtpack", instanceId: id, ...tuning }));
-      setActiveTab("visualization");
-    }
-  }, [running, wsConnected, strategy, source, sampleId, ensureCustomLoad,
-      dataset, wtpackId, wolfSize, maxIter, seed]);
-
-  const handleStopRun = useCallback(() => {
-    wsRef.current?.send(JSON.stringify({ action: "stop" }));
-  }, []);
-
   // Exporters
   const handleExportResultsCSV = () => {
     if (!finalResult || !finalResult.items) return;
@@ -749,13 +738,6 @@ export default function Shell() {
     };
   }, [finalResult]);
 
-  const canRun = wsConnected && !running && (
-    source === "typed" ? typedRows.length > 0
-    : source === "csv" ? !!csvFile
-    : source === "sample" ? sampleId !== null
-    : source === "standard" && dataset === "wtpack" && wtpackId !== null
-  );
-
   // What the footer, the top chip and the study launcher say about the chosen load.
   const sampleMeta = samples && samples.samples ? samples.samples.find((x) => x.instance_id === sampleId) : null;
   const standardMeta = wtpackInstances.find((i) => i.instance_id === wtpackId) || null;
@@ -806,7 +788,6 @@ export default function Shell() {
     { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
     { id: "technical", group: "Get started", label: "Technical Details", title: "Technical Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
-    { id: "compare", group: "Advanced tools", label: "Studies", title: "Studies", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
     { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
@@ -908,7 +889,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} onOpenHistory={openHistory} runHistory={runHistory} studies={studies} />
       )}
 
       {/* ── LOADING GUIDE ── */}
@@ -934,21 +915,10 @@ export default function Shell() {
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
           running={running}
-          elapsed={elapsed}
-          strategy={strategy}
-          setStrategy={setStrategy}
-          preset={preset}
-          setPreset={setPreset}
-          wolfSize={wolfSize}
-          maxIter={maxIter}
-          setWolfSizeCustom={setWolfSizeCustom}
-          setMaxIterCustom={setMaxIterCustom}
           seed={seed}
           setSeed={setSeed}
-          handleStartRun={handleStartRun}
-          handleStopRun={handleStopRun}
-          canRun={canRun}
-          runHistory={runHistory}
+          onQuickTest={handleQuickTest}
+          runHistory={timedRuns}
           optimizerReady={optimizerReady}
           wtpackInstances={wtpackInstances}
           wtpackId={wtpackId}
@@ -971,20 +941,14 @@ export default function Shell() {
           testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
           largerSizes={
             <StudyLauncher
-              sections={["sizes"]}
               sizeKeys={["standard", "multi"]}
               sizesInfo={sizesInfo}
               studies={studies}
-              available={availableStudies}
               onLaunch={handleLaunchStudy}
-              onImport={handleImportStudy}
-              onOpenStudy={handleOpenStudy}
-              onDeleteStudy={handleDeleteStudy}
               onRefresh={fetchStudies}
               wtpackId={wtpackId}
               wtpackInstances={wtpackInstances}
               selectedLoad={selectedLoad}
-              seed={seed}
               busy={studyBusy}
               size={studySize === "demo" ? "standard" : studySize}
               setSize={setStudySize}
@@ -1011,7 +975,7 @@ export default function Shell() {
         />
       )}
 
-      {/* ── TECHNICAL DETAILS TAB: everything else from Results, unchanged ── */}
+      {/* ── TECHNICAL DETAILS TAB: the study detail view (SOP Summary, then "Show all numbers") ── */}
       {activeTab === "technical" && (
         <TechnicalDetailsPanel
           studies={studies}
@@ -1023,58 +987,15 @@ export default function Shell() {
           onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
-          compare={
-            <div>
-              <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
-              <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
-              <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
-                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} />
-            </div>
-          }
+          runHistory={runHistory}
           quickTest={finalResult ? (
             <div>
-              <div className="card-title" style={{ marginBottom: 4 }}>Quick Test result <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>Preview: one run, one seed</span></div>
-              <div className="card-desc" style={{ marginBottom: 12 }}>The last Quick Test, or a saved run opened from Run History. One run of one configuration, so nothing is compared or concluded from it.</div>
-              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} strategy={strategy} stats={stats} axisUtil={axisUtil}
-                maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
+              <div className="card-title" style={{ marginBottom: 4 }}>Saved run <span className="badge" style={{ textTransform: "none", marginLeft: 6 }}>One run, one seed</span></div>
+              <div className="card-desc" style={{ marginBottom: 12 }}>A saved run opened from Run History. One run of one configuration, so nothing is compared or concluded from it.</div>
+              <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} stats={stats} axisUtil={axisUtil}
+                handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
           ) : null}
-        />
-      )}
-
-      {/* ── COMPARE TAB ── */}
-      {activeTab === "compare" && (
-        <div style={{ marginBottom: 20 }}>
-          <StudyLauncher
-            sections={["studies", "import"]}
-            sizesInfo={sizesInfo}
-            studies={studies}
-            available={availableStudies}
-            onLaunch={handleLaunchStudy}
-            onImport={handleImportStudy}
-            onOpenStudy={handleOpenStudy}
-            onDeleteStudy={handleDeleteStudy}
-            onRefresh={fetchStudies}
-            wtpackId={wtpackId}
-            wtpackInstances={wtpackInstances}
-            selectedLoad={selectedLoad}
-            seed={seed}
-            busy={studyBusy}
-            size={studySize}
-            setSize={setStudySize}
-          />
-        </div>
-      )}
-      {activeTab === "compare" && (
-        <CompareTab
-          row={studyDoc ? studyDoc.row : null}
-          study={studyDoc ? studyDoc.study : null}
-          stats={studyDoc ? studyDoc.stats : null}
-          runHistory={runHistory}
-          studies={studies}
-          selectedStudyId={selectedStudyId}
-          onSelectStudy={setSelectedStudyId}
-          summary
         />
       )}
 
@@ -1102,6 +1023,12 @@ export default function Shell() {
           onDeleteRun={handleDeleteRun}
           onExportRun={handleExportRun}
           onImportRun={handleImportRun}
+          studies={studies}
+          availableStudies={availableStudies}
+          onImportStudy={handleImportStudy}
+          onOpenStudy={handleOpenStudy}
+          onDeleteStudy={handleDeleteStudy}
+          onRefreshStudies={fetchStudies}
         />
       )}
 

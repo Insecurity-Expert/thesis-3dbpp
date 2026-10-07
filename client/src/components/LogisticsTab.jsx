@@ -5,9 +5,9 @@
 //   Step 3  Review & run   facts computed from the load, then Run STACKR
 // Every value shown is read from the load, the converter or the server's
 // study sizes; controls that cannot work are disabled with a note.
-import React from "react";
+import React, { useState } from "react";
 
-import { METHODS, methodOf, methodLabel } from "../methods";
+import { METHODS, methodOf } from "../methods";
 import LoadSources from "./LoadSources";
 import { CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { fmt as vfmt } from "../study/verdicts";
@@ -16,9 +16,13 @@ import { isOldMeasurement } from "../measurement";
 
 const n1 = (v, d = 1) => Number(v).toLocaleString(undefined, { maximumFractionDigits: d });
 
-// "on this machine: DGWO 9.9 s (median of 3) · …" from saved, finished runs
-// at exactly this pop x iterations. Nothing measured -> say so.
-function timingNote(runs, pop, iter) {
+// One line for the Quick Test: the four configurations run one after another,
+// so the estimate is the sum of their medians, from saved, finished runs at
+// exactly this pop x iterations. Configurations not measured yet are named;
+// nothing measured -> "no estimate yet".
+const QT_ORDER = ["DGWO", "MOGWO", "SEQ", "REP"];
+const dur = (s) => (s >= 120 ? `${(s / 60).toFixed(1)} min` : `${s.toFixed(1)} s`);
+export function quickTestEstimate(runs, pop, iter) {
   const by = {};
   for (const r of runs || []) {
     if (r.status === "failed" || r.pop_size !== pop || r.max_iter !== iter || r.runtime_s == null) continue;
@@ -27,13 +31,20 @@ function timingNote(runs, pop, iter) {
     if (!m) continue;
     (by[m.code] = by[m.code] || []).push(Number(r.runtime_s));
   }
-  const parts = ["DGWO", "MOGWO", "SEQ", "REP"].filter((c) => by[c]).map((c) => {
+  const med = (c) => {
     const a = by[c].slice().sort((x, y) => x - y);
-    const med = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
-    const txt = med >= 120 ? `${(med / 60).toFixed(1)} min` : `${med.toFixed(1)} s`;
-    return `${c} ${txt} (median of ${a.length})`;
-  });
-  return parts.length ? `on this machine: ${parts.join(" · ")}` : "no timed runs at this size on this machine yet";
+    return a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
+  };
+  const have = QT_ORDER.filter((c) => by[c]);
+  const name = (c) => METHODS[c].name;
+  const medians = have.map((c) => `${name(c)} ${dur(med(c))}`).join(" · ");
+  if (!have.length) return "no estimate yet: no timed runs at this size on this machine";
+  if (have.length === QT_ORDER.length) {
+    const total = QT_ORDER.reduce((t, c) => t + med(c), 0);
+    return `On this machine: about ${dur(total)} for all four configurations (one seed each) · medians ${medians}`;
+  }
+  const missing = QT_ORDER.filter((c) => !by[c]).map(name).join(", ");
+  return `No estimate yet for all four (not timed at this size: ${missing}) · medians ${medians}`;
 }
 
 const STEPS = [
@@ -64,10 +75,9 @@ function Review({ label, value, sub, warn }) {
 export default function LogisticsTab({
   step, setStep, processingPanel = null,
   containerSpecs, setContainerSpecs,
-  running, elapsed,
-  // Quick Test (Advanced)
-  strategy, setStrategy, preset, setPreset, wolfSize, maxIter, setWolfSizeCustom, setMaxIterCustom,
-  seed, setSeed, handleStartRun, handleStopRun, canRun, runHistory = [],
+  running,
+  // Quick Test (Advanced): all four configurations, one run each
+  seed, setSeed, onQuickTest, runHistory = [],
   optimizerReady = { state: "cold" },
   // the load
   wtpackInstances = [], wtpackId = null, setWtpackId = () => {},
@@ -78,6 +88,7 @@ export default function LogisticsTab({
   sizesInfo = null, onRunStackr, studyBusy = false, largerSizes = null, testSettings = null,
 }) {
   const toast = useToast();
+  const [preset, setPreset] = useState("quick");   // the Quick Test's preset, for all four configurations
   const custom = selectedLoad.custom;
   const src = loadSources.source;
   const sampleMeta = loadSources.samples && loadSources.samples.samples
@@ -288,40 +299,18 @@ export default function LogisticsTab({
             <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 12 }}>
               <div>
                 <div className="card-title">Quick Test</div>
-                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run, one seed. Use Run STACKR to compare the configurations. Uses the repeat code from Settings → Advanced.</div>
-                <div className="tabs-inline grow" style={{ marginBottom: 8 }}>
-                  {["DGWO", "MOGWO", "Sequential", "Repair-based"].map((s) => (
-                    <button key={s} type="button" onClick={() => setStrategy(s)} className={strategy === s ? "active" : ""} title={methodLabel(s)} disabled={running}>
-                      {methodOf(s) ? methodOf(s).name : s}
-                    </button>
-                  ))}
-                </div>
+                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run per configuration, one seed (the repeat code from Settings → Advanced), all four with the same settings. Results opens on the two hybrids; Compare All Methods shows all four. Use Run STACKR to compare the configurations over several repeat codes.</div>
                 <div className="tabs-inline grow" style={{ marginBottom: 6 }}>
                   {Object.entries(PRESET_INFO).map(([key, p]) => (
-                    <button key={key} type="button" onClick={() => setPreset(key)} disabled={running} className={preset === key ? "active" : ""}
-                      title={`pack size ${p.pop} × ${p.iter} iterations — ${timingNote(runHistory, p.pop, p.iter)}`}>{p.label}</button>
+                    <button key={key} type="button" onClick={() => setPreset(key)} disabled={running || studyBusy} className={preset === key ? "active" : ""}
+                      title={`pack size ${p.pop} × ${p.iter} iterations — ${quickTestEstimate(runHistory, p.pop, p.iter)}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="field-hint" style={{ marginBottom: 10 }}>
-                  {preset === "custom" ? `Custom — pack size ${wolfSize} × ${maxIter} iterations. Saved runs are labelled "custom settings".`
-                    : `pack size ${PRESET_INFO[preset].pop} × ${PRESET_INFO[preset].iter} iterations · ${timingNote(runHistory, PRESET_INFO[preset].pop, PRESET_INFO[preset].iter)}`}
-                </div>
-                <div style={{ display: "flex", gap: 12, maxWidth: 420, marginBottom: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Pack size (wolves, 3–60)</label>
-                    <input type="number" className="field-input" min="3" max="60" value={wolfSize} disabled={running} onChange={(e) => setWolfSizeCustom(Number(e.target.value))} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Iterations (1–2000)</label>
-                    <input type="number" className="field-input" min="1" max="2000" value={maxIter} disabled={running} onChange={(e) => setMaxIterCustom(Number(e.target.value))} />
-                  </div>
-                </div>
-                {!running
-                  ? <button type="button" className="btn btn-secondary" onClick={handleStartRun} disabled={!canRun}>Quick Test — one run of {methodOf(strategy) ? methodOf(strategy).name : strategy}</button>
-                  : <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Running… {elapsed}s</span>
-                      <button type="button" className="btn btn-danger-outline btn-sm" onClick={handleStopRun}>■ Stop</button>
-                    </div>}
+                <div className="field-hint" style={{ marginBottom: 2 }}>pack size {PRESET_INFO[preset].pop} × {PRESET_INFO[preset].iter} iterations, for all four configurations</div>
+                <div className="field-hint" style={{ marginBottom: 12 }}>{quickTestEstimate(runHistory, PRESET_INFO[preset].pop, PRESET_INFO[preset].iter)}</div>
+                <button type="button" className="btn btn-secondary" onClick={() => onQuickTest(preset)} disabled={studyBusy || running || !f}>
+                  {studyBusy ? "Starting…" : "Quick Test — one run of each configuration"}
+                </button>
               </div>
               {largerSizes && (
                 <div>

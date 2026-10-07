@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import LoginPage from "./auth/LoginPage";
 import RegisterPage from "./auth/RegisterPage";
@@ -16,6 +16,14 @@ function Protected({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+// Run History lives inside the app shell (/app?page=history). /run-history and
+// the retired /studies page redirect there; /studies opens the Studies tab.
+function RunHistoryRedirect({ tab = null }) {
+  const q = new URLSearchParams(useLocation().search);
+  const t = tab || (q.get("tab") === "studies" ? "studies" : null);
+  return <Navigate to={`/app?page=history${t ? `&tab=${t}` : ""}`} replace />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -26,6 +34,8 @@ root.render(
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/app" element={<Protected><ToastProvider><Shell /></ToastProvider></Protected>} />
+        <Route path="/run-history" element={<RunHistoryRedirect />} />
+        <Route path="/studies" element={<RunHistoryRedirect tab="studies" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

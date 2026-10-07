@@ -1,5 +1,5 @@
 // client/src/viewer/sopSummary.js — the SOP Summary (SP1–SP3) at the top of
-// Results and Studies.
+// Technical Details.
 //
 // Two models, one shape:
 //   descriptiveModel — one load, N runs per configuration. Per measure the
@@ -37,7 +37,7 @@ export const SOP_ROWS = [
 ];
 
 export const singleInstanceNote = (runsEach) =>
-  `One instance, ${runsEach ?? "N"} runs each; differences are not tested for significance. See Studies for statistical tests.`;
+  `One instance, ${runsEach ?? "N"} runs each; differences are not tested for significance. Every statistic is under Show all numbers.`;
 
 // ── values ───────────────────────────────────────────────────────────────────
 const share = (r) => (r.n_items ? r.placed / r.n_items : 0);
