@@ -81,18 +81,28 @@ class RepairContext:
         return self._above[i]
 
     def blocking(self, i):
-        """Later-stop boxes that sit above i or between i and the door."""
+        """Later-stop boxes that sit above i or between i and the door.
+        Vectorized over all placed pairs; same predicate and same member order as
+        the original loop, so results are identical."""
         if self._blocking is None:
-            self._blocking = {}
             members = list(self.placements)
-            for a in members:
-                s_a = self.items[a]['stop']
-                above_set = set(self.above(a))
-                self._blocking[a] = [
-                    b for b in members
-                    if a != b and self.items[b]['stop'] > s_a
-                    and (b in above_set or _blocks_extraction(a, b, self.placements))
-                ]
+            n = len(members)
+            if n == 0:
+                self._blocking = {}
+                return self._blocking[i]
+            P = np.array([self.placements[a] for a in members], dtype=float)
+            x, y, z, dx, dy, dz = P.T
+            x1, y1, z1 = x + dx, y + dy, z + dz
+            stop = np.array([self.items[a]['stop'] for a in members])
+            ox = np.minimum(x1[:, None], x1[None, :]) - np.maximum(x[:, None], x[None, :])
+            oy = np.minimum(y1[:, None], y1[None, :]) - np.maximum(y[:, None], y[None, :])
+            oz = np.minimum(z1[:, None], z1[None, :]) - np.maximum(z[:, None], z[None, :])
+            above = (z[None, :] >= z1[:, None]) & (ox > 0) & (oy > 0)       # b above a
+            doorward = (y1[None, :] <= y[:, None]) & (ox > 0) & (oz > 0)    # b between a and door
+            B = (stop[None, :] > stop[:, None]) & (above | doorward)
+            np.fill_diagonal(B, False)
+            self._blocking = {members[a]: [members[b] for b in np.flatnonzero(B[a])]
+                              for a in range(n)}
         return self._blocking[i]
 
     def place(self, i, pos, r):
@@ -499,7 +509,7 @@ def repair_R2(ctx, unpacked, stats):
 
 
 # -- R3: fixpoint removal ------------------------------------------------------
-def _violators(items, placements, orientations):
+def _violators_reference(items, placements, orientations):
     out = set()
     members = list(placements)
     for i in members:
@@ -516,6 +526,78 @@ def _violators(items, placements, orientations):
                     j in above or _blocks_extraction(i, j, placements)):
                 out.add(i)
                 break
+    return out
+
+
+@njit(cache=True)
+def _violation_flags(P, mass, fragile, stop, cap, n):
+    """Compiled transcription of _violators_reference: per box, True if it violates
+    C3, C4, C5 or C6. Sums run in member order, as the reference's do."""
+    bad = np.zeros(n, dtype=np.bool_)
+    above = np.zeros(n, dtype=np.bool_)
+    for i in range(n):
+        xi = P[i, 0]; yi = P[i, 1]; zi = P[i, 2]
+        dxi = P[i, 3]; dyi = P[i, 4]; dzi = P[i, 5]
+        n_above = 0
+        borne = 0.0
+        supported = 0.0
+        for j in range(n):
+            above[j] = False
+            if i == j:
+                continue
+            xj = P[j, 0]; yj = P[j, 1]; zj = P[j, 2]
+            dxj = P[j, 3]; dyj = P[j, 4]; dzj = P[j, 5]
+            ox = min(xi + dxi, xj + dxj) - max(xi, xj)
+            oy = min(yi + dyi, yj + dyj) - max(yi, yj)
+            if zj >= zi + dzi and ox > 0.0 and oy > 0.0:
+                above[j] = True
+                n_above += 1
+                borne += mass[j]
+            if abs((zj + dzj) - zi) < 1e-5:
+                supported += (ox if ox > 0.0 else 0.0) * (oy if oy > 0.0 else 0.0)
+        if fragile[i] and n_above > 0:
+            bad[i] = True
+        if borne > cap[i]:
+            bad[i] = True
+        top_area = dxi * dyi
+        if zi != 0.0:
+            ratio = supported / top_area if top_area > 0.0 else 0.0
+            if ratio < SUPPORT_THRESHOLD:
+                bad[i] = True
+        for j in range(n):
+            if i == j or stop[j] <= stop[i]:
+                continue
+            if above[j]:
+                bad[i] = True
+                break
+            if P[j, 1] + P[j, 4] <= yi:
+                ox = min(xi + dxi, P[j, 0] + P[j, 3]) - max(xi, P[j, 0])
+                oz = min(zi + dzi, P[j, 2] + P[j, 5]) - max(zi, P[j, 2])
+                if ox > 0.0 and oz > 0.0:
+                    bad[i] = True
+                    break
+    return bad
+
+
+def _violators(items, placements, orientations):
+    """Fast path, same contract as _violators_reference. The set is built by adding
+    members in the same order, so its iteration order matches too (this matters:
+    R3 appends removed boxes to `unpacked` in set-iteration order)."""
+    members = list(placements)
+    n = len(members)
+    if n == 0:
+        return set()
+    P = np.array([placements[i] for i in members], dtype=np.float64)
+    mass = np.array([items[i]['mass'] for i in members], dtype=np.float64)
+    fragile = np.array([items[i]['fragile'] == 1 for i in members])
+    stop = np.array([items[i]['stop'] for i in members], dtype=np.int64)
+    cap = np.array([_capacity(i, items, placements, orientations) for i in members],
+                   dtype=np.float64)
+    bad = _violation_flags(P, mass, fragile, stop, cap, n)
+    out = set()
+    for k in range(n):
+        if bad[k]:
+            out.add(members[k])
     return out
 
 
