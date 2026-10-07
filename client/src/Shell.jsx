@@ -273,14 +273,19 @@ export default function Shell() {
   const timedRuns = useMemo(() => runHistory.concat(...Object.values(quickTimings)), [runHistory, quickTimings]);
 
   // Load the selected study's file (stats attached) whenever the selection changes.
+  // A response for a study that is no longer selected is dropped: opening a
+  // study right after the newest one was auto-selected must not show the other.
+  const wantedStudyRef = useRef(null);
   const loadStudy = useCallback(async (id) => {
+    wantedStudyRef.current = id ?? null;
     if (id === null || id === undefined) { setStudyDoc(null); setStudyProgress(null); return; }
     try {
       const doc = await studiesApi.get(id);
+      if (wantedStudyRef.current !== id) return;
       setStudyDoc({ row: doc, study: doc.study, stats: doc.study ? doc.study.stats : null });
       setStudyProgress(doc.progress || null);
     } catch (e) {
-      setError(`Could not load study #${id}: ${e.message}`);
+      if (wantedStudyRef.current === id) setError(`Could not load study #${id}: ${e.message}`);
     }
   }, []);
   useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
@@ -302,7 +307,7 @@ export default function Shell() {
         const p = await studiesApi.progress(studyDoc.row.id);
         if (cancelled) return;
         setStudyProgress(p);
-        if (p.status === "done" || p.status === "error") { loadStudy(studyDoc.row.id); fetchStudies(); return; }
+        if (p.status === "done" || p.status === "error") { if (wantedStudyRef.current === studyDoc.row.id) loadStudy(studyDoc.row.id); fetchStudies(); return; }
       } catch { /* keep polling */ }
       if (!cancelled) timer = setTimeout(tick, 2000);
     };
