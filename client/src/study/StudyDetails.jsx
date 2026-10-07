@@ -7,7 +7,7 @@
 // No number is computed here: every section is an existing component.
 import React, { useState } from "react";
 import { StudySopSummary, SP1, SP2, SP3, Overall, SavedRuns, HypothesisFamily } from "./StatsSections";
-import { Banner, ProvenanceStrip, ScoreTable, ComplianceTable, PerformanceTable, SupplementaryBaselines, ExtraNumbers, Sp3Note } from "./StudyResults";
+import { ProvenanceStrip, ScoreTable, ComplianceTable, PerformanceTable, SupplementaryBaselines, ExtraNumbers, Sp3Note } from "./StudyResults";
 import { outcomeBanner } from "./verdicts";
 
 // A button that shows / hides its children; closed children are not mounted.
@@ -78,9 +78,10 @@ export default function StudyDetails({ study, stats, runHistory = [], perLoad = 
               <Disclosure title="Tests, charts and tables" sub="By heterogeneity class, all-instance tests, summary statistics"><SP3 stats={stats} /></Disclosure>
               {stats.SP3 && stats.SP3.available && <Disclosure title="Time and memory in one paragraph"><Sp3Note stats={stats} /></Disclosure>}
             </Disclosure>
-            <Disclosure level={1} title="Supplementary" sub="Outcome, hypothesis test, composite ranking, baselines, run settings">
-              <Disclosure title="Outcome and study provenance" sub="Outcome pattern, preliminary flag, test cases, preset, seeds, mode, commit">
-                <div style={stack}><Banner stats={stats} /><ProvenanceStrip study={study} stats={stats} /><HypothesisFamily stats={stats} /></div>
+            <Disclosure level={1} title="Supplementary" sub="Provenance, hypothesis test, composite ranking, baselines, run settings">
+              {/* The outcome card (StudyResults' Banner) is left out for now. */}
+              <Disclosure title="Study provenance and hypothesis test" sub="Preliminary flag, test cases, preset, seeds, mode, commit; H₀ over SP1–SP3">
+                <div style={stack}><ProvenanceStrip study={study} stats={stats} /><HypothesisFamily stats={stats} /></div>
               </Disclosure>
               <Disclosure title="Composite ranking" sub="Supplementary to SP1–SP3; needs ≥ 2 test cases">
                 <div style={stack}><ScoreTable stats={stats} /><Overall stats={stats} /></div>
