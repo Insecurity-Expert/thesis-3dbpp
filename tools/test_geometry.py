@@ -314,7 +314,9 @@ _un6 = []
 st6 = repair_arrangement(_pl6, _or6, _un6, _b6, _rc)
 check("no R1 / R2 action on a pure C4 violation", st6['relocated_R1'] + st6['relocated_R2'], 0)
 check("R3 removes the C4 violator and the box it orphans", st6['removed_R3'], 2)
-check("removed boxes land in the unpacked list", sorted(_un6), [0, 1])
+check("removed boxes are re-placed or land in the unpacked list",
+      sorted(list(_pl6) + _un6), [0, 1])
+check("re-inserted boxes keep S == 100", evaluate_constraints(_pl6, _b6, _or6)[0], 100.0)
 
 # find_feasible_position honours min_y (an optional filter; no operator passes it).
 # A box spanning y in [0,60) creates an EP at y=60; min_y=50 must skip (0,0,0).
@@ -423,6 +425,85 @@ raises("missing mass raises", lambda: validate_items([{
     'allowed_orientations': [1], 'fragile': 0, 'stop': 1}]))
 raises("empty allowed_orientations raises",
        lambda: validate_items([box(1, 1, 1, allowed=[])]))
+
+# ── REP end to end: full re-insertion keeps the arrangement feasible ──────────
+print("\n[REP feasibility] instance 350, pop 10, 60 iterations, seed 42")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'experiments'))
+from preprocessing.pipeline import load_augmented_instance
+from runner import run_one
+from validate_arrangement import validate
+
+_ROOT = Path(__file__).resolve().parent.parent
+_inst350 = load_augmented_instance({'data': {'raw_dir': str(_ROOT / 'data' / 'raw')}},
+                                   instance_id=350, stop_seed=42, stop_count=3)
+_rep = run_one('REP', _inst350['boxes'], _inst350['container'], 42, 10, 60,
+               {'w': 0.2, 'f': 0.2, 'b': 0.2, 'a': 0.2})
+check("REP 350: CSR (placed) == 100", _rep['csr_pct'], 100.0)
+_pl_rep = {int(k): tuple(v) for k, v in _rep['placements'].items()}
+_or_rep = {int(k): int(v) for k, v in _rep['orientations'].items()}
+_iv = validate(_inst350['container'], _inst350['boxes'], _pl_rep, _or_rep)
+check("REP 350: validate_arrangement reports every constraint at 100",
+      all(_iv['pct'][k] == 100.0 for k in ('C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'all', 'orient')), True)
+check("REP 350: re-insertion places more than the 38 boxes of the old repair", len(_pl_rep) > 38, True)
+
+# ── Fast repair paths == reference paths ───────────────────────────────────────
+print("\n[repair speed-up] numba _violators and vectorized blocking() == reference")
+import json
+from repair import (RepairContext, repair_R1, repair_R2, STAT_KEYS,
+                    _violators, _violators_reference)
+from thesis_metrics import _blocks_extraction
+
+
+def _blocking_loop_reference(ctx):
+    """The original per-pair loop, kept verbatim as the specification."""
+    out = {}
+    members = list(ctx.placements)
+    for a in members:
+        s_a = ctx.items[a]['stop']
+        above_set = set(ctx.above(a))
+        out[a] = [b for b in members
+                  if a != b and ctx.items[b]['stop'] > s_a
+                  and (b in above_set or _blocks_extraction(a, b, ctx.placements))]
+    return out
+
+
+_sample = json.load(open(_ROOT / 'experiments' / 'samples' / 'sample8_seed42.json'))
+_ids = [s['instance_id'] for s in _sample['selected']]
+_ids = [350] + [i for i in _ids if i != 350]
+_rng_eq = np.random.default_rng(42)
+_n_states = _viol_set_bad = _viol_order_bad = _block_bad = _n_violating = 0
+for _iid in _ids:
+    _ii = load_augmented_instance({'data': {'raw_dir': str(_ROOT / 'data' / 'raw')}},
+                                  instance_id=_iid, stop_seed=42, stop_count=3)
+    _bx, _ct = _ii['boxes'], _ii['container']
+    for _w in range(10):
+        _genome = _rng_eq.uniform(-1.0, 1.0, 2 * len(_bx))
+        _seq, _ors = decode_position(_genome, _bx)
+        _pl, _unp, _or, _, _ = place_container_dblf(_seq, _bx, _ors, _ct,
+                                                    enforce_support=bool(_w % 2),
+                                                    enforce_fragility=bool(_w % 2))
+        _ctx = RepairContext(_bx, _pl, _or, _ct)
+        _unpacked = []
+        _stats = {k: 0 for k in STAT_KEYS}
+        # intermediate states: as decoded, after R1, after R2, after a second R1
+        for _stage in range(4):
+            if _stage == 1 or _stage == 3:
+                repair_R1(_ctx, _unpacked, _stats)
+            elif _stage == 2:
+                repair_R2(_ctx, _unpacked, _stats)
+            _fast = _violators(_bx, _pl, _or)
+            _ref = _violators_reference(_bx, _pl, _or)
+            _n_states += 1
+            _n_violating += bool(_ref)
+            _viol_set_bad += _fast != _ref
+            _viol_order_bad += list(_fast) != list(_ref)
+            _block_bad += ({a: _ctx.blocking(a) for a in _pl} != _blocking_loop_reference(_ctx))
+check("equivalence test ran on >= 200 decoder arrangements", _n_states >= 200, True)
+check("... of which most contain violations (the test is not vacuous)", _n_violating >= _n_states // 4, True)
+check("_violators == _violators_reference as sets", _viol_set_bad, 0)
+check("_violators iteration order == _violators_reference order", _viol_order_bad, 0)
+check("blocking() == original loop (values and member order)", _block_bad, 0)
 
 print(f"\n{'='*58}")
 if _failed:
