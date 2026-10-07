@@ -1,7 +1,8 @@
 // client/src/study/LineChart.jsx — small inline-SVG line chart (no chart library in the client).
 import React from "react";
 
-const COLORS = { DGWO: "var(--primary)", MOGWO: "var(--blush, #B86B7A)", SEQ: "var(--green)", REP: "var(--amber)" };
+// Method colours: the shared --method-* tokens (index.css), as on Results.
+const COLORS = { DGWO: "var(--method-dgwo)", MOGWO: "var(--method-mogwo)", SEQ: "var(--method-seq)", REP: "var(--method-rep)" };
 
 /**
  * series: [{ code, label, points: [{ x: index, y: number|null }] }]

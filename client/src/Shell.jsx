@@ -1007,6 +1007,7 @@ export default function Shell() {
           setFull={setShowAllConfigs}
           onOpenTechnical={() => setActiveTab("technical")}
           hasQuickTest={!!finalResult}
+          onStartAnalysis={() => setActiveTab("logistics")}
         />
       )}
 
