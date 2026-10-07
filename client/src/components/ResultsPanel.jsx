@@ -1,25 +1,26 @@
 // Results and Technical Details — one Run STACKR study on one load.
-//   Results (default export) answers the Statement of the Problem first: the
-//   SOP Summary (SP1–SP3, viewer/sopSummary.js), a small chart, and each
-//   configuration's arrangement and guide. Technical Details
-//   (TechnicalDetailsPanel) holds everything else, unchanged: the cards with
-//   placed-box compliance and per-constraint rates, the measure-by-measure
-//   tables ("level" / highest / lowest, viewer/comparison.js), every run's
-//   numbers, the trade-offs chart, the thesis statistics and the Quick Test.
-//   Both views show the two hybrids (Sequential, Repair-Based) by default;
-//   "View full comparison (4 configurations)" adds the two baselines.
-import React, { useEffect, useMemo, useState } from "react";
+//   Results (default export) is the Performance Overview: the methods side by
+//   side on the selected load, four tabs (Overall, SP1 packing efficiency, SP2
+//   safety and delivery order, SP3 computational resources), the two hybrids
+//   as cards by default and all four in a table with ?view=all. Numbers, best
+//   values and the (descriptive) ranking come from viewer/resultsMetrics.js.
+//   Technical Details (TechnicalDetailsPanel) holds everything else: the cards
+//   with placed-box compliance and per-constraint rates, the measure-by-measure
+//   tables, every run's numbers, the trade-offs chart, the thesis statistics
+//   and the Quick Test.
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { studiesApi } from "../services/api";
 import { methodOf } from "../methods";
-import { Modal } from "./ui";
-import ThingsToKnow from "./ThingsToKnow";
 import TradeoffsChart from "./TradeoffsChart";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
 import StudyResults, { StudyProgress } from "../study/StudyResults";
 import { MEASURES, HYBRIDS, ordered, positions, profiles, pairText, byDesign, baselineNote, fmtVal } from "../viewer/comparison";
 import { timingValid, TIMING_INVALID_SHORT, TIMING_INVALID_NOTE } from "../study/timing";
-import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
-import { SopSummary, SopChart } from "./SopSummary";
+import MethodCard from "./results/MethodCard";
+import ComparisonTable from "./results/ComparisonTable";
+import ResultsTabs from "./results/ResultsTabs";
+import { METHOD_ORDER, HYBRID_METHODS, methodValues, metricsFor, bestFor, ranksFor, runCountText, criterionText } from "../viewer/resultsMetrics";
 
 const f1 = (v, d = 1) => (v == null || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
 const nameOf = (c) => (methodOf(c) ? methodOf(c).name : c);
@@ -287,11 +288,57 @@ function ViewToggle({ all, hybridsHere, full, setFull }) {
   );
 }
 
-// ── Results: the SOP first ───────────────────────────────────────────────────
+// ── Results: Performance Overview ────────────────────────────────────────────
+// Descriptive comparison of the methods on ONE load (means over its runs,
+// viewer/resultsMetrics.js). Hybrids view: two cards; comparison view (?view=all):
+// all four in a table. Ranking is a reading aid, never a statistical test.
+function SkeletonCards() {
+  return (
+    <div className="ro-cards" aria-busy="true" aria-label="Loading the results">
+      {[0, 1].map((i) => (
+        <div key={i} className="ro-card">
+          <div className="ro-skel" style={{ height: 26, width: "55%" }} />
+          {[0, 1, 2].map((j) => (
+            <div key={j}><div className="ro-skel" style={{ height: 12, width: "35%", marginBottom: 8 }} /><div className="ro-skel" style={{ height: 26, width: "25%", marginBottom: 8 }} /><div className="ro-skel" style={{ height: 6 }} /></div>
+          ))}
+          <div className="ro-skel" style={{ height: 36 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ResultsPanel({ studies = [], selectedStudyId, onSelectStudy, studyDoc, progress, onViewArrangement, onExportGuide,
-                                       full = false, setFull = () => {}, onOpenTechnical = null, hasQuickTest = false }) {
-  const [showThings, setShowThings] = useState(false);
+                                       full = false, setFull = () => {}, onOpenTechnical = null, hasQuickTest = false,
+                                       onStartAnalysis = null }) {
+  const [tab, setTab] = useState("overall");          // kept when switching views
+  const [scrollToTable, setScrollToTable] = useState(false);
+  const tableRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { rep, repErr, loadKey, setLoadKey, load, row, study, stats, done } = useStudyLoad(studyDoc);
+
+  // The view lives in the URL (?view=all) so it survives a refresh.
+  const firstSync = useRef(true);
+  useEffect(() => {
+    const urlAll = searchParams.get("view") === "all";
+    if (firstSync.current) {
+      firstSync.current = false;
+      if (urlAll !== full) { setFull(urlAll); return; }
+    }
+    if (urlAll === full) return;
+    const p = new URLSearchParams(searchParams);
+    if (full) p.set("view", "all"); else p.delete("view");
+    setSearchParams(p, { replace: true });
+  }, [full]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (full && scrollToTable && tableRef.current) {
+      tableRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      setScrollToTable(false);
+    }
+  }, [full, scrollToTable]);
+
+  const vals = useMemo(() => methodValues(load ? load.runs : [], METHOD_ORDER), [load]);
+
   const header = <Header studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={onSelectStudy} rep={rep} loadKey={loadKey} onLoad={setLoadKey} />;
   const quickHint = hasQuickTest && onOpenTechnical ? (
     <div className="card" style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -303,77 +350,83 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   if (early) return early;
 
   const cl = customLoadOf(study);
-  const { all, hybridsHere, shown } = shownCodes(load, full);
   const timingOk = timingValid(study, stats);
-  const tested = isTestedStudy(stats);
-  const model = load ? (tested
-    ? testedModel({ stats, codes: shown, nameOf, timingOk })
-    : descriptiveModel({ runs: load.runs, codes: shown, nameOf, timingOk })) : null;
+  const invalidNote = timingOk ? null : TIMING_INVALID_NOTE;
+  const metrics = metricsFor(tab);
+  const bests = Object.fromEntries(metrics.map((m) => [m.key, m.timing && !timingOk ? [] : bestFor(m, vals)]));
+  const rank = ranksFor(tab, vals, { timingOk });
+  const ranks = rank.ranks || {};
+  const nRan = METHOD_ORDER.filter((c) => vals[c].ran).length;
+  const crit = criterionText(rank);
+  const caption = crit
+    ? `Ranked by ${crit} on this load${tab === "overall" && !timingOk ? " (time and memory left out: these runs shared the CPU)" : ""}. Not a statistical test — see Technical Details for significance results.`
+    : tab === "sp3" && !timingOk && nRan > 1 ? "Not ranked: these runs shared the CPU (parallel), so their time and memory are not comparable." : null;
+
+  const view = (c) => load && load.representative[c] && onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c });
+  const guide = (c) => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey });
+  const run = () => (onStartAnalysis ? onStartAnalysis() : null);
+  // Hybrid cards in rank order; unranked / tied keep the fixed order.
+  const cardOrder = HYBRID_METHODS.slice().sort((a, b) => (ranks[a] ?? 99) - (ranks[b] ?? 99));
 
   return (
     <div>
       {header}
       {cl && <div style={{ marginBottom: 16 }}><CustomLoadBanner info={cl} /></div>}
       {repErr && <div className="alert-danger" style={{ marginBottom: 16 }}>Could not read the comparison: {repErr}</div>}
-      {!rep && !repErr && <div className="card" style={{ marginBottom: 16 }}><div className="field-hint">Reading the comparison…</div></div>}
 
-      {load && (
+      <div className="ro-head">
+        <div>
+          <div className="ro-title">Performance Overview</div>
+          <div className="ro-sub">
+            {full ? "All four methods on this load." : "How our two proposed hybrid methods performed on this load."} {runCountText(vals)}
+          </div>
+        </div>
+        {full && (
+          <button type="button" className="btn ro-btn-outline" onClick={() => setFull(false)}>Hide comparison <span aria-hidden="true">⌃</span></button>
+        )}
+      </div>
+
+      <ResultsTabs tab={tab} onChange={setTab} />
+      {caption ? <div className="ro-caption">{caption}</div> : <div style={{ height: 14 }} />}
+
+      {!rep && !repErr ? <SkeletonCards /> : load && (
         <>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div className="card-title" style={{ fontSize: 18 }}>
-                {full || !hybridsHere ? `Full comparison (${all.length} configurations)` : "Hybrid configurations: Sequential and Repair-Based"}
+          {nRan === 1 && <div className="ro-note">Only one method was run on this load, so nothing is ranked or marked best.</div>}
+          {!full ? (
+            <>
+              <div className="ro-section-label">Proposed hybrid methods</div>
+              <div className="ro-cards">
+                {cardOrder.map((c) => (
+                  <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} invalidNote={invalidNote}
+                    onView={() => view(c)} onGuide={() => guide(c)} onRun={run} />
+                ))}
               </div>
-              <div className="card-desc" style={{ margin: 0 }}>
-                {tested
-                  ? `Means over every run of the study's ${stats.provenance.n_instances} test cases; marks follow the statistical tests.`
-                  : `Means over ${model.runsEach} run${model.runsEach === 1 ? "" : "s"} per configuration on this load.`}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowThings(true)}>Things to know</button>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
-            <SopSummary model={model} nameOf={nameOf}
-              desc="The answers to the Statement of the Problem (SP1–SP3), one row per specific problem." />
-            <SopChart model={model} nameOf={nameOf} />
-          </div>
-
-          <div className="card" style={{ marginBottom: 20 }}>
-            <div className="card-title">See each arrangement</div>
-            <div className="card-desc" style={{ marginBottom: 10 }}>Each configuration's representative run (the one closest to its median container fill) in the 3D viewer, or as a printable loading guide.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {shown.map((c) => (
-                <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--border)" }}>
-                  <div><b style={{ color: "var(--text-main)" }}>{nameOf(c)}</b> <span className="field-hint" style={{ marginLeft: 6 }}>{nickOf(c)}</span></div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c })}>View Arrangement</button>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => onExportGuide({ studyId: row.id, method: c, loadIndex: loadKey })}>Export Guide</button>
-                  </div>
+              <div className="ro-banner">
+                <div>
+                  <b>See how they compare with DGWO and MOGWO</b>
+                  <div className="ro-sub">DGWO and MOGWO are the baseline methods. Each one also has View Arrangement and Export Guide.</div>
                 </div>
-              ))}
+                <button type="button" className="btn ro-btn-dark" onClick={() => { setFull(true); setScrollToTable(true); }}>
+                  Compare All Methods <span aria-hidden="true">⌄</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div ref={tableRef}>
+              <ComparisonTable metrics={metrics} vals={vals} bests={bests} ranks={ranks} invalidNote={invalidNote}
+                onView={view} onGuide={guide} onRun={run} />
             </div>
-          </div>
+          )}
         </>
       )}
 
-      {onOpenTechnical && (
-        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div className="card-title">Technical details</div>
-            <div className="card-desc">Placed-box compliance, each rule on both bases, CPU time and memory, run-to-run spread, every run's numbers and the thesis statistics.</div>
-          </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details</button>
+      <div className="ro-footer">
+        <div className="ro-legend">
+          <span className="ro-legend-key">Green ✓ = best value in that {full ? "column" : "row"}</span>
+          <span>Fragility and stability are guaranteed for every loaded box.</span>
         </div>
-      )}
-
-      <Modal open={showThings} onClose={() => setShowThings(false)} title="Things to know" desc="How STACKR works, and what it does not model"
-        footer={<button type="button" className="btn btn-primary" onClick={() => setShowThings(false)}>Understood</button>}>
-        <ThingsToKnow bare studies={studies.filter((s) => s.id === row.id)} />
-      </Modal>
+        {onOpenTechnical && <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details →</button>}
+      </div>
     </div>
   );
 }
