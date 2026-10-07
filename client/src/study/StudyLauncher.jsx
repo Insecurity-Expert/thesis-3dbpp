@@ -1,7 +1,7 @@
-// client/src/study/StudyLauncher.jsx — "Two ways to run this": Quick Test
-// (the existing single run) or Full Comparison (a study: four configurations
-// x N seeds x instances). Also the locked "Test settings" panel — every value
-// in it is read from the optimizer via /api/studies/sizes, none is typed here.
+// client/src/study/StudyLauncher.jsx — the Full Comparison size picker (a
+// study: four configurations x N seeds x instances). Also the locked "Test
+// settings" panel — every value in it is read from the optimizer via
+// /api/studies/sizes, none is typed here.
 import React, { useState } from "react";
 import { fmt } from "./verdicts";
 import { CUSTOM_LOAD_LABEL } from "../components/CustomLoadBanner";
@@ -55,12 +55,11 @@ export function TestSettingsPanel({ sizesInfo, size, wtpackInstance, seed, selec
   );
 }
 
+// The Full Comparison size picker (Start analysis → Advanced). The list of
+// studies and the import list are in Run History → Studies (StudyList.jsx).
 export default function StudyLauncher({
-  sizesInfo, studies, available, onLaunch, onImport, onOpenStudy, onDeleteStudy, onRefresh,
-  wtpackId, wtpackInstances, seed, busy, size, setSize, selectedLoad = null,
-  // Which cards to show, and which sizes the picker offers (the guided flow
-  // shows the larger sizes in Advanced and the study list in Technical details).
-  sections = ["sizes", "studies", "import"], sizeKeys = null,
+  sizesInfo, studies, onLaunch, onRefresh, wtpackId, wtpackInstances, busy, size, setSize, selectedLoad = null,
+  sizeKeys = null,   // which sizes the picker offers
 }) {
   const [customInstance, setCustomInstance] = useState(false);
   const sizes = ((sizesInfo && sizesInfo.sizes) || []).filter((s) => !sizeKeys || sizeKeys.includes(s.key));
@@ -76,7 +75,7 @@ export default function StudyLauncher({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {sections.includes("sizes") && <div className="card" style={{ border: "2px solid var(--primary)" }}>
+      <div className="card" style={{ border: "2px solid var(--primary)" }}>
         <div className="card-head">
           <div>
             <div className="card-title">Full Comparison</div>
@@ -138,71 +137,8 @@ export default function StudyLauncher({
           {running.length > 0 && <span className="badge badge-warn" style={{ textTransform: "none" }}>{running.length} study{running.length > 1 ? "ies" : ""} running</span>}
           <button className="btn btn-secondary btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
-      </div>}
+      </div>
 
-      {sections.includes("studies") && <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">Your studies</div>
-            <div className="card-desc">Every Full Comparison you launched or imported. Open one to see its Results and Compare screens.</div>
-          </div>
-        </div>
-        {studies.length === 0 ? (
-          <div style={{ fontSize: 13, color: "var(--text-dim)", padding: "14px 0" }}>No studies yet — run a Full Comparison above, or import a precomputed one below.</div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="custom-table" style={{ width: "100%" }}>
-              <thead><tr><th>#</th><th>Name</th><th>Status</th><th>Runs</th><th>Test cases</th><th>Mode</th><th>Outcome</th><th></th></tr></thead>
-              <tbody>
-                {studies.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.id}</td>
-                    <td style={{ textAlign: "left", fontWeight: 700 }}>{s.name}{s.imported && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>imported</span>}
-                      {s.custom_load && <span className="badge badge-warn" style={{ marginLeft: 6, textTransform: "none" }}>{s.custom_load_label || CUSTOM_LOAD_LABEL}</span>}</td>
-                    <td>
-                      {s.status === "running" ? <span className="badge badge-warn">running {s.progress ? `${s.progress.done}/${s.progress.total}` : ""}</span>
-                        : s.status === "error" ? <span className="badge badge-fragile">failed</span>
-                        : <span className="badge badge-success">done</span>}
-                    </td>
-                    <td>{s.n_runs ?? (s.progress && s.progress.total) ?? "—"}</td>
-                    <td>{s.n_instances ?? "—"}</td>
-                    <td>{s.mode || "—"}{s.timing_valid === false ? " (timing flagged)" : ""}</td>
-                    <td>{s.outcome ? `Outcome ${s.outcome}` : "—"}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      <button className="btn btn-primary btn-xs" onClick={() => onOpenStudy(s.id)}>Open</button>{" "}
-                      <button className="btn btn-danger-outline btn-xs" onClick={() => onDeleteStudy(s)}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>}
-
-      {sections.includes("import") && <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">Import a precomputed study</div>
-            <div className="card-desc">Study files computed from the command line (experiments/study.py) in experiments/results/studies.</div>
-          </div>
-        </div>
-        {(!available || available.length === 0) ? (
-          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>No study files found on this machine.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {available.map((f) => (
-              <div key={f.file} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 12.5, padding: "8px 10px", background: "var(--bg-input)", borderRadius: 8 }}>
-                <span>
-                  <b>{f.name}</b> — {f.n_runs} runs, {f.n_instances} test case{f.n_instances === 1 ? "" : "s"}, {f.preset ? `${f.preset.name} (${f.preset.pop_size} × ${f.preset.max_iter})` : ""}, {f.mode}, seeds {fmt.seeds(f.seeds)}, commit {f.commit || "?"}
-                  {!f.has_stats && <span className="badge badge-warn" style={{ marginLeft: 6 }}>no stats</span>}
-                </span>
-                <button className="btn btn-secondary btn-sm" disabled={f.imported || !f.has_stats} onClick={() => onImport(f.file)}>{f.imported ? "Imported" : "Import"}</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // client/src/Shell.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import logoImg from "./logo.png";
 
@@ -21,12 +22,25 @@ import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
 import CompareTab from "./study/CompareTab";
 
 
+const PAGES = ["home", "logistics", "results", "technical", "guide", "visualization", "history", "account"];
+
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [activeTab, setActiveTab] = useState("home"); // home, logistics, results, technical, guide, compare (Studies), visualization, history, account
+  // home, logistics, results, technical, guide, visualization, history, account.
+  // The page is mirrored in the URL (?page=) so a refresh, /run-history and the
+  // old /studies link land on the right one.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => (PAGES.includes(searchParams.get("page")) ? searchParams.get("page") : "home"));
+  useEffect(() => {
+    if (searchParams.get("page") === activeTab) return;
+    const p = new URLSearchParams(searchParams);
+    p.set("page", activeTab);
+    if (activeTab !== "history") p.delete("tab");
+    setSearchParams(p, { replace: true });
+  }, [activeTab]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [showHowTo, setShowHowTo] = useState(false);
   // "How to use" opens by itself once: on a new account's first login (the
   // account records that it has).
@@ -272,7 +286,7 @@ export default function Shell() {
   }, []);
   useEffect(() => { loadStudy(selectedStudyId); }, [selectedStudyId, loadStudy]);
   // Results has no study picker: with nothing selected, show the newest
-  // finished study. Another one is opened from Technical details -> Studies.
+  // finished study. Another one is opened from Run History -> Studies.
   useEffect(() => {
     if (selectedStudyId !== null) return;
     const done = studies.filter((s) => s.status === "done" || s.status === "imported");
@@ -365,6 +379,15 @@ export default function Shell() {
       fetchStudies();
     } catch (e) { setError(`Could not delete study #${s.id}: ${e.message}`); }
   }, [fetchStudies, selectedStudyId]);
+
+  // Run History, on its Runs or Studies tab.
+  const openHistory = useCallback((tab = "runs") => {
+    setActiveTab("history");
+    const p = new URLSearchParams(searchParams);
+    p.set("page", "history");
+    if (tab === "studies") p.set("tab", "studies"); else p.delete("tab");
+    setSearchParams(p, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
@@ -806,7 +829,6 @@ export default function Shell() {
     { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
     { id: "technical", group: "Get started", label: "Technical Details", title: "Technical Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
-    { id: "compare", group: "Advanced tools", label: "Studies", title: "Studies", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20h16"/><path d="M7 16V9"/><path d="M12 16V4"/><path d="M17 16v-6"/></svg> },
     { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
@@ -908,7 +930,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} onOpenHistory={openHistory} runHistory={runHistory} studies={studies} />
       )}
 
       {/* ── LOADING GUIDE ── */}
@@ -971,20 +993,14 @@ export default function Shell() {
           testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
           largerSizes={
             <StudyLauncher
-              sections={["sizes"]}
               sizeKeys={["standard", "multi"]}
               sizesInfo={sizesInfo}
               studies={studies}
-              available={availableStudies}
               onLaunch={handleLaunchStudy}
-              onImport={handleImportStudy}
-              onOpenStudy={handleOpenStudy}
-              onDeleteStudy={handleDeleteStudy}
               onRefresh={fetchStudies}
               wtpackId={wtpackId}
               wtpackInstances={wtpackInstances}
               selectedLoad={selectedLoad}
-              seed={seed}
               busy={studyBusy}
               size={studySize === "demo" ? "standard" : studySize}
               setSize={setStudySize}
@@ -1028,7 +1044,7 @@ export default function Shell() {
               <div className="card-title" style={{ marginBottom: 4 }}>Are the differences real? (SP1–SP3)</div>
               <div className="card-desc" style={{ marginBottom: 12 }}>The statistical tests for container fill, safety rules, and time and memory.</div>
               <CompareTab row={studyDoc ? studyDoc.row : null} study={studyDoc ? studyDoc.study : null} stats={studyDoc ? studyDoc.stats : null}
-                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} />
+                runHistory={runHistory} studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={setSelectedStudyId} showPicker={false} summary />
             </div>
           }
           quickTest={finalResult ? (
@@ -1039,42 +1055,6 @@ export default function Shell() {
                 maxIter={maxIter} wolfSize={wolfSize} handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
             </div>
           ) : null}
-        />
-      )}
-
-      {/* ── COMPARE TAB ── */}
-      {activeTab === "compare" && (
-        <div style={{ marginBottom: 20 }}>
-          <StudyLauncher
-            sections={["studies", "import"]}
-            sizesInfo={sizesInfo}
-            studies={studies}
-            available={availableStudies}
-            onLaunch={handleLaunchStudy}
-            onImport={handleImportStudy}
-            onOpenStudy={handleOpenStudy}
-            onDeleteStudy={handleDeleteStudy}
-            onRefresh={fetchStudies}
-            wtpackId={wtpackId}
-            wtpackInstances={wtpackInstances}
-            selectedLoad={selectedLoad}
-            seed={seed}
-            busy={studyBusy}
-            size={studySize}
-            setSize={setStudySize}
-          />
-        </div>
-      )}
-      {activeTab === "compare" && (
-        <CompareTab
-          row={studyDoc ? studyDoc.row : null}
-          study={studyDoc ? studyDoc.study : null}
-          stats={studyDoc ? studyDoc.stats : null}
-          runHistory={runHistory}
-          studies={studies}
-          selectedStudyId={selectedStudyId}
-          onSelectStudy={setSelectedStudyId}
-          summary
         />
       )}
 
@@ -1102,6 +1082,12 @@ export default function Shell() {
           onDeleteRun={handleDeleteRun}
           onExportRun={handleExportRun}
           onImportRun={handleImportRun}
+          studies={studies}
+          availableStudies={availableStudies}
+          onImportStudy={handleImportStudy}
+          onOpenStudy={handleOpenStudy}
+          onDeleteStudy={handleDeleteStudy}
+          onRefreshStudies={fetchStudies}
         />
       )}
 

@@ -24,7 +24,7 @@ function Need({ n, children }) {
   );
 }
 
-export default function DashboardTab({ onStart, onHelp, runHistory = [], studies = [] }) {
+export default function DashboardTab({ onStart, onHelp, onOpenHistory = null, runHistory = [], studies = [] }) {
   const finished = runHistory.filter((r) => r.status !== "failed").length;
   const done = studies.filter((s) => s.status === "done" || s.status === "imported").length;
   return (
@@ -43,6 +43,7 @@ export default function DashboardTab({ onStart, onHelp, runHistory = [], studies
         {(finished > 0 || done > 0) && (
           <div className="field-hint" style={{ marginTop: 14 }}>
             You have {finished} saved run{finished === 1 ? "" : "s"}{done > 0 ? ` and ${done} finished comparison${done === 1 ? "" : "s"}` : ""}.
+            {onOpenHistory && <>{" "}<button type="button" className="link-btn" onClick={() => onOpenHistory(done > 0 ? "studies" : "runs")}>Open Run History</button></>}
           </div>
         )}
       </div>

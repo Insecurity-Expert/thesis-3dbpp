@@ -242,7 +242,7 @@ function useStudyLoad(studyDoc) {
 }
 
 function Header({ studies, selectedStudyId, onSelectStudy, rep, loadKey, onLoad }) {
-  // No study picker on Results (Technical details -> Studies opens another
+  // No study picker on Results (Run History -> Studies opens another
   // study); only a multi-load study needs this header, for the load picker.
   if (!(rep && rep.loads.length > 1)) return null;
   return (
@@ -464,7 +464,7 @@ export function TechnicalDetailsPanel({ studies = [], selectedStudyId, onSelectS
               </div>
               <div className="card-desc" style={{ margin: 0 }}>
                 Averages over {runsPer} run{runsPer === 1 ? "" : "s"} per configuration on this load. "Level" means the gap is under 2 percentage points (fill, compliance) or 2 boxes;
-                a display rule, not a statistical test (the tests are in Studies).
+                a display rule, not a statistical test (the tests are further down this page).
               </div>
             </div>
             <ViewToggle all={all} hybridsHere={hybridsHere} full={full} setFull={setFull} />

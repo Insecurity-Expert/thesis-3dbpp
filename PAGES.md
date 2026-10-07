@@ -39,9 +39,8 @@ The sidebar groups the pages:
 
 | page | component | what it shows |
 |---|---|---|
-| Studies | `study/StudyLauncher.jsx`, `study/CompareTab.jsx`, `study/StudyResults.jsx`, `study/StatsTables.jsx` | your studies and the import list, then the selected study's SOP Summary (same rows as Results; with ≥ 2 test cases "significantly higher / lower" only where stats.py's Holm-corrected test and effect-size threshold support it, otherwise "no significant difference") and its Chapter 3 statistics: SP1 (space utilisation), SP2 (compliance C3–C6), SP3 (time and memory, serial studies only), the composite score, and saved runs side by side. Every sentence comes from `study/verdicts.js` |
 | 3D Viewer | `components/VisualizationTab.jsx`, `BinViewer.jsx` | the packed container in three.js: colour by delivery stop or by box, filter by stop, "Highlight problems" (boxes breaking C3–C6), orientation guides, box names, the rear door and cab end marked |
-| Run History | `components/RunHistoryTab.jsx` | your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete |
+| Run History | `components/RunHistoryTab.jsx`, `study/StudyList.jsx` | two tabs. **Runs**: your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete, Download as CSV. **Studies** (`?tab=studies`; the old `/studies` link redirects here): your studies (Open → Results, Delete with confirmation) and, collapsed under "Show precomputed studies (N)", the study files in `experiments/results/studies/` to import, newest first, one entry per study (a file computed again on the same commit with the same settings is listed once) |
 
 **Account**
 
@@ -60,11 +59,12 @@ The sidebar groups the pages:
 2. **Settings**: the container (587 × 233 × 220 cm by default), the four methods and the safety rules. The penalty weights λ and the C4/C5 enforcement are fixed to `experiments/calibration.json`; they are shown but can't be edited.
 3. **Review & run**: facts computed from the load, then **Run STACKR**. This launches a comparison of all four methods on the load (`POST /api/studies`). `components/ProcessingPanel.jsx` shows its real progress, and Stop ends every process of the comparison.
 
-Under **Two ways to run this** (`study/StudyLauncher.jsx`):
+Under **Advanced** on Review & run:
 
 - **Quick Test** is one method, one repeat code. It streams over the WebSocket and opens the 3D Viewer.
-- **Full Comparison** is the larger study sizes.
-- **Import a precomputed study** brings in a study file from `experiments/results/studies/`.
+- **Full Comparison** (`study/StudyLauncher.jsx`) is the larger study sizes.
+
+Precomputed study files are imported from Run History → Studies.
 
 The locked test settings shown there are read from `experiments/study.py --print-defaults`.
 

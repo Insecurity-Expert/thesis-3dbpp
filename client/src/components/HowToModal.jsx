@@ -19,7 +19,7 @@ export default function HowToModal({ open, onClose }) {
           [<b>Check the settings.</b>, <> For your own boxes, enter the container size (length from the door to the cab × width × height, in cm) and, if you like, a truck weight limit. Samples use their own container.</>],
           [<b>Meet the four methods.</b>, <> {nick("DGWO")}, {nick("MOGWO")}, {nick("SEQ")} and {nick("REP")}. You don't have to pick one.</>],
           [<b>Run STACKR.</b>, <> Run STACKR runs all four methods on your load, several times each, and shows its progress while it works.</>],
-          [<b>Look at the results.</b>, <> "Results" compares the two hybrid configurations, Sequential and Repair-Based, measure by measure; "View full comparison" adds DGWO and MOGWO. Gaps under 2 percentage points (or 2 boxes) are shown as level.</>],
+          [<b>Look at the results.</b>, <> "Results" compares the two hybrid configurations, Sequential and Repair-Based, measure by measure; "View full comparison" adds DGWO and MOGWO. Gaps under 2 percentage points (or 2 boxes) are shown as level. Your saved runs and comparisons stay in Run History, under its Runs and Studies tabs.</>],
           [<b>Print your loading plan.</b>, <> Loading Guide gives you a plan you can print: the loading order, the unloading order, and a picture of where every box goes.</>],
         ].map(([head, body], i) => (
           <div className="guide-step" key={i}>
