@@ -5,7 +5,9 @@ R3 re-evaluation. C4 and C5 are enforced in the decoder and have no repair step.
 R1 and R2 first try to RELOCATE a violating box to a feasible extreme point;
 only when no position exists is the box DEFERRED to the unpacked list.
 After R_MAX passes any box still in violation is removed (R3), iterated to a
-fixpoint because removing a support can orphan the boxes above it. The result
+fixpoint because removing a support can orphan the boxes above it. After R3
+every unpacked box (decoder-unplaced and repair-deferred) is re-attempted once
+at the extreme points of the repaired arrangement under C1-C6. The result
 is feasible by construction: S(X_feas) == 1.0 is asserted, not hoped for.
 
 Constraint checks here must mirror thesis_metrics.evaluate_constraints exactly
@@ -31,7 +33,7 @@ R2_CHECK = ('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
 OPERATORS = ('R1', 'R2')
 
 STAT_KEYS = ('relocated_R1', 'relocated_R2', 'deferred_R1', 'deferred_R2',
-             'removed_R3', 'passes_used', 'rmax_hit')
+             'removed_R3', 'passes_used', 'rmax_hit', 'reinserted')
 
 
 # -- Per-pass caches -----------------------------------------------------------
@@ -549,6 +551,24 @@ def repair_arrangement(placements, orientations, unpacked, items, container):
     stats['passes_used'] = passes
 
     repair_R3(ctx, unpacked, stats)
+
+    # Re-attempt every unpacked box (decoder-unplaced first, then repair-deferred,
+    # in list order, one pass) at the extreme points of the repaired arrangement.
+    # R2_CHECK = C1-C6, both directions of C3 and C6, so a re-inserted box can
+    # neither violate a constraint nor create one for a box already placed.
+    # The S(X_feas) == 100 assertion below must still hold.
+    still_out = []
+    for j in [b for b in unpacked if b not in ctx.placements]:
+        found = find_feasible_position(j, items, ctx.placements, ctx.orientations,
+                                       container, check=R2_CHECK,
+                                       eps=ctx.extreme_points())
+        if found is None:
+            still_out.append(j)
+        else:
+            pos, r = found
+            ctx.place(j, pos, r)
+            stats['reinserted'] += 1
+    unpacked[:] = still_out
 
     stats['rejections'] = {op: dict(c) for op, c in ctx.rejections.items()}
 
