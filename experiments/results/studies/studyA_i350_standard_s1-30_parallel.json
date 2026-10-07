@@ -91977,11 +91977,17 @@
      "testable": false,
      "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
      "significant": false,
-     "p": null
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "holm_family_size": 0,
+     "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
     },
     "pairs": []
    },
-   "confound_note": "Sequential's DGWO phase receives only part of the iteration budget: 150 of 300 iterations go to DGWO, the rest to the MOGWO phase, so its utilisation is not a like-for-like comparison with standalone DGWO."
+   "confound_note": "Sequential's DGWO phase receives only part of the iteration budget: 150 of 300 iterations go to DGWO, the rest to the MOGWO phase, so its utilisation is not a like-for-like comparison with standalone DGWO.",
+   "h0_rejected": false,
+   "decision": "H0 not testable: requires >= 2 instances"
   },
   "SP2": {
    "measures": [
@@ -92342,7 +92348,8 @@
         "p": null,
         "p_holm": null,
         "significant_holm": false,
-        "holm_family_size": 0
+        "holm_family_size": 0,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "pairs": []
       },
@@ -92404,7 +92411,8 @@
         "p": null,
         "p_holm": null,
         "significant_holm": false,
-        "holm_family_size": 0
+        "holm_family_size": 0,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "pairs": []
       },
@@ -92578,7 +92586,8 @@
         "p": null,
         "p_holm": null,
         "significant_holm": false,
-        "holm_family_size": 0
+        "holm_family_size": 0,
+        "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
        },
        "pairs": []
       }
@@ -92651,7 +92660,8 @@
        "p": null,
        "p_holm": null,
        "significant_holm": false,
-       "holm_family_size": 0
+       "holm_family_size": 0,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "pairs": []
      },
@@ -92713,7 +92723,8 @@
        "p": null,
        "p_holm": null,
        "significant_holm": false,
-       "holm_family_size": 0
+       "holm_family_size": 0,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "pairs": []
      },
@@ -92887,7 +92898,8 @@
        "p": null,
        "p_holm": null,
        "significant_holm": false,
-       "holm_family_size": 0
+       "holm_family_size": 0,
+       "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
       },
       "pairs": []
      }
@@ -92903,7 +92915,148 @@
   },
   "SP3": {
    "available": false,
-   "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+   "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial",
+   "all_instances": {
+    "ET": {
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "lower_is_better": true,
+     "n_instances": 1,
+     "pairs": [],
+     "normality": {
+      "basis": "within-instance differences",
+      "pairs": [],
+      "all_normal": false
+     },
+     "all_normal": false,
+     "omnibus": {
+      "testable": false,
+      "significant": false,
+      "p": null,
+      "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial",
+      "p_holm": null,
+      "significant_holm": false,
+      "holm_family_size": 0,
+      "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
+     }
+    },
+    "PM": {
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "lower_is_better": true,
+     "n_instances": 1,
+     "pairs": [],
+     "normality": {
+      "basis": "within-instance differences",
+      "pairs": [],
+      "all_normal": false
+     },
+     "all_normal": false,
+     "omnibus": {
+      "testable": false,
+      "significant": false,
+      "p": null,
+      "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial",
+      "p_holm": null,
+      "significant_holm": false,
+      "holm_family_size": 0,
+      "holm_family": "six-test family (SU; CSR, C3, C6; ET, PM)"
+     }
+    }
+   },
+   "h0_rejected": false,
+   "decision": "H0 not testable: requires >= 2 instances"
+  },
+  "hypothesis_family": {
+   "members": [
+    "SU",
+    "CSR",
+    "C3",
+    "C6",
+    "ET",
+    "PM"
+   ],
+   "correction": "Holm-Bonferroni",
+   "holm_family_size": 0,
+   "tests": [
+    {
+     "sp": "SP1",
+     "measure": "SU",
+     "label": "space utilisation (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+    }
+   ],
+   "significant_measures": [],
+   "h0_rejected": false,
+   "testable": false,
+   "decision": "H0 not testable: requires >= 2 instances",
+   "note": "Untestable members (fewer than 2 instances, no variance, or concurrent timing for ET/PM) are excluded from the family. Per-BR-class Friedman tests are exploratory."
   },
   "composite": {
    "available": false,

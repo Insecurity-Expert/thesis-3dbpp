@@ -98,7 +98,10 @@ def main():
     check(c4.get('descriptive_only') and c4['omnibus']['testable'] is False
           and c4['omnibus']['reason'] == 'decoder-enforced; all-box value = share placed',
           f"C4 descriptive, not tested -> {c4['omnibus']['reason']}")
-    check(st['SP2']['primary']['holm_family_size'] == 1, "untestable measures excluded from the Holm family (only CSR varies)")
+    hf = st['hypothesis_family']
+    tested = [t['measure'] for t in hf['tests'] if t['testable']]
+    check(tested == ['SU', 'CSR', 'ET'] and hf['holm_family_size'] == 3 and st['SP2']['primary']['holm_family_size'] == 3,
+          f"untestable members (C3, C6, PM constant) excluded from the six-test Holm family (tested {tested})")
     check(not no_nan(st), "no NaN / inf in the output")
     for p in sp1['pairs']:
         check(p['p'] is not None and p['p_raw'] is not None and p['effect']['value'] is not None,
@@ -263,7 +266,7 @@ def main():
     check(m == 4, "None excluded from the family")
     check([round(x, 4) if x is not None else None for x in adj] == [0.04, 0.09, 0.09, None, 0.2], f"adjusted = {adj}")
 
-    # ── 12a. SP2 family of 3, C4 / C5 descriptive, Holm-gated verdicts ───────
+    # ── 12a. SP2 in the six-test family, C4 / C5 descriptive, Holm-gated verdicts
     print("12a. SP2 family and Holm gating")
     st = analyse(make_study(lambda c, i, s: {'su': 50 + inst_eff[i] + rng.normal(0, 1),
                                              'csr': {'DGWO': 40, 'MOGWO': 50, 'SEQ': 60, 'REP': 90}[c] + inst_eff[i] + rng.normal(0, 1),
@@ -272,8 +275,9 @@ def main():
                                              'placed': {'DGWO': 90, 'MOGWO': 88, 'SEQ': 91, 'REP': 40}[c] + (i % 3), 'n': 100},
                             instances, seeds))
     prim = st['SP2']['primary']
-    check(tuple(st['SP2']['holm_family']) == SP2_FAMILY == ('CSR', 'C3', 'C6'), f"SP2 family = {st['SP2']['holm_family']}")
-    check(prim['holm_family_size'] == 3, f"Holm family size 3 when CSR, C3, C6 all vary (got {prim['holm_family_size']})")
+    check(tuple(st['SP2']['holm_family']) == SP2_FAMILY == ('CSR', 'C3', 'C6'), f"SP2 measures in the family = {st['SP2']['holm_family']}")
+    check(prim['holm_family_size'] == 4 and st['hypothesis_family']['holm_family_size'] == 4,
+          f"one Holm family: SU, CSR, C3, C6 vary, ET and PM constant -> size 4 (got {prim['holm_family_size']})")
     for m in ('C4', 'C5'):
         pm = prim['per_measure'][m]
         check(pm['descriptive_only'] and pm['equals_share_placed'] and 'holm_family_size' not in pm['omnibus'],
@@ -347,6 +351,46 @@ def main():
     st13 = analyse(make_study(lambda c, i, s: {'su': 50.0}, insts13, [1, 2]))
     check(st13['supplementary']['available'] is False, "no baselines in the file -> supplementary unavailable")
     check(not no_nan(analyse(study13)), "no NaN anywhere with the supplementary block")
+
+    # ── 14. the six-test hypothesis family (manuscript) ──────────────────────
+    print("14. six-test Holm family: SU; CSR, C3, C6; ET, PM (all instances)")
+    insts14 = list(range(1, 13))
+    st = analyse(make_study(lambda c, i, s: {
+        'su': base[c] + inst_eff[i] + rng.normal(0, 1),
+        'csr': {'DGWO': 40, 'MOGWO': 50, 'SEQ': 60, 'REP': 90}[c] + rng.normal(0, 1),
+        'c3': 80 + rng.normal(0, 1), 'c6': 60 + rng.normal(0, 1),
+        'et': {'DGWO': 1000, 'MOGWO': 1100, 'SEQ': 1050, 'REP': 5000}[c] * (1 + i / 20) + rng.normal(0, 5),
+        'pm': 150 + rng.normal(0, 0.5)}, insts14, seeds, classes=cls))
+    hf = st['hypothesis_family']
+    check(hf['members'] == ['SU', 'CSR', 'C3', 'C6', 'ET', 'PM'] and hf['holm_family_size'] == 6,
+          f"six members, all testable -> Holm across 6 (got {hf['holm_family_size']})")
+    raw = [t['p'] for t in hf['tests']]
+    adj, fam = holm(raw)
+    check(fam == 6 and all(math.isclose(t['p_holm'], a, rel_tol=1e-5, abs_tol=1e-12) for t, a in zip(hf['tests'], adj)),
+          "p_holm = Holm across the six raw omnibus p-values")
+    sig = [t['measure'] for t in hf['tests'] if t['significant_holm']]
+    check(hf['h0_rejected'] == bool(sig) and set(hf['significant_measures']) == set(sig)
+          and {'SU', 'CSR', 'ET'} <= set(sig), f"H0 rejected iff any Holm-corrected test is significant ({sig})")
+    s3 = st['SP3']
+    check(set(s3['all_instances']) == {'ET', 'PM'} and s3['all_instances']['ET']['n_instances'] == 12,
+          "SP3: ET and PM tested across all 12 instances")
+    check(s3['profiles_exploratory'] and all(p['exploratory'] for p in s3['profiles']),
+          "per-BR-class Friedman tests marked exploratory")
+    check(all(p['friedman'][m]['omnibus'].get('holm_family_size', 0) <= 2 for p in s3['profiles'] for m in ('ET', 'PM')),
+          "per-class tests are not in the six-test family")
+    gated = all(not pr['significant'] or t_cmp['omnibus']['significant_holm']
+                for t_cmp in [st['SP1']['comparison'], s3['all_instances']['ET'], s3['all_instances']['PM']]
+                + [st['SP2']['primary']['per_measure'][m] for m in SP2_FAMILY] for pr in t_cmp['pairs'])
+    check(gated, "every significant pair (all six measures) has a significant Holm-corrected omnibus test")
+    check(st['SP3']['h0_rejected'] == any(t['significant_holm'] for t in hf['tests'] if t['sp'] == 'SP3')
+          and st['SP1']['decision'].startswith('H0'), "per-SP decisions follow the same family")
+    stp = analyse(make_study(lambda c, i, s: {'su': base[c] + inst_eff[i] + rng.normal(0, 1),
+                                              'et': 1000 + 100 * CONFIGS.index(c) + rng.normal(0, 5)},
+                             insts14, seeds, mode='parallel', classes=cls))
+    tp = {t['measure']: t for t in stp['hypothesis_family']['tests']}
+    check(not tp['ET']['testable'] and 'concurrent' in tp['ET']['reason'] and stp['hypothesis_family']['holm_family_size'] == 1,
+          "parallel study: ET and PM leave the family (concurrent timing); only SU is tested here")
+    check(not no_nan(st) and not no_nan(stp), "no NaN in the family output")
 
     print()
     if FAILS:

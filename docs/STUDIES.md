@@ -11,7 +11,7 @@ treatment) can.
 | file | role |
 |---|---|
 | `experiments/study.py` | runs configurations × seeds × instances, one **fresh process per run** (numba warmed untimed; M-3 = wall-clock of `run()`, M-4 = process peak working set via psutil — `tracemalloc` is not used because it slows the optimizer ~4×), validates every arrangement with `tools/validate_arrangement.py`, writes one study file and its `.progress.json`, then calls `stats.py`. Each file records the git commit at the **start** (`commit`), the end commit, whether tracked files were modified at either point (`git.dirty_start` / `git.dirty_end`, warned on the console) and the numba / numpy / scipy / python versions (`versions`) |
-| `experiments/stats.py` | Chapter 3 statistics, repeated measures with instances as subjects: descriptives; SP1 and SP2 via Shapiro–Wilk on within-instance differences → RM-ANOVA (Mauchly, Greenhouse–Geisser, paired t, d_z) or Friedman (Wilcoxon, rank-biserial r); SP2 on CSR, C3 and C6 with Holm across the testable ones (family of 3) and an explicit H₀ decision, C4 / C5 descriptive; SP3 Friedman within each BR class, Holm across ET and PM (serial studies only); supplementary composite ranking + Friedman/Nemenyi; outperformance (three conditions, reported in neutral wording); outcome pattern A–D. Compliance over all boxes (`PRIMARY_COMPLIANCE = "all_boxes"`) is tested; over placed boxes is descriptive |
+| `experiments/stats.py` | Chapter 3 statistics, repeated measures with instances as subjects: descriptives; **one Holm family of six omnibus tests across all instances — SU (SP1); CSR, C3, C6 over all boxes (SP2); ET, PM (SP3, serial studies only) — H₀ rejected iff any Holm-corrected test is significant** (`stats["hypothesis_family"]`); each test via Shapiro–Wilk on within-instance differences → RM-ANOVA (Mauchly, Greenhouse–Geisser, paired t, d_z) or Friedman (Wilcoxon, rank-biserial r); C4 / C5 descriptive; per-BR-class Friedman for ET / PM kept as **exploratory**, outside the family; supplementary composite ranking + Friedman/Nemenyi; outperformance (three conditions, reported in neutral wording); outcome pattern A–D. Compliance over all boxes (`PRIMARY_COMPLIANCE = "all_boxes"`) is tested; over placed boxes is descriptive |
 | `experiments/baselines.py --study <file>` | per-instance non-search baselines for a study (study.py runs it automatically after the GWO runs): the **Weight-Sorted Greedy** (one pass, heaviest box first) and the **Random Order** baseline (30 draws per instance, each one pass of a shuffled loading order, `default_rng([42, instance_id])`). Same decoder, evaluator, flags and stop labels as the study; every arrangement checked by the independent validator; always run serially in one process after an untimed warm-up. Stored in `study["baselines"]`, then `stats.py` is re-applied |
 | `tools/test_stats.py` | acceptance checks for `stats.py` |
 | `server/studies.js` | `POST/GET /api/studies`, `/progress`, `/import`, `/available`, `/sizes` — detached jobs (not tied to the WebSocket), user-scoped, mirrored in the `db.js` mock |
@@ -63,10 +63,15 @@ imported automatically: a fresh database shows empty states everywhere.
   Wilcoxon signed-rank and the matched-pairs rank-biserial
   r = (W⁺ − W⁻)/(W⁺ + W⁻). Post-hoc p-values are Holm-corrected across the
   six pairs.
-* **SP3** runs a Friedman test within each BR class (≥ 2 instances of the
-  class needed), Holm-corrected across ET and PM. With `sample8` only BR4 has
-  two instances; the 30-instance sample (4–5 per class) is what SP3 is
-  designed for.
+* **The hypothesis family.** Six omnibus tests, each across all instances:
+  SU (SP1); CSR, C3 and C6 over all boxes (SP2); ET and PM (SP3). One
+  Holm-Bonferroni correction over the testable ones; H₀ is rejected when at
+  least one Holm-corrected test is significant. A parallel study drops ET and
+  PM (concurrent timing); a single-instance study tests nothing.
+* **SP3 exploratory.** A Friedman test within each BR class (≥ 2 instances of
+  the class needed), Holm-corrected across ET and PM within the class. It is
+  outside the six-test family and does not enter the H₀ decision. With
+  `sample8` only BR4 has two instances.
 * **Banner** states the Chapter 3 outcome pattern ("Statistical tests need
   ≥ 2 test cases" for a single-instance study). The composite ranking is a
   supplementary line: "Supplementary composite ranking (Chapter 3)", with the
@@ -79,7 +84,7 @@ imported automatically: a fresh database shows empty states everywhere.
   result. It is shown as "X significantly higher than Y on <measure>
   (|effect|)", X being the configuration with the higher mean. Significant but
   below threshold = "statistically detectable but not practically meaningful".
-* **SP2 family = CSR, C3, C6.** C4 and C5 are 100 % of placed boxes by
+* **SP2 members of the family = CSR, C3, C6.** C4 and C5 are 100 % of placed boxes by
   construction (the decoder enforces them), so over all boxes each equals the
   share of boxes placed. They are reported descriptively ("decoder-enforced;
   all-box value = share placed") and are not separate tests.

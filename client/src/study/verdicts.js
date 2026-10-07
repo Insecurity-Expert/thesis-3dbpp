@@ -163,10 +163,14 @@ export function sp1Summary(stats) {
   if (!cmp) return "";
   const o = cmp.omnibus;
   if (!o.testable) return `Container fill could not be tested: ${o.reason}.`;
-  if (!o.significant) return `No significant difference in container fill between the configurations (${o.test}, ${fmt.peq(o.p)}).`;
+  // In the six-test family the decision uses the Holm-corrected p.
+  const holm = o.p_holm != null;
+  const sig = holm ? o.significant_holm : o.significant;
+  const pText = holm ? `${o.test}, Holm-corrected ${fmt.peq(o.p_holm)} in the six-test family` : `${o.test}, ${fmt.peq(o.p)}`;
+  if (!sig) return `No significant difference in container fill between the configurations (${pText}).`;
   const wins = cmp.pairs.filter((p) => p.outperforms);
   const detect = cmp.pairs.filter((p) => p.significant && !p.outperforms);
-  const bits = [`The configurations differ on container fill (${o.test}, ${fmt.peq(o.p)}).`];
+  const bits = [`The configurations differ on container fill (${pText}).`];
   if (wins.length) bits.push(wins.map((p) => `${pairVerdict(stats, p).text} (${effectAbs(p.effect)})`).join("; ") + ".");
   if (detect.length) bits.push(`${detect.length} pair${detect.length > 1 ? "s" : ""} differ${detect.length > 1 ? "" : "s"} detectably but not meaningfully.`);
   if (!wins.length && !detect.length) bits.push("No pair reached a significant post-hoc difference.");
@@ -192,14 +196,35 @@ export function sp2Summary(stats, definition) {
   if (other.length) bits.push(`${other.map((m) => MEASURE_PLAIN[m] || m).join(", ")} could not be tested: ${per[other[0]].omnibus.reason}.`);
   if (descriptive.length) bits.push(`${descriptive.map((m) => MEASURE_PLAIN[m] || m).join(" and ")} ${descriptive.length > 1 ? "are" : "is"} reported descriptively, outside the Holm family: ${per[descriptive[0]].omnibus.reason}.`);
   if (tested.length) {
+    const fam = `After Holm correction across the six-test family (${blk.holm_family_size} testable test${blk.holm_family_size === 1 ? "" : "s"})`;
     bits.push(differ.length
-      ? `After Holm correction across ${blk.holm_family_size} testable measure${blk.holm_family_size > 1 ? "s" : ""}, the configurations differ on ${differ.map((m) => MEASURE_PLAIN[m] || m).join(", ")}.`
-      : `After Holm correction across ${blk.holm_family_size} testable measure${blk.holm_family_size > 1 ? "s" : ""}, no measure differs between the configurations.`);
+      ? `${fam}, the configurations differ on ${differ.map((m) => MEASURE_PLAIN[m] || m).join(", ")}.`
+      : `${fam}, no compliance measure differs between the configurations.`);
   }
   bits.push(blk.h0_rejected
-    ? "Decision: H₀ (no difference in compliance) is rejected."
-    : tested.length ? "Decision: H₀ (no difference in compliance) is not rejected."
-    : "Decision: H₀ cannot be tested with this study.");
+    ? "SP2: the compliance tests reject H₀ (no difference)."
+    : tested.length ? "SP2: the compliance tests do not reject H₀ (no difference)."
+    : "SP2: H₀ cannot be tested with this study.");
+  return bits.join(" ");
+}
+
+const list = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+// ── the six-test hypothesis family (SU; CSR, C3, C6; ET, PM) ───────────────────
+// One Holm-Bonferroni family over all instances; H₀ is rejected when at least
+// one Holm-corrected test is significant.
+export function familySummary(stats) {
+  const hf = stats && stats.hypothesis_family;
+  if (!hf) return "";
+  const tested = hf.tests.filter((t) => t.testable);
+  if (!tested.length) return `H₀ cannot be tested with this study: ${hf.decision.replace(/^H0 not testable: /, "")}.`;
+  const sig = hf.tests.filter((t) => t.significant_holm).map((t) => MEASURE_PLAIN[t.measure] || t.measure);
+  const left = hf.tests.filter((t) => !t.testable).map((t) => MEASURE_PLAIN[t.measure] || t.measure);
+  const bits = [`Six tests (container fill; rule compliance, load-bearing, unload order over all boxes; time, memory), Holm-corrected together across the ${tested.length} that could be run.`];
+  if (left.length) bits.push(`Not tested: ${list(left)}.`);
+  bits.push(sig.length
+    ? `Decision: H₀ (no difference between the configurations) is rejected — significant after correction: ${list(sig)}.`
+    : "Decision: H₀ (no difference between the configurations) is not rejected — no test is significant after correction.");
   return bits.join(" ");
 }
 
@@ -221,6 +246,19 @@ export function sp3Summary(stats) {
   const s3 = stats && stats.SP3;
   if (!s3) return "";
   if (!s3.available) return `Time and memory were not compared: ${s3.reason}.`;
+  if (s3.all_instances) {
+    // Confirmatory: across all test cases, in the six-test family.
+    const bits = [];
+    for (const m of ["ET", "PM"]) {
+      const o = s3.all_instances[m].omnibus;
+      bits.push(!o.testable ? `${capitalize(MEASURE_PLAIN[m])} could not be tested: ${o.reason}.`
+        : o.significant_holm ? `The configurations differ on ${MEASURE_PLAIN[m]} across all test cases (${o.test}, Holm-corrected ${fmt.peq(o.p_holm)}).`
+        : `No significant difference on ${MEASURE_PLAIN[m]} across all test cases (${o.test}, Holm-corrected ${fmt.peq(o.p_holm)}).`);
+    }
+    bits.push(s3.h0_rejected ? "SP3: the time and memory tests reject H₀ (no difference)." : "SP3: the time and memory tests do not reject H₀ (no difference).");
+    bits.push("The within-class comparisons below are exploratory.");
+    return bits.join(" ");
+  }
   const prof = s3.profiles || [];
   const testable = prof.filter((p) => p.testable);
   if (!testable.length) {

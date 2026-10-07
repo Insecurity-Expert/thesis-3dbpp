@@ -306,6 +306,10 @@ def run_task(task):
                              'enforce_fragility': bool(opt.enforce_fragility)},
         'budget_exhausted': bool(getattr(best, 'budget_exhausted', False)),
         'repair_stats':     getattr(opt, 'repair_stats', None),
+        # MOGWO / SEQ / REP: the final Pareto archive's two ends. The reported
+        # solution is its highest-SU member; the highest-CSR member (ties on
+        # CSR -> higher SU) is the other end of the trade-off it found.
+        'archive':          archive_summary(getattr(opt, 'final_archive', None), len(boxes)),
         'placements':       placements,
         'orientations':     orientations,
         'validation':       validation,
@@ -316,6 +320,21 @@ def run_task(task):
         import hashlib
         row['stops_sha1'] = hashlib.sha1(','.join(str(b['stop']) for b in boxes).encode()).hexdigest()
     return row
+
+
+def archive_summary(archive, n_items):
+    """Size and the highest-SU / highest-CSR members of a final archive (None
+    for DGWO, which has none). CSR over placed boxes and over all boxes."""
+    if not archive:
+        return None
+
+    def member(w):
+        placed = len(w.placements)
+        return {'su_pct': round(w.su * 100.0, 4), 'csr_pct': round(w.csr, 4), 'placed': placed,
+                'csr_all_pct': round(w.csr * placed / n_items, 4) if n_items else 0.0}
+    return {'size': len(archive),
+            'highest_su': member(max(archive, key=lambda w: w.su)),
+            'highest_csr': member(max(archive, key=lambda w: (w.csr, w.su)))}
 
 
 def _write_progress(path, prog):
