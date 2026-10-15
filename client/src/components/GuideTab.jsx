@@ -185,7 +185,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
   }
   if (!guide) return <>{controls}<div className="card"><div className="field-hint">{busy || !rec ? "Checking and loading the solution…" : "Pick a solution above."}</div></div></>;
   if (!guide.check.ok) {
-    return (<>{controls}<div className="alert-danger"><b>This loading plan failed its own check and is not shown.</b> Every box must be loaded after the boxes it rests on; {guide.check.problems.length} step{guide.check.problems.length === 1 ? "" : "s"} break that, e.g. {guide.check.problems[0]}.</div></>);
+    return (<>{controls}<div className="alert-danger"><b>This loading plan failed its own check and is not shown.</b> Every box must be loaded after the boxes it rests on, and no box may pass a box already loaded on its way from the door; {guide.check.problems.length} step{guide.check.problems.length === 1 ? "" : "s"} break that, e.g. {guide.check.problems[0]}.</div></>);
   }
 
   const pv = guide.pv;
@@ -214,7 +214,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
           </div>
         )}
         <p style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)", marginTop: 0 }}>
-          <b>Loading:</b> go down the list — the left column, then the right. Start at the cab end and work toward the rear door; floor boxes first, then build up. Sizes, positions and rule checks for every box are in the appendix.
+          <b>Loading:</b> go down the list — the left column, then the right. Last stop first; within a stop, start at the front wall and work toward the rear door, floor boxes first, then build up. Sizes, positions and rule checks for every box are in the appendix.
         </p>
         <div className="guide-load-cols">
           {[guide.steps.slice(0, Math.ceil(guide.steps.length / 2)), guide.steps.slice(Math.ceil(guide.steps.length / 2))].map((part, k) => (
@@ -232,7 +232,13 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
             </table>
           ))}
         </div>
-        <p className="field-hint">Checked: every box comes after all the boxes it rests on ({guide.steps.length} boxes).</p>
+        <p className="field-hint">Checked: every box comes after all the boxes it rests on, and no box passes a box already loaded on its way from the door ({guide.steps.length} boxes).</p>
+        {guide.fixes.length > 0 && (
+          <p className="field-hint" style={{ color: "var(--amber)" }}>
+            Not purely in stop order: {guide.fixes.length} box{guide.fixes.length === 1 ? "" : "es"} could not go in at {guide.fixes.length === 1 ? "its" : "their"} turn
+            ({guide.fixes.slice(0, 3).map((f) => f.text).join("; ")}{guide.fixes.length > 3 ? "; …" : ""}). The order above loads what each needs first.
+          </p>
+        )}
 
         <div className="card-title" style={{ marginTop: 14, marginBottom: 4 }}>Unloading order</div>
         <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 0, marginBottom: 6 }}>Stop {guide.stops[0]} first. Within a stop, nearest the door and topmost first (the reverse of the loading order).</p>
@@ -307,7 +313,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       </Page>
 
       <Page n="Appendix" title="Box details (for checking)" custom={customText}
-        desc="Every loaded box in loading order. Positions in cm: x across the truck, y from the rear door, z above the floor. Sizes as placed: across × deep × high.">
+        desc="Every loaded box in loading order. Positions in cm: x across the truck, y from the front wall, z above the floor. Sizes as placed: across × deep × high.">
         <div style={{ overflowX: "auto" }}>
           <table className="data-table compact" style={{ width: "100%", fontSize: 11 }}>
             <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Orientation</th><th>Weight</th><th>Position (x, y, z)</th><th>Load on top (C3)</th><th>Base support (C5)</th><th>Unload order (C6)</th></tr></thead>

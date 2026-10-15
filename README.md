@@ -138,7 +138,9 @@ python tools/test_custom_load_aliases.py   # column aliases ("Delivery Sequence"
 python tools/test_run_settings.py       # every run uses the calibrated λ and C4/C5 enforcement of Studies A and B
 python tools/check_cpu_timing.py        # numba compile / cache-load time stays out of a run's CPU time
 python tools/check_problem_view.py      # the viewer's per-box problem flags equal the independent validator
-cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, trade-offs, timing
+python tools/test_planned.py            # D2(b) planned family and the M-6 / M-7 layout indicators (layout_metrics.py)
+python tools/test_layout_view.py        # the viewer's gap fields equal layout_metrics (M-6); checks the client gap fixture
+cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, door helper, gap labels, entry motion, trade-offs, timing
 ```
 
 `tools/validate_arrangement.py` is a checker written from the Chapter 3
