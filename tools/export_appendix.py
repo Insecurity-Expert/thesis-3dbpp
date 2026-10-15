@@ -12,6 +12,19 @@ import csv
 from pathlib import Path
 
 
+def layout_cells(r, n, num):
+    placed = r.get('placed') or 0
+    lay = r.get('layout') or {}
+    g, ld = lay.get('gap') or {}, lay.get('load_distribution') or {}
+    return [n - placed if n else '', num((n - placed) / n * 100.0 if n else None, '.2f'),
+            num(g.get('mean_gap_cm'), '.2f'), num(g.get('max_gap_cm'), '.2f'), g.get('significant_gaps', ''),
+            num(ld.get('lr_mass_imbalance_pct'), '.2f'),
+            ld.get('left_count', ''), ld.get('right_count', ''),
+            num(ld.get('left_mass'), '.2f'), num(ld.get('right_mass'), '.2f'),
+            ld.get('lower_count', ''), ld.get('middle_count', ''), ld.get('upper_count', ''),
+            num(ld.get('lower_mass'), '.2f'), num(ld.get('middle_mass'), '.2f'), num(ld.get('upper_mass'), '.2f')]
+
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: python tools/export_appendix.py <study.json> <output.csv>")
@@ -48,7 +61,11 @@ def main():
         writer = csv.writer(f)
         writer.writerow([
             'Configuration', 'InstanceID', 'Seed', 'SU_pct', 'CSR_pct', 'CSR_all_pct',
-            'Placed', 'N_items', 'ET_ms', 'PM_MB', 'Timing_valid', 'C3_pct', 'C4_pct', 'C5_pct', 'C6_pct'
+            'Placed', 'N_items', 'ET_ms', 'PM_MB', 'Timing_valid', 'C3_pct', 'C4_pct', 'C5_pct', 'C6_pct',
+            # Scope: boxes left unloaded; M-6 gap; M-7 load distribution (blank when the run has none)
+            'Unloaded', 'Unloaded_pct', 'Mean_gap_cm', 'Max_gap_cm', 'Significant_gaps',
+            'LR_mass_imbalance_pct', 'Left_count', 'Right_count', 'Left_mass', 'Right_mass',
+            'Lower_count', 'Middle_count', 'Upper_count', 'Lower_mass', 'Middle_mass', 'Upper_mass'
         ])
         for r in rows:
             n = r.get('n_items') or 0
@@ -68,6 +85,7 @@ def main():
                 num(r.get('C4_pct'), '.2f'),
                 num(r.get('C5_pct'), '.2f'),
                 num(r.get('C6_pct'), '.2f'),
+                *layout_cells(r, n, num),
             ])
 
     print(f"Exported Appendix 1 data sheet to {out_file} ({len(rows)} rows).")

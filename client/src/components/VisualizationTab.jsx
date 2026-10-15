@@ -6,6 +6,9 @@ import {
   heavyRule, isHeavy, RULES, RULE_NAME, RULE_SHORT, RULE_COLOR,
   physics, orientationText, fmtNum,
 } from "../viewer/boxInfo";
+import { buildPlan, checkPlan } from "../viewer/loadingPlan";
+import { truckFrame } from "../viewer/truckFrame";
+import { faceGapRows, gapLabel } from "../viewer/gapView";
 
 // Shown in the viewport while a thesis strategy runs: they stream metrics,
 // not partial packings, so there is nothing to draw until instance_complete.
@@ -76,7 +79,9 @@ export default function VisualizationTab({
   const [filterFragile, setFilterFragile] = useState(true);
   const [filterHeavy, setFilterHeavy] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
-  const [showGuides, setShowGuides] = useState(true);   // rear door / cab end / depth arrow
+  const [showGuides, setShowGuides] = useState(true);   // rear door / front wall / depth arrow
+  const [showGaps, setShowGaps] = useState(false);       // dimension lines across significant gaps
+  const [shadeEmpty, setShadeEmpty] = useState(false);   // translucent blocks over significant gaps
   const [selectedStop, setSelectedStop] = useState("All");
   const [colorMode, setColorMode] = useState("type");
   const [highlight, setHighlight] = useState(false);
@@ -150,6 +155,17 @@ export default function VisualizationTab({
 
   const container = result ? result.container : null;
   const details = pinned || hovered;
+  const frame = useMemo(() => truckFrame(container), [container]);
+  const gaps = result ? result.gaps : null;
+  const idName = useMemo(() => {
+    const m = new Map(items.map((it) => [Number(it.item_idx), it.id ?? `#${it.item_idx}`]));
+    return (j) => `Box ${m.get(Number(j)) ?? j}`;
+  }, [items]);
+
+  // One loading order for the animation and the printed guide, built from the
+  // whole load (filters only hide boxes from view).
+  const plan = useMemo(() => (container ? buildPlan(items, container) : null), [items, container]);
+  const planCheck = useMemo(() => (plan ? checkPlan(plan) : null), [plan]);
 
   const legend = (
     <>
@@ -185,7 +201,7 @@ export default function VisualizationTab({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
         <Row k="Box" v={it.id ?? `#${it.item_idx}`} />
-        <Row k="Position (x, y from door, z)" v={`(${fmtNum(ph.x)}, ${fmtNum(ph.y)}, ${fmtNum(ph.z)}) cm`} />
+        <Row k="Position (x, y from front wall, z)" v={`(${fmtNum(ph.x)}, ${fmtNum(frame.fromFront(ph))}, ${fmtNum(ph.z)}) cm`} />
         <Row k="Placed size (across × deep × high)" v={`${fmtNum(ph.dx)} × ${fmtNum(ph.dy)} × ${fmtNum(ph.dz)} cm`} />
         <Row k="Orientation" v={orientationText(it.orientation) ?? "not recorded for this run"} strong={!!it.orientation} />
         <Row k="Mass" v={`${fmtNum(it.mass ?? it.weight, 2)} kg`} />
@@ -199,6 +215,21 @@ export default function VisualizationTab({
         <Row k="Stop" v={`Stop ${it.stop}`} color="var(--primary)" />
         <Row k="Fragile" v={fr ? "Yes — nothing may rest on it" : "No"} color={fr ? "var(--amber)" : undefined} />
         <Row k="Heavy" v={isHeavy(it.mass ?? it.weight, heavy) ? "Yes" : "No"} />
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Gaps at its six faces (cm)</div>
+          {(() => {
+            const rows = faceGapRows(it, container, idName);
+            if (!rows) return <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>;
+            return rows.map((r) => (
+              <div key={r.face} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: "var(--text-dim)" }}>{r.name}</span>
+                <span style={{ textAlign: "right", fontWeight: r.significant ? 700 : 500, color: r.significant ? "var(--amber)" : "var(--text-main)" }}>
+                  {gapLabel(r.gap)} <span style={{ fontWeight: 400, color: "var(--text-dim)" }}>to {r.beyond}</span>
+                </span>
+              </div>
+            ));
+          })()}
+        </div>
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Rules broken</div>
           {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the problem view).</div>
@@ -247,6 +278,52 @@ export default function VisualizationTab({
               </div>
             )}
           </div>
+
+          {result && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● GAPS</h4>
+              {gaps ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                  <Row k="Mean face gap" v={gaps.mean_gap_cm === null ? "—" : `${fmtNum(gaps.mean_gap_cm, 2)} cm`} />
+                  <Row k="Largest face gap" v={gaps.max_gap_cm === null ? "—" : `${fmtNum(gaps.max_gap_cm, 2)} cm`} />
+                  <Row k="Significant gaps" v={`${gaps.significant_gaps} of ${gaps.n_faces} faces`} color="var(--amber)" />
+                  <Row k="τ (smallest box dimension)" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
+                  <div className="field-hint">
+                    A face gap is the distance from a box face to the nearest box or wall beyond it; it is significant at τ or more.
+                    Every face counts, the roof included; the view leaves out the lines to the roof.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>
+              )}
+            </div>
+          )}
+
+          {plan && plan.steps.length > 0 && (
+            <div className="card" style={{ marginTop: 16, fontSize: 12.5 }}>
+              <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "10px" }}>● LOADING ORDER</h4>
+              {!planCheck.ok ? (
+                <div style={{ color: "var(--amber)", fontWeight: 600 }}>No valid loading order: {planCheck.problems[0]}</div>
+              ) : (
+                <>
+                  <div style={{ color: "var(--text-muted)" }}>Last stop first; within a stop, front wall first, then bottom-up, then across. Same order as the Loading Guide.</div>
+                  {plan.fixes.length === 0 ? (
+                    <div style={{ marginTop: 6, fontWeight: 700, color: "var(--green)" }}>Purely in stop order.</div>
+                  ) : (
+                    <details style={{ marginTop: 6 }}>
+                      <summary style={{ cursor: "pointer", color: "var(--amber)", fontWeight: 700 }}>
+                        {plan.fixes.length} box{plan.fixes.length === 1 ? "" : "es"} could not go in at {plan.fixes.length === 1 ? "its" : "their"} turn
+                      </summary>
+                      <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "var(--text-muted)" }}>
+                        {plan.fixes.map((f) => <li key={f.it.item_idx}>{f.text}</li>)}
+                      </ul>
+                      <div className="field-hint" style={{ marginTop: 4 }}>{plan.deferred.length} box{plan.deferred.length === 1 ? " waits" : "es wait"} until what {plan.deferred.length === 1 ? "it needs is" : "they need is"} in.</div>
+                    </details>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Column: 3D Viewer Canvas */}
@@ -262,7 +339,7 @@ export default function VisualizationTab({
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <div className="tabs-inline">
-                {["Front", "Side", "Top", "3D"].map((dir) => (
+                {["Door", "Side", "Top", "3D", "Loading"].map((dir) => (
                   <button key={dir} onClick={() => triggerViewReset(dir)} className={viewportOrientation === dir ? "active" : ""} style={{ fontSize: "12px", fontWeight: "700", cursor: "pointer", padding: "4px 8px" }}>{dir}</button>
                 ))}
               </div>
@@ -296,6 +373,11 @@ export default function VisualizationTab({
               highlightProblems={highlight && !!pv}
               legend={legend}
               pictureName={pictureName}
+              plan={plan}
+              planCheck={planCheck}
+              showGaps={showGaps}
+              shadeEmpty={shadeEmpty}
+              onPlayStart={() => triggerViewReset("Loading")}
               onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
             />
           ) : running && source === "run" ? (
@@ -347,8 +429,16 @@ export default function VisualizationTab({
               <label className="switch"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /><span className="slider" /></label>
             </div>
             <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="Rear-door frame, cab-end wall and the door-to-cab arrow">Show orientation guides</span>
+              <span className="switch-label" style={{ fontWeight: 600 }} title="Rear-door frame, front wall and the door-to-front-wall arrow">Show orientation guides</span>
               <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap (not up to the roof); shown once all boxes are in">Show gaps (cm)</span>
+              <label className="switch"><input type="checkbox" checked={showGaps} disabled={!gaps} onChange={(e) => setShowGaps(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
+              <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
             </div>
 
             <div>

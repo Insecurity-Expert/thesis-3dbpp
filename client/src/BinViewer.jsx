@@ -3,11 +3,14 @@
  * Live 3-D packing visualiser using React Three Fiber.
  */
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { isHeavy, RULE_COLOR } from './viewer/boxInfo';
+import { isHeavy, RULE_COLOR, fmtNum } from './viewer/boxInfo';
+import { truckFrame } from './viewer/truckFrame';
+import { gapLines, gapLabel } from './viewer/gapView';
+import { entryOffset, ENTRY_SECONDS } from './viewer/entryMotion';
 
 // ── Per-item colour using golden-angle hue ("By box" mode) ──────────────────
 export function itemHSL(itemIdx) {
@@ -39,7 +42,7 @@ function fillColor(it, mode, heavy, stops) {
 }
 
 // ── Container wireframe & visual shell ───────────────────────────────────────
-const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
+const WireBox = React.memo(function WireBox({ x, y, z, l, h, d, frontZ }) {
   const nx = Number(x || 0);
   const ny = Number(y || 0);
   const nz = Number(z || 0);
@@ -73,9 +76,9 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
         />
       </mesh>
 
-      {/* Semi-transparent end wall at the FRONT (cab) end, render z = D.
-          The z = 0 face is the rear door and is drawn by OrientationGuides. */}
-      <mesh position={[cx, cy, nz + nd]}>
+      {/* Semi-transparent end wall at the FRONT wall (truckFrame().frontZ).
+          The door face is drawn by OrientationGuides. */}
+      <mesh position={[cx, cy, nz + Number(frontZ ?? nd)]}>
         <planeGeometry args={[nl, nh]} />
         <meshStandardMaterial
           color="#111827"
@@ -101,11 +104,10 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
   );
 });
 
-// ── Orientation guides: rear door, cab end, depth arrow ──────────────────────
-// Render coordinates (after main_optimizer's render flip): x = across the
-// truck (L), y = height (H), z = depth from the rear door (D). Physics y = 0
-// (the door) is render z = 0; physics y = max (the cab end) is render z = D.
-// Everything here is placed in RENDER coordinates.
+// ── Orientation guides: rear door, front wall, depth arrow ───────────────────
+// Render coordinates: x = across the truck (L), y = height (H), z = depth (D).
+// Which end of z is the door comes from truckFrame (viewer/truckFrame.js),
+// never from a constant here.
 const DOOR_COLOR  = '#22c55e';
 const FRONT_COLOR = '#94a3b8';
 const ARROW_COLOR = '#38bdf8';
@@ -117,66 +119,152 @@ const guideLabelStyle = {
   boxShadow: '0 1px 3px rgba(0,0,0,0.45)',
 };
 
-const OrientationGuides = React.memo(function OrientationGuides({ L, H, D }) {
+const OrientationGuides = React.memo(function OrientationGuides({ L, H, D, frame }) {
+  const { doorZ, frontZ, inward } = frame;
   const doorFrame = useMemo(() => new THREE.EdgesGeometry(new THREE.PlaneGeometry(L, H)), [L, H]);
   const arrow = useMemo(() => {
-    // On the floor, just outside the left wall so no box can cover it; from
-    // the door end toward the cab end.
+    // On the floor, just outside the x = 0 wall so no box can cover it; from
+    // the door end toward the front wall.
     const len = D * 0.8;
-    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-L * 0.08, 0.5, D * 0.1), len, ARROW_COLOR, Math.min(30, len * 0.12), Math.min(14, len * 0.06));
-    return a;
-  }, [L, D]);
+    return new THREE.ArrowHelper(new THREE.Vector3(0, 0, inward), new THREE.Vector3(-L * 0.08, 0.5, doorZ + inward * D * 0.1),
+      len, ARROW_COLOR, Math.min(30, len * 0.12), Math.min(14, len * 0.06));
+  }, [L, D, doorZ, inward]);
   const cornerMarks = useMemo(() => {
     // Short ticks on the floor at the door corners, pointing inward.
-    const pts = [];
-    const t = Math.min(L * 0.15, 30);
-    pts.push(0, 0.6, 0, t, 0.6, 0);  pts.push(0, 0.6, 0, 0, 0.6, t);
-    pts.push(L, 0.6, 0, L - t, 0.6, 0);  pts.push(L, 0.6, 0, L, 0.6, t);
+    const t = Math.min(L * 0.15, 30), zi = doorZ + inward * t;
+    const pts = [0, 0.6, doorZ, t, 0.6, doorZ, 0, 0.6, doorZ, 0, 0.6, zi,
+                 L, 0.6, doorZ, L - t, 0.6, doorZ, L, 0.6, doorZ, L, 0.6, zi];
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     return g;
-  }, [L]);
+  }, [L, doorZ, inward]);
   return (
     <group>
-      {/* 1. Rear door face, render z = 0: coloured frame + faint translucent panel */}
-      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, 0]}>
+      {/* 1. Rear door face: coloured frame + faint translucent panel */}
+      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, doorZ]}>
         <lineBasicMaterial color={DOOR_COLOR} linewidth={2} />
       </lineSegments>
-      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, 0]} scale={[1.02, 1.02, 1]}>
+      <lineSegments geometry={doorFrame} position={[L / 2, H / 2, doorZ]} scale={[1.02, 1.02, 1]}>
         <lineBasicMaterial color={DOOR_COLOR} transparent opacity={0.6} />
       </lineSegments>
-      {/* Just OUTSIDE the cargo volume (z < 0). A panel at z = +0.3 would cut
-          through any box loaded flush against the door and tint it. */}
-      <mesh position={[L / 2, H / 2, -0.3]}>
+      {/* Just OUTSIDE the cargo volume. A panel inside would cut through any
+          box loaded flush against the door and tint it. */}
+      <mesh position={[L / 2, H / 2, frame.outside(0.3)]}>
         <planeGeometry args={[L, H]} />
         <meshBasicMaterial color={DOOR_COLOR} transparent opacity={0.10} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <lineSegments geometry={cornerMarks}>
         <lineBasicMaterial color={DOOR_COLOR} />
       </lineSegments>
-      <Html position={[L / 2, H + 14, 0]} center zIndexRange={[5, 0]}>
+      <Html position={[L / 2, H + 14, doorZ]} center zIndexRange={[5, 0]}>
         <div style={{ ...guideLabelStyle, background: DOOR_COLOR }}>REAR DOOR — load and unload here</div>
       </Html>
 
-      {/* 2. Front (cab) end, render z = D: solid shaded wall + label */}
-      {/* Likewise just outside the front face, so a box flush at z = D is
-          never intersected by the wall plane. */}
-      <mesh position={[L / 2, H / 2, D + 0.3]}>
+      {/* 2. Front wall (driver's end): solid shaded wall + label, likewise just
+          outside the cargo volume so a box flush against it is never cut. */}
+      <mesh position={[L / 2, H / 2, frontZ + inward * 0.3]}>
         <planeGeometry args={[L, H]} />
         <meshStandardMaterial color={FRONT_COLOR} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
-      <Html position={[L / 2, H + 14, D]} center zIndexRange={[5, 0]}>
-        <div style={{ ...guideLabelStyle, background: FRONT_COLOR }}>FRONT — cab end</div>
+      <Html position={[L / 2, H + 14, frontZ]} center zIndexRange={[5, 0]}>
+        <div style={{ ...guideLabelStyle, background: FRONT_COLOR }}>FRONT WALL — driver's end</div>
       </Html>
 
-      {/* 3. Depth arrow on the floor, door -> cab */}
+      {/* 3. Depth arrow on the floor, door -> front wall */}
       <primitive object={arrow} />
-      <Html position={[-L * 0.08, 2, D * 0.5]} center zIndexRange={[5, 0]}>
-        <div style={{ ...guideLabelStyle, background: ARROW_COLOR }}>toward cab →</div>
+      <Html position={[-L * 0.08, 2, D / 2]} center zIndexRange={[5, 0]}>
+        <div style={{ ...guideLabelStyle, background: ARROW_COLOR }}>toward the front wall →</div>
       </Html>
     </group>
   );
 });
+
+// ── Gaps: dimension lines and shaded empty space ─────────────────────────────
+// Everything here is the optimizer's (arrangement_view.gap_view); gapLines()
+// only chooses what to draw. Physics [x, y, z] -> render [x, z, y].
+const GAP_COLOR = '#fbbf24';
+const EMPTY_COLOR = '#38bdf8';
+const R = (p) => [p[0], p[2], p[1]];
+
+const gapLabelStyle = {
+  background: 'rgba(15, 23, 42, 0.88)', border: `1px solid ${GAP_COLOR}`, color: GAP_COLOR,
+  padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+  pointerEvents: 'none', fontFamily: 'sans-serif',
+};
+
+const GapLine = React.memo(function GapLine({ a, b, gap }) {
+  const geo = useMemo(() => {
+    const A = new THREE.Vector3(...R(a)), B = new THREE.Vector3(...R(b));
+    const dir = B.clone().sub(A).normalize();
+    // End ticks across the line, in a direction perpendicular to it.
+    const side = Math.abs(dir.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+    const t = side.multiplyScalar(4);
+    const pts = [A, B, A.clone().add(t), A.clone().sub(t), B.clone().add(t), B.clone().sub(t)];
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  }, [a, b]);
+  const mid = R(a).map((v, k) => (v + R(b)[k]) / 2);
+  return (
+    <group>
+      <lineSegments geometry={geo}>
+        <lineBasicMaterial color={GAP_COLOR} depthTest={false} transparent opacity={0.95} />
+      </lineSegments>
+      <Html position={mid} center zIndexRange={[6, 0]}>
+        <div style={gapLabelStyle}>{gapLabel(gap)}</div>
+      </Html>
+    </group>
+  );
+});
+
+const EmptyBlock = React.memo(function EmptyBlock({ block }) {
+  const [x, y, z, dx, dy, dz] = block;
+  const geo = useMemo(() => new THREE.BoxGeometry(dx, dz, dy), [dx, dy, dz]);
+  const edges = useMemo(() => new THREE.EdgesGeometry(geo), [geo]);
+  return (
+    <group position={[x + dx / 2, z + dz / 2, y + dy / 2]} raycast={() => null}>
+      <mesh geometry={geo} raycast={() => null}>
+        <meshBasicMaterial color={EMPTY_COLOR} transparent opacity={0.07} depthWrite={false} />
+      </mesh>
+      <lineSegments geometry={edges} raycast={() => null}>
+        <lineBasicMaterial color={EMPTY_COLOR} transparent opacity={0.35} />
+      </lineSegments>
+    </group>
+  );
+});
+
+function GapLayer({ items, container, frame, L, H, showLines, shadeEmpty }) {
+  const g = useMemo(() => gapLines(items, container), [items, container]);
+  return (
+    <group>
+      {shadeEmpty && g.blocks.map((b) => <EmptyBlock key={b.key} block={b.block} />)}
+      {showLines && g.lines.map((l) => <GapLine key={l.key} a={l.a} b={l.b} gap={l.gap} />)}
+      {showLines && g.doorMax && (
+        <Html position={[L / 2, H + 34, frame.doorZ]} center zIndexRange={[6, 0]}>
+          <div style={{ ...gapLabelStyle, fontSize: 12 }}>empty depth at the door: {fmtNum(g.doorMax.gap, 1)} cm</div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+// ── Entry animation (motion in viewer/entryMotion.js) ───────────────────────
+function EntryMotion({ it, frame, H, progress, children }) {
+  const ref = useRef();
+  useFrame(() => {
+    if (ref.current) ref.current.position.set(...entryOffset(progress.current, it, frame, H));
+  });
+  return <group ref={ref} position={entryOffset(progress.current, it, frame, H)}>{children}</group>;
+}
+
+// Advances the moving box while playback runs (or a single step animates).
+// bringIn() resets progress to 0; reaching 1 ends the move exactly once.
+function EntryDriver({ active, seconds, progress, onDone }) {
+  useFrame((_, delta) => {
+    if (!active || progress.current >= 1) return;
+    progress.current = Math.min(1, progress.current + Math.min(delta, 0.1) / seconds);
+    if (progress.current >= 1) onDone();
+  });
+  return null;
+}
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
 const FRAGILE_EDGE = '#f59e0b';
@@ -285,7 +373,7 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
 });
 
 // ── Interactive Camera Controller ───────────────────────────────────────────
-function CameraController({ orientation, target, H, camDist, totalWidth, D, resetTrigger }) {
+function CameraController({ orientation, target, H, camDist, totalWidth, D, frame, resetTrigger }) {
   const { camera, controls } = useThree();
   const lastTriggerRef = useRef(-1);
 
@@ -306,7 +394,7 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, rese
     // Per view, because the labels sit outside the shell in different
     // directions: Side and Top carry a label at each end of the 587 cm axis,
     // and Top must also clear the playback bar along the canvas bottom.
-    const MARGIN = { Front: 1.35, Side: 1.50, Top: 1.60, "3D": 1.45 };
+    const MARGIN = { Door: 1.35, Side: 1.50, Top: 1.60, "3D": 1.45, Loading: 1.25 };
     const vFov = (Number(camera.fov || 30) * Math.PI) / 180;
     const aspect = Number(camera.aspect || 1.6);
     const fit = (screenW, screenH) => {
@@ -314,40 +402,48 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, rese
       const byW = (screenW / 2) / (Math.tan(vFov / 2) * aspect);
       return Math.max(byH, byW, 1) * (MARGIN[orientation] || 1.4);
     };
-    // Render axes: x = across (totalWidth), y = height, z = depth from door.
+    // Render axes: x = across (totalWidth), y = height, z = depth.
     const dist =
-      orientation === "Front" ? fit(nW, nH) :
+      orientation === "Door" || orientation === "Loading" ? fit(nW, nH) :
       orientation === "Side"  ? fit(nD, nH) :
       orientation === "Top"   ? fit(nW, nD) :
       fit(Math.hypot(nW, nD) * 0.85, Math.max(nH, nD * 0.55));
     const nCamDist = dist > 0 ? dist : Number(camDist || 0);
 
     // Set camera up vector based on orientation to prevent gimbal lock in Top view
+    const { doorZ, inward } = frame;
     if (orientation === "Top") {
-      camera.up.set(0, 0, 1);   // door (z = 0) at the bottom of the screen, cab at the top
+      camera.up.set(0, 0, inward);   // door at the bottom of the screen, front wall at the top
     } else {
       camera.up.set(0, 1, 0);
     }
 
-    // Render z = 0 is the rear door, z = D the cab end. "Front" looks in
-    // through the door; "3D" is a three-quarter view from behind and above
-    // the door so the long axis runs away from the viewer toward the cab.
-    // Each view is framed against the plane it actually shows. Front looks in
-    // through the door, so its distance is measured from the door plane
-    // (z = 0), not from the container centre 293 cm further in - otherwise a
-    // box at the door looms over the frame and its label projects off-screen.
+    // The door is at render z = doorZ and the truck runs `inward` from it
+    // (truckFrame). "Door" looks in through the door; "Loading" (playback)
+    // looks in through the door from above and behind it, so a box starts
+    // near the viewer and slides away into the truck; "3D" is a three-quarter
+    // view from behind and above the door so the long axis runs away from the
+    // viewer toward the front wall.
+    // Each view is framed against the plane it actually shows. Door looks in
+    // through the door, so its distance is measured from the door plane, not
+    // from the container centre 293 cm further in - otherwise a box at the
+    // door looms over the frame and its label projects off-screen.
     // Top is aimed slightly doorward so the door label clears the playback bar
     // along the bottom of the canvas.
     const aim = [target[0], target[1], target[2]];
-    if (orientation === "Front") {
-      camera.position.set(target[0], target[1], -nCamDist);
+    if (orientation === "Door") {
+      camera.position.set(target[0], target[1], doorZ - inward * nCamDist);
+    } else if (orientation === "Loading") {
+      aim[1] = nH * 0.25;
+      aim[2] = doorZ + inward * nD * 0.5;
+      camera.position.set(target[0] + nW * 0.3, nH * 1.75, doorZ - inward * nCamDist * 1.25);
     } else if (orientation === "Side") {
       camera.position.set(target[0] + nCamDist, target[1], target[2]);
     } else if (orientation === "Top") {
-      aim[2] = target[2] - nD * 0.09;
+      aim[2] = target[2] - inward * nD * 0.09;
       camera.position.set(target[0], target[1] + nCamDist, aim[2]);
     } else if (orientation === "3D") {
-      camera.position.set(target[0] + nCamDist * 0.55, target[1] + nH * 1.3, target[2] - nCamDist * 0.75);
+      camera.position.set(target[0] + nCamDist * 0.55, target[1] + nH * 1.3, target[2] - inward * nCamDist * 0.75);
     }
     camera.lookAt(aim[0], aim[1], aim[2]);
     if (controls) {
@@ -355,14 +451,15 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, rese
       controls.update();
     }
     camera.updateProjectionMatrix();
-  }, [orientation, target, H, camDist, totalWidth, D, camera, controls, resetTrigger]);
+  }, [orientation, target, H, camDist, totalWidth, D, frame, camera, controls, resetTrigger]);
 
   return null;
 }
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
 export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, showGuides = true, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract,
-                                    colorMode = 'type', heavy = null, stops = [], highlightProblems = false, onSelectItem, selectedIdx = null, legend = null, pictureName = 'STACKR-3D-view' }) {
+                                    colorMode = 'type', heavy = null, stops = [], highlightProblems = false, onSelectItem, selectedIdx = null, legend = null, pictureName = 'STACKR-3D-view',
+                                    plan = null, planCheck = null, showGaps = false, shadeEmpty = false, onPlayStart }) {
   // Parse container specs to numbers
   const container = useMemo(() => {
     const raw = result ? result.container : containerProp;
@@ -371,8 +468,10 @@ export default function BinViewer({ result, placements: placementsProp, containe
       L: Number(raw.L || raw.Length || 0),
       H: Number(raw.H || raw.Height || 0),
       D: Number(raw.D || raw.Depth || 0),
+      y_origin: raw.y_origin,
     };
   }, [result, containerProp]);
+  const frame = useMemo(() => truckFrame(container), [container]);
 
   // Parse placements to numbers to prevent string concatenation bugs
   const items = useMemo(() => {
@@ -398,40 +497,52 @@ export default function BinViewer({ result, placements: placementsProp, containe
     return Number(rawBins);
   }, [result, binsUsedProp]);
 
-  const [currentStep, setCurrentStep] = useState(items.length);
+  // Playback order = the physical loading order (viewer/loadingPlan.js, the
+  // same order as the printed Loading Guide), not the array order of items.
+  const ordered = useMemo(() => {
+    const rank = new Map(((plan && plan.steps) || []).map((st) => [Number(st.it.item_idx), st.step]));
+    return items.slice().sort((a, b) => (rank.get(a.item_idx) ?? Infinity) - (rank.get(b.item_idx) ?? Infinity));
+  }, [items, plan]);
+  const n = ordered.length;
+  const planOk = !planCheck || planCheck.ok;
+
+  const [currentStep, setCurrentStep] = useState(n);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isLooping, setIsLooping] = useState(false);
+  const [moving, setMoving] = useState(null);        // item_idx of the box coming in
+  const [stepAnim, setStepAnim] = useState(false);   // a single step forward animates too
+  const progress = useRef(1);
 
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    setCurrentStep(items.length);
-  }, [items.length]);
+    setCurrentStep(n);
+    setMoving(null);
+    setIsPlaying(false);
+  }, [ordered, n]);
+
+  // Bring box k (0-based in loading order) in through the door.
+  const bringIn = useCallback((k) => {
+    progress.current = 0;
+    setMoving(ordered[k].item_idx);
+    setCurrentStep(k + 1);
+  }, [ordered]);
 
   useEffect(() => {
-    if (!isPlaying) return;
-    const intervalDelay = Math.round(500 / playbackSpeed);
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= items.length) {
-          if (isLooping) {
-            return 0;
-          } else {
-            setIsPlaying(false);
-            return prev;
-          }
-        }
-        return prev + 1;
-      });
-    }, intervalDelay);
+    if (!isPlaying || moving !== null) return;
+    if (currentStep < n) bringIn(currentStep);
+    else if (isLooping) setCurrentStep(0);
+    else setIsPlaying(false);
+  }, [isPlaying, moving, currentStep, n, isLooping, bringIn]);
 
-    return () => clearInterval(interval);
-  }, [isPlaying, items.length, playbackSpeed, isLooping]);
+  const finishMove = useCallback(() => { setMoving(null); setStepAnim(false); }, []);
+  const stopAt = (k) => { setIsPlaying(false); setStepAnim(false); setMoving(null); progress.current = 1; setCurrentStep(k); };
 
-  const visibleItems = useMemo(() => {
-    return items.slice(0, currentStep);
-  }, [items, currentStep]);
+  const visibleItems = useMemo(() => ordered.slice(0, currentStep), [ordered, currentStep]);
+  const stepBox = currentStep > 0 ? ordered[currentStep - 1] : null;
+  const hiddenByFilters = plan ? plan.steps.length - n : 0;
+  const settled = currentStep === n && moving === null;
 
   const byBin = useMemo(() => {
     const m = {};
@@ -459,11 +570,11 @@ export default function BinViewer({ result, placements: placementsProp, containe
   const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
 
   const cameraConfig = useMemo(() => ({
-    position: [target[0] + camDist * 0.55, target[1] + H * 1.3, target[2] - camDist * 0.75],
+    position: [target[0] + camDist * 0.55, target[1] + H * 1.3, target[2] - frame.inward * camDist * 0.75],
     fov: 30,
     near: 1,
     far: Math.max(10000, camDist * 10)
-  }), [target, H, camDist]);
+  }), [target, H, camDist, frame]);
 
   if (!container) return null;
 
@@ -494,9 +605,13 @@ export default function BinViewer({ result, placements: placementsProp, containe
             const binItems = byBin[binId] || [];
             return (
               <group key={binId} position={[offsetX, 0, 0]}>
-                <WireBox x={0} y={0} z={0} l={L} h={H} d={D} />
-                {showGuides && <OrientationGuides L={L} H={H} D={D} />}
-                {binItems.map((it) => (
+                <WireBox x={0} y={0} z={0} l={L} h={H} d={D} frontZ={frame.frontZ} />
+                {showGuides && <OrientationGuides L={L} H={H} D={D} frame={frame} />}
+                {(showGaps || shadeEmpty) && settled && binId === 0 && (
+                  <GapLayer items={binItems} container={container} frame={frame} L={L} H={H} showLines={showGaps} shadeEmpty={shadeEmpty} />
+                )}
+                {binItems.map((it) => {
+                  const box = (
                   <ItemBox
                     key={it.item_idx}
                     x={it.x} y={it.y} z={it.z}
@@ -512,12 +627,17 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     onLeave={() => onHoverItem && onHoverItem(null)}
                     onSelect={() => onSelectItem && onSelectItem(it)}
                   />
-                ))}
+                  );
+                  return it.item_idx === moving
+                    ? <EntryMotion key={it.item_idx} it={it} frame={frame} H={H} progress={progress}>{box}</EntryMotion>
+                    : box;
+                })}
               </group>
             );
           })}
 
-          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} totalWidth={totalWidth} D={D} resetTrigger={resetTrigger} />
+          <EntryDriver active={moving !== null && (isPlaying || stepAnim)} seconds={ENTRY_SECONDS / playbackSpeed} progress={progress} onDone={finishMove} />
+          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} totalWidth={totalWidth} D={D} frame={frame} resetTrigger={resetTrigger} />
           <OrbitControls makeDefault target={target} onStart={onInteract} />
         </Canvas>
 
@@ -548,17 +668,20 @@ export default function BinViewer({ result, placements: placementsProp, containe
             onMouseUp={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
+            {!planOk && (
+              <div style={{ color: '#fbbf24', fontSize: 12, fontWeight: 600 }}>
+                Loading animation not shown: no valid loading order for this arrangement ({planCheck.problems[0]}).
+              </div>
+            )}
             {/* Row 1: Progress Slider */}
             <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
               <input
                 type="range"
                 min="0"
-                max={items.length}
+                max={n}
                 value={currentStep}
-                onChange={(e) => {
-                  setCurrentStep(parseInt(e.target.value, 10));
-                  setIsPlaying(false);
-                }}
+                disabled={!planOk}
+                onChange={(e) => stopAt(parseInt(e.target.value, 10))}
                 style={{
                   width: '100%',
                   cursor: 'pointer',
@@ -624,11 +747,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
               {/* Playback Navigation Buttons (Middle) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button
-                  onClick={() => {
-                    setIsPlaying(false);
-                    setCurrentStep((prev) => Math.max(0, prev - 1));
-                  }}
-                  disabled={currentStep === 0}
+                  onClick={() => stopAt(Math.max(0, currentStep - 1))}
+                  disabled={currentStep === 0 || !planOk}
                   style={{
                     background: '#475569',
                     color: '#fff',
@@ -646,11 +766,17 @@ export default function BinViewer({ result, placements: placementsProp, containe
                 </button>
 
                 <button
+                  disabled={!planOk}
                   onClick={() => {
-                    if (currentStep >= items.length) {
+                    if (isPlaying) { setIsPlaying(false); return; }
+                    if (currentStep >= n && moving === null) {
                       setCurrentStep(0);
+                      onPlayStart && onPlayStart();
+                    } else if (currentStep === 0) {
+                      onPlayStart && onPlayStart();
                     }
-                    setIsPlaying(prev => !prev);
+                    setStepAnim(false);
+                    setIsPlaying(true);
                   }}
                   style={{
                     background: isPlaying ? '#ef4444' : '#3b82f6',
@@ -670,9 +796,11 @@ export default function BinViewer({ result, placements: placementsProp, containe
                 <button
                   onClick={() => {
                     setIsPlaying(false);
-                    setCurrentStep((prev) => Math.min(items.length, prev + 1));
+                    if (currentStep >= n) return;
+                    setStepAnim(true);
+                    bringIn(currentStep);
                   }}
-                  disabled={currentStep === items.length}
+                  disabled={currentStep === n || !planOk}
                   style={{
                     background: '#475569',
                     color: '#fff',
@@ -681,8 +809,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     padding: '6px 10px',
                     fontSize: 12,
                     fontWeight: 600,
-                    cursor: currentStep === items.length ? 'not-allowed' : 'pointer',
-                    opacity: currentStep === items.length ? 0.5 : 1,
+                    cursor: currentStep === n ? 'not-allowed' : 'pointer',
+                    opacity: currentStep === n ? 0.5 : 1,
                   }}
                   title="Next Box"
                 >
@@ -691,7 +819,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
               </div>
 
               <span style={{ color: '#f1f5f9', fontSize: 12, whiteSpace: 'nowrap', fontWeight: 600 }}>
-                Showing {currentStep} of {items.length}
+                Step {currentStep} / {n}{stepBox && stepBox.stop !== undefined ? ` · Stop ${stepBox.stop}` : ''}
+                {hiddenByFilters > 0 ? ` · ${hiddenByFilters} hidden by filters` : ''}
               </span>
             </div>
           </div>

@@ -32,7 +32,7 @@ DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
 from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid, RepairBasedHybrid
 from thesis_metrics import (evaluate_constraints,
                             space_utilization as thesis_space_utilization)
-from arrangement_view import wtpack_entry, annotate
+from arrangement_view import wtpack_entry, annotate, gap_view, render_container_of
 
 
 # M-3 / M-4 as in experiments/study.py (Chapter 3): numba warmed untimed, M-3 =
@@ -170,9 +170,7 @@ def main():
     # truck) -> render x; physics y (depth from the rear door) -> render z;
     # physics z (height) -> render y. The raw file dimensions (length x width
     # x height) ride along for display.
-    render_container = {"L": container['L'], "H": container['H'], "D": container['W'],
-                        "length_cm": container.get('length_cm'), "width_cm": container.get('width_cm'),
-                        "height_cm": container.get('height_cm'), "door": container.get('door', 'rear')}
+    render_container = render_container_of(container)
 
     # If streaming, emit instance metadata first so React knows the container dims
     if streaming:
@@ -231,6 +229,7 @@ def main():
 
     # Per-box C3-C6 for the viewer's problem view (additive; after M-3 timing).
     problem_view = annotate(packed_items, best.placements, best.orientations, items)
+    gaps = gap_view(packed_items, best.placements, container, items)   # M-6, display only
 
     cap_vol      = container['L'] * container['W'] * container['H']
     items_vol    = sum(p['dx'] * p['dy'] * p['dz'] for p in packed_items)
@@ -275,6 +274,7 @@ def main():
         "metrics":          metrics,
         "items":            packed_items,
         "problem_view":     problem_view,
+        "gaps":             gaps,
     }
     if custom_doc is not None:
         # Post-run check only: the optimizer has no payload constraint.

@@ -20,6 +20,13 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "optimizer")):
 
 from thesis_metrics import (per_box_constraints, evaluate_constraints,
                             space_utilization)
+from layout_metrics import face_gaps, gap_metrics, FACES, FACE_NAMES
+
+# Where physics y = 0 is, sent to the viewer as container.y_origin. Every
+# producer today (decoder, repair, metrics, validator) measures y from the rear
+# door. Flip this ONE value when the front-wall origin (paper D1) is merged;
+# the client's door helper (client/src/viewer/truckFrame.js) reads it.
+Y_ORIGIN = "door"
 
 # Bump when the per-box fields change shape. Rows saved without
 # result.problem_view predate the problem view and show a banner instead.
@@ -74,6 +81,68 @@ def annotate(entries, placements, orientations, items):
     }
 
 
+def render_container_of(container):
+    return {"L": container['L'], "H": container['H'], "D": container['W'],
+            "length_cm": container.get('length_cm'), "width_cm": container.get('width_cm'),
+            "height_cm": container.get('height_cm'), "door": container.get('door', 'rear'),
+            "y_origin": Y_ORIGIN}
+
+
+def gap_view(entries, placements, container, items):
+    """M-6 for the viewer: add each render entry's six face gaps and return the
+    run summary. The numbers are layout_metrics.face_gaps / gap_metrics, not
+    recomputed. Added here, so the browser draws without doing any gap maths:
+    what lies beyond each face ("wall", or the box whose facing face is at
+    exactly the gap), and, for a significant gap (>= tau), the dimension line
+    and the empty block in front of the face. All in physics coordinates
+    (x across, y depth, z height), keyed by face name x-, x+, y-, y+, z-, z+."""
+    summary = gap_metrics(placements, container, items)
+    tau = summary["significant_threshold_cm"]
+    gaps = face_gaps(placements, container)
+    ext = (float(container['L']), float(container['W']), float(container['H']))
+    P = {i: [float(v) for v in placements[i]] for i in placements}
+    for e in entries:
+        i = e["item_idx"]
+        lo = P[i][:3]
+        hi = [lo[a] + P[i][3 + a] for a in range(3)]
+        faces = {}
+        for (ax, sgn), name in zip(FACES, FACE_NAMES):
+            g = gaps[i][name]
+            o1, o2 = [a for a in range(3) if a != ax]
+            plane = hi[ax] if sgn > 0 else lo[ax]
+            wall = (ext[ax] - hi[ax]) if sgn > 0 else lo[ax]
+            nb, rect = None, (lo[o1], hi[o1], lo[o2], hi[o2])
+            if abs(g - wall) > 1e-6:
+                best = 0.0
+                for j, q in P.items():
+                    if j == i:
+                        continue
+                    qplane = q[ax] if sgn > 0 else q[ax] + q[3 + ax]
+                    if abs((qplane - plane) * sgn - g) > 1e-6:      # beyond the face, at the gap
+                        continue
+                    r = (max(lo[o1], q[o1]), min(hi[o1], q[o1] + q[3 + o1]),
+                         max(lo[o2], q[o2]), min(hi[o2], q[o2] + q[3 + o2]))
+                    area = max(0.0, r[1] - r[0]) * max(0.0, r[3] - r[2])
+                    if area > best:
+                        nb, best, rect = j, area, r
+            f = {"gap_cm": round(g, 4), "to": "wall" if nb is None else "box", "box": nb}
+            if g >= tau - 1e-9:
+                a = [0.0, 0.0, 0.0]
+                a[o1], a[o2] = (rect[0] + rect[1]) / 2.0, (rect[2] + rect[3]) / 2.0
+                a[ax] = plane
+                b = list(a)
+                b[ax] = plane + sgn * g
+                block = [0.0] * 6
+                block[o1], block[3 + o1] = lo[o1], hi[o1] - lo[o1]
+                block[o2], block[3 + o2] = lo[o2], hi[o2] - lo[o2]
+                block[ax], block[3 + ax] = min(plane, plane + sgn * g), g
+                f["line"] = [[round(v, 4) for v in a], [round(v, 4) for v in b]]
+                f["block"] = [round(v, 4) for v in block]
+            faces[name] = f
+        e["face_gaps"] = faces
+    return {**summary, "source": "optimizer/layout_metrics.py (M-6)"}
+
+
 def study_run_view(study_path, run_index, raw_dir=None):
     """Rebuild the viewer payload for one stored study run. Recomputes SU and
     CSR from the stored arrangement and refuses to draw if they differ from
@@ -111,9 +180,8 @@ def study_run_view(study_path, run_index, raw_dir=None):
         entries.append(e)
     entries.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
     pv = annotate(entries, placements, orientations, items)
-    render_container = {"L": container['L'], "H": container['H'], "D": container['W'],
-                        "length_cm": container.get('length_cm'), "width_cm": container.get('width_cm'),
-                        "height_cm": container.get('height_cm'), "door": container.get('door', 'rear')}
+    gaps = gap_view(entries, placements, container, items)
+    render_container = render_container_of(container)
     out = {
         "status": "ok", "source": "study", "study": doc.get('name'), "run_index": run_index,
         "strategy": run['configuration'], "instance": run['instance_id'], "seed": run['seed'],
@@ -125,6 +193,7 @@ def study_run_view(study_path, run_index, raw_dir=None):
                     "M3_execution_time_ms": run.get('exec_time_ms'), "M4_peak_memory_mb": run.get('peak_mem_mb')},
         "verified": {"su_pct": su, "csr_pct": csr, "stored_su_pct": run['su_pct'], "stored_csr_pct": run['csr_pct']},
         "problem_view": pv,
+        "gaps": gaps,
         "items": entries,
     }
     if custom_doc is not None:

@@ -17,7 +17,8 @@ const andList = (xs) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(
 export function buildGuide(view) {
   const items = (view && Array.isArray(view.items)) ? view.items : [];
   const pv = view ? view.problem_view : null;
-  const plan = buildPlan(items);
+  const plan = buildPlan(items, view ? view.container : null);
+  const frame = plan.frame;
   const check = checkPlan(plan);
   const byId = new Map(items.map((it) => [String(it.id ?? it.item_idx), it]));
   const stops = Array.from(new Set(items.map((i) => Number(i.stop)).concat(pv ? pv.unplaced.map((u) => Number(u.stop)) : [])))
@@ -40,7 +41,7 @@ export function buildGuide(view) {
       orientationShort: ORIENT_SHORT[Number(it.orientation)] || null,
       mass: Number(it.mass ?? it.weight),
       fragile,
-      position: `(${fmtNum(s.p.x)}, ${fmtNum(s.p.y)}, ${fmtNum(s.p.z)})`,
+      position: `(${fmtNum(s.p.x)}, ${fmtNum(frame.fromFront(s.p))}, ${fmtNum(s.p.z)})`,
       supporters: on.map((o) => o.it.id ?? o.it.item_idx),
       instruction: on.length === 0 ? "Place on the floor" : `Place on top of ${andList(on.map((o) => boxLabel(o.it.id ?? o.it.item_idx)))}`,
       reachable: firstStop !== null && Number(it.stop) === firstStop ? `Keep reachable — unloaded at stop ${firstStop}` : null,
@@ -79,7 +80,7 @@ export function buildGuide(view) {
     size: u.l != null ? `${fmtNum(u.l)} × ${fmtNum(u.w)} × ${fmtNum(u.h)}` : null,
   })) : [];
 
-  return { steps, unloadStops, rehandling, notLoaded, stops, check, nBands: plan.nBands, pv };
+  return { steps, unloadStops, rehandling, notLoaded, stops, check, fixes: plan.fixes, deferred: plan.deferred, frame, pv };
 }
 
 // "Box 031, 044, 052" — the first with "Box", the rest by number.
@@ -104,7 +105,7 @@ export function layersOf(steps) {
 export function guideCsv(guide, customLabel = null) {
   const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const head = ["Step", "Box", "Stop", "Size as placed (across x deep x high, cm)", "Orientation", "Weight (kg)", "Fragile",
-    "Position x, y from door, z (cm)", "Placement", "Reachability", "Load on top (C3)", "Base support (C5)", "Unload order (C6)"]
+    "Position x, y from front wall, z (cm)", "Placement", "Reachability", "Load on top (C3)", "Base support (C5)", "Unload order (C6)"]
     .concat(customLabel ? ["Dataset"] : []);
   const rows = guide.steps.map((s) => [s.step, s.label, s.stop, s.size, s.orientation ?? "not recorded", fmtNum(s.mass, 2),
     s.fragile ? "yes" : "no", s.position, s.instruction, s.reachable ?? "", s.c3 ?? "not recorded", s.c5 ?? "not recorded",

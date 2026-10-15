@@ -7,6 +7,7 @@
 import React from "react";
 import { STOP_COLORS } from "../BinViewer";
 import { layersOf } from "../viewer/guidePlan";
+import { truckFrame } from "../viewer/truckFrame";
 
 const stopColor = (stops, s) => STOP_COLORS[Math.max(0, stops.indexOf(Number(s))) % STOP_COLORS.length];
 
@@ -37,13 +38,14 @@ export function layerGroups(steps, height) {
 }
 
 function TopView({ layer, container, stops }) {
-  const Y = Number(container.D), X = Number(container.L);   // depth door->cab, width across
+  const Y = Number(container.D), X = Number(container.L);   // depth door->front wall, width across
+  const frame = truckFrame(container);
   const VW = 720, pad = 26, s = (VW - 2 * pad) / Y, VH = X * s + 2 * pad + 6;
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", maxWidth: VW, display: "block" }} role="img" aria-label={layer.title}>
       <rect x={pad} y={pad} width={Y * s} height={X * s} fill="none" stroke="var(--text-dim)" strokeWidth="1.5" />
       {layer.boxes.map((b) => {
-        const w = b.p.dy * s, h = b.p.dx * s, x = pad + b.p.y * s, y = pad + b.p.x * s;
+        const w = b.p.dy * s, h = b.p.dx * s, x = pad + frame.fromDoor(b.p).near * s, y = pad + b.p.x * s;
         const c = stopColor(stops, b.stop);
         const fit = w >= 22 && h >= 14, wide = w >= 74 && h >= 30;
         return (
@@ -57,7 +59,7 @@ function TopView({ layer, container, stops }) {
       })}
       <line x1={pad} y1={pad} x2={pad} y2={pad + X * s} stroke="#22c55e" strokeWidth="5" />
       <text x={pad} y={pad - 8} fontSize="11.5" fontWeight="700" fill="var(--text-muted)">◀ Rear door</text>
-      <text x={pad + Y * s} y={pad - 8} fontSize="11.5" fontWeight="700" fill="var(--text-muted)" textAnchor="end">Cab end ▶</text>
+      <text x={pad + Y * s} y={pad - 8} fontSize="11.5" fontWeight="700" fill="var(--text-muted)" textAnchor="end">Front wall ▶</text>
     </svg>
   );
 }
@@ -68,8 +70,10 @@ function TopView({ layer, container, stops }) {
 function DoorView({ steps, container, stops }) {
   const X = Number(container.L), Z = Number(container.H);
   const VW = 720, pad = 26, s = (VW - 2 * pad) / X, VH = Z * s + 2 * pad + 8;
-  const far = steps.slice().sort((a, b) => b.p.y - a.p.y);          // far ones first, nearest drawn last
-  const covered = (b) => steps.some((o) => o !== b && o.p.y < b.p.y
+  const frame = truckFrame(container);
+  const dd = (b) => frame.fromDoor(b.p).near;
+  const far = steps.slice().sort((a, b) => dd(b) - dd(a));          // far ones first, nearest drawn last
+  const covered = (b) => steps.some((o) => o !== b && dd(o) < dd(b)
     && o.p.x <= b.p.x + b.p.dx / 2 && b.p.x + b.p.dx / 2 <= o.p.x + o.p.dx
     && o.p.z <= b.p.z + b.p.dz / 2 && b.p.z + b.p.dz / 2 <= o.p.z + o.p.dz);
   return (
