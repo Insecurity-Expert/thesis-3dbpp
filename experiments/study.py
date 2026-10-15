@@ -220,6 +220,7 @@ def run_task(task):
                                    SequentialHybrid, RepairBasedHybrid)
     from thesis_metrics import evaluate_constraints, space_utilization
     from validate_arrangement import validate
+    from layout_metrics import layout_indicators
 
     classes = {'DGWO': StandaloneDGWO, 'MOGWO': StandaloneMOGWO,
                'SEQ': SequentialHybrid, 'REP': RepairBasedHybrid}
@@ -313,6 +314,8 @@ def run_task(task):
         'placements':       placements,
         'orientations':     orientations,
         'validation':       validation,
+        # M-6 gap and M-7 load distribution (supporting descriptive indicators).
+        'layout':           layout_indicators(placements, container, boxes),
     }
     if task.get('custom_load'):
         # Fingerprint of the stop labels this run read (all runs of one load

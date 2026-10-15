@@ -127,6 +127,10 @@ SUPPLEMENTARY_LABEL = "Supplementary comparison with the non-search baselines (C
 GREEDY_LABEL = "Weight-Sorted Greedy"
 RANDOM_LABEL = "Random Order"
 LOWER_IS_BETTER = {"ET", "PM"}
+# Which family decides H0 in the manuscript: "planned" (D2 b - 18 planned REP
+# comparisons, experiments/planned.py) or "omnibus" (the earlier six-test
+# family, still computed under out["hypothesis_family"]). FOR CONFIRMATION.
+HYPOTHESIS_DESIGN = "planned"
 
 D_THRESHOLD = 0.5       # Cohen's d practical threshold
 R_THRESHOLD = 0.3       # rank-biserial r practical threshold
@@ -692,7 +696,40 @@ def analyse(study):
 
     # ── supplementary: non-search baselines (outside SP1-SP3) ─────────────────
     out["supplementary"] = supplementary(study, rows, configs, instances)
+
+    # ── D2(b) planned comparisons, REP as reference (for adviser confirmation) ──
+    from planned import planned_family
+    out["planned_family"] = planned_family(
+        get_mat, configs, timing_valid, alpha=ALPHA, holm=holm, shapiro=shapiro, d_z=d_z,
+        rank_biserial_paired=rank_biserial_paired, magnitude=magnitude, labels=LABELS,
+        measure_labels=MEASURE_LABELS, lower_is_better=LOWER_IS_BETTER,
+        d_thr=D_THRESHOLD, r_thr=R_THRESHOLD, f=_f)
+    out["hypothesis_design"] = HYPOTHESIS_DESIGN
+
+    # ── supporting descriptive indicators M-6 gap, M-7 load distribution ──────
+    out["layout"] = layout_descriptives(runs, configs)
     return out
+
+
+LAYOUT_FIELDS = (("gap", "mean_gap_cm"), ("gap", "max_gap_cm"), ("gap", "significant_gaps"),
+                 ("load_distribution", "lr_mass_imbalance_pct"),
+                 *(("load_distribution", f"{b}_{q}") for b in ("left", "right", "lower", "middle", "upper")
+                   for q in ("count", "mass")))
+
+
+def layout_descriptives(runs, configs):
+    """Descriptive only (Data Analysis Stage 3): not compared, not in any family."""
+    if not any(r.get("layout") for r in runs):
+        return {"available": False, "reason": "runs carry no layout block (study made before M-6 / M-7)"}
+    res = {}
+    for grp, k in LAYOUT_FIELDS:
+        res[k] = {c: descriptives([r["layout"][grp][k] for r in runs
+                                   if r["configuration"] == c and r.get("layout") and r["layout"][grp][k] is not None])
+                  for c in configs}
+    res["unloaded_pct"] = {c: descriptives([(r["n_items"] - r["placed"]) / r["n_items"] * 100.0
+                                            for r in runs if r["configuration"] == c and r["n_items"]])
+                           for c in configs}
+    return {"available": True, "descriptive_only": True, "measures": res}
 
 
 def timing_flags(study, timing_valid):
@@ -925,6 +962,17 @@ def summary_lines(st):
     pv = st["provenance"]
     L.append(f"provenance: {pv['n_instances']} instance(s), preset {pv['preset']}, {len(pv['seeds'])} seeds, mode {pv['mode']}, commit {pv['commit']}"
              + (" [PRELIMINARY: " + pv["preliminary_reason"] + "]" if pv["preliminary"] else ""))
+    pf = st.get("planned_family")
+    if pf and pf.get("available"):
+        L.append(f"PLANNED FAMILY [{st.get('hypothesis_design')} decides H0] - REP vs DGWO/MOGWO/SEQ, "
+                 f"Holm across {pf['holm_family_size']} testable of {pf['planned_size']}:")
+        for c in pf["comparisons"]:
+            L.append(f"   {c['sp']} {c['measure']} REP vs {c['other']}: " +
+                     (f"{c['test']} p={c['p_raw']} p_holm={c['p_holm']} {c['effect']['name']}={c['effect']['value']} -> {c['verdict']}"
+                      if c.get("testable") else c["verdict"]))
+        for sp, d in pf["decisions"].items():
+            L.append(f"   {sp}: {d['decision']}")
+        L.append(f"   outcome (REP): {pf['outcome']['pattern'] or '-'} - {pf['outcome']['description']}")
     hf = st.get("hypothesis_family")
     if hf:
         L.append(f"HYPOTHESIS FAMILY (Holm across {hf['holm_family_size']} testable of 6): {hf['decision']}")
