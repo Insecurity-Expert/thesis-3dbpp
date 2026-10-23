@@ -92,6 +92,7 @@ export default function VisualizationTab({
   const [studyView, setStudyView] = useState(null);
   const [studyError, setStudyError] = useState(null);
   const [requestBusy, setRequestBusy] = useState(false);
+  const [centerLoad, setCenterLoad] = useState(false);
 
   // A new or reopened run is what the viewer shows; a "View Arrangement"
   // request (below, declared later so it wins on mount) switches to a study run.
@@ -123,9 +124,19 @@ export default function VisualizationTab({
     return null;
   }, [source, studyView, finalResult, placements, instanceInfo, binsUsed]);
 
-  useEffect(() => { setPinned(null); setHovered(null); setRuleFilter(null); }, [result]);
+  useEffect(() => { setPinned(null); setHovered(null); setRuleFilter(null); setCenterLoad(false); }, [result]);
 
-  const items = useMemo(() => (result && result.items) || [], [result]);
+  const hasCentered = Boolean(
+    result &&
+    result.centered_items &&
+    result.centered_items.length > 0
+  );
+  const isImproved = Boolean(result && result.lateral_balance && result.lateral_balance.improved);
+
+  const items = useMemo(() => {
+    if (centerLoad && hasCentered) return result.centered_items;
+    return (result && result.items) || [];
+  }, [result, centerLoad, hasCentered]);
   const pv = result ? result.problem_view : null;
   const heavy = useMemo(() => heavyRule(result), [result]);
 
@@ -157,6 +168,30 @@ export default function VisualizationTab({
   const details = pinned || hovered;
   const frame = useMemo(() => truckFrame(container), [container]);
   const gaps = result ? result.gaps : null;
+
+  // Boxes that the centering pass physically moved (shift > 0.5 cm threshold).
+  // Used to render a cyan outline in the 3-D viewer so the change is visible.
+  const shiftedIdxs = useMemo(() => {
+    if (!centerLoad || !hasCentered || !result || !result.lateral_balance || !result.lateral_balance.shifts) return null;
+    const s = new Set();
+    for (const [idx, delta] of Object.entries(result.lateral_balance.shifts)) {
+      if (Math.abs(delta) > 0.5) s.add(Number(idx));
+    }
+    return s.size > 0 ? s : null;
+  }, [centerLoad, hasCentered, result]);
+
+  // Lateral centre-of-mass x position (physics x-axis = across the truck width).
+  // Weighted by left_mass / total_mass, scaled to container width L.
+  const centerOfMassX = useMemo(() => {
+    if (!result || !result.lateral_balance || !container) return null;
+    const lb = centerLoad && hasCentered ? result.lateral_balance.after : result.lateral_balance.before;
+    if (!lb) return null;
+    const total = lb.left_mass + lb.right_mass;
+    if (total <= 0) return null;
+    const L = Number(container.L || container.length_cm || 0);
+    return (lb.left_mass / total) * L;
+  }, [centerLoad, hasCentered, result, container]);
+  const comBalanced = centerLoad && hasCentered;
   const idName = useMemo(() => {
     const m = new Map(items.map((it) => [Number(it.item_idx), it.id ?? `#${it.item_idx}`]));
     return (j) => `Box ${m.get(Number(j)) ?? j}`;
@@ -186,6 +221,7 @@ export default function VisualizationTab({
       )}
       <Swatch color="#f59e0b" outline label="Fragile (outline)" />
       {highlight && pv && <Swatch color={PROBLEM_OUTLINE} outline label={`Breaks a rule: ${pv.n_placed - pv.compliant_placed}`} />}
+      {centerLoad && shiftedIdxs && <Swatch color="#22d3ee" outline label={`Balanced — ${shiftedIdxs.size} box${shiftedIdxs.size === 1 ? '' : 'es'} shifted`} />}
       {nNotLoaded !== null && (
         <span style={{ ...LEGEND_TXT, fontWeight: 700, color: nNotLoaded > 0 ? "#fbbf24" : "#cbd5e1" }}>
           {nNotLoaded} of {nItems} boxes not loaded
@@ -278,6 +314,71 @@ export default function VisualizationTab({
               </div>
             )}
           </div>
+
+          {result && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
+                <h4 className="section-tag" style={{ margin: 0 }}>● LATERAL BALANCE (M-7)</h4>
+                {hasCentered && (
+                  <button
+                    type="button"
+                    className={`btn btn-xs ${centerLoad ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setCenterLoad((c) => !c)}
+                    style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px" }}
+                    title={centerLoad ? "Click to view original DBLF packing" : "Click to view balanced arrangement"}
+                  >
+                    {centerLoad ? "Centered ✓" : (isImproved ? "Center Load" : "Centered (Optimal)")}
+                  </button>
+                )}
+              </div>
+              {result.lateral_balance ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                  <Row
+                    k="Layout Mode"
+                    v={centerLoad && hasCentered ? "Post-Centered (Balanced)" : "Standard DBLF"}
+                    color={centerLoad && hasCentered ? "var(--green)" : "var(--primary)"}
+                  />
+                  <Row
+                    k="Left vs Right Mass"
+                    v={
+                      centerLoad && hasCentered
+                        ? `${fmtNum(result.lateral_balance.after.left_mass, 1)} / ${fmtNum(result.lateral_balance.after.right_mass, 1)} kg`
+                        : `${fmtNum(result.lateral_balance.before.left_mass, 1)} / ${fmtNum(result.lateral_balance.before.right_mass, 1)} kg`
+                    }
+                  />
+                  <Row
+                    k="Imbalance (M-7)"
+                    v={
+                      centerLoad && hasCentered
+                        ? `${fmtNum(result.lateral_balance.after.lr_mass_imbalance_pct, 1)}%${isImproved ? ` (was ${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%)` : ""}`
+                        : `${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%`
+                    }
+                    color={centerLoad && hasCentered ? "var(--green)" : (result.lateral_balance.before.lr_mass_imbalance_pct > 15 ? "var(--amber)" : "var(--text-main)")}
+                  />
+                  <div className="field-hint">
+                    {isImproved
+                      ? "Post-processing shifts rigid vertical stacks toward the centerline without violating constraints C1\u2013C6."
+                      : "Arrangement is already at minimum lateral imbalance or fully bounded by neighboring boxes."}
+                  </div>
+                  {centerLoad && hasCentered && result.lateral_balance.shifts && (() => {
+                    const shifted = Object.values(result.lateral_balance.shifts).filter(d => Math.abs(d) > 0.5);
+                    const maxShift = shifted.length > 0 ? Math.max(...shifted.map(Math.abs)) : 0;
+                    return shifted.length > 0 ? (
+                      <div className="field-hint" style={{ color: '#22d3ee', fontWeight: 600 }}>
+                        {shifted.length} box{shifted.length === 1 ? '' : 'es'} shifted (max {fmtNum(maxShift, 1)} cm) — highlighted cyan in 3D
+                      </div>
+                    ) : (
+                      <div className="field-hint">No boxes needed shifting — layout already optimal.</div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                  Lateral balance data not available for this run (run STACKR or open a study arrangement to view).
+                </div>
+              )}
+            </div>
+          )}
 
           {result && (
             <div className="card" style={{ marginTop: 16 }}>
@@ -379,6 +480,9 @@ export default function VisualizationTab({
               shadeEmpty={shadeEmpty}
               onPlayStart={() => triggerViewReset("Loading")}
               onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
+              shiftedIdxs={shiftedIdxs}
+              centerOfMassX={centerOfMassX}
+              comBalanced={comBalanced}
             />
           ) : running && source === "run" ? (
             <LiveProgress stats={stats} />
@@ -439,6 +543,10 @@ export default function VisualizationTab({
             <div className="switch-container">
               <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
               <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="Shift rigid vertical stacks laterally to balance left-right weight without violating C1-C6">Balance lateral load (M-7)</span>
+              <label className="switch"><input type="checkbox" checked={centerLoad} disabled={!hasCentered} onChange={(e) => setCenterLoad(e.target.checked)} /><span className="slider" /></label>
             </div>
 
             <div>

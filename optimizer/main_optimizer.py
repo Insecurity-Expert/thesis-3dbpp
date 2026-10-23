@@ -33,6 +33,7 @@ from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid,
 from thesis_metrics import (evaluate_constraints,
                             space_utilization as thesis_space_utilization)
 from arrangement_view import wtpack_entry, annotate, gap_view, render_container_of
+from lateral_centering import center_arrangement
 
 
 # M-3 / M-4 as in experiments/study.py (Chapter 3): numba warmed untimed, M-3 =
@@ -93,6 +94,8 @@ def main():
                     help="RNG seed for the thesis strategies (omit = entropy-seeded)")
     parser.add_argument("--strategy", choices=["DGWO", "MOGWO", "SEQ", "REP"],
                     default="DGWO", help="Optimization strategy to run")
+    parser.add_argument("--center-load", action="store_true", default=False,
+                    help="Apply post-processing lateral balancing pass to minimize lateral imbalance (M-7)")
     args = parser.parse_args()
 
     streaming = args.stream
@@ -253,6 +256,31 @@ def main():
     # A silent spill to overflow would confound the cross-config comparison.
     budget_exhausted = getattr(best, 'budget_exhausted', False)
 
+    # ── Post-processing lateral centering (M-7 balancing) ─────────────────────
+    centered_res = center_arrangement(best.placements, container, items, best.orientations)
+    centered_items = []
+    for item_idx, placement in centered_res['placements'].items():
+        box = items[item_idx]
+        entry = wtpack_entry(box, item_idx, placement)
+        entry.update({
+            "id":       box.get('id', f"Box-{item_idx+1:03d}"),
+            "item_idx": item_idx,
+            "bin_id":   0,
+        })
+        entry.setdefault("type", box.get('type', 'Standard'))
+        centered_items.append(entry)
+    centered_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
+
+    # When --center-load is explicitly passed, use centered placements for the main items
+    if args.center_load and centered_res['improved']:
+        final_items = centered_items
+        final_problem_view = annotate(centered_items, centered_res['placements'], best.orientations, items)
+        final_gaps = gap_view(centered_items, centered_res['placements'], container, items)
+    else:
+        final_items = packed_items
+        final_problem_view = problem_view
+        final_gaps = gaps
+
     result = {
         "status":          "ok",
         "instance":        args.instance_path,
@@ -272,9 +300,16 @@ def main():
         "seed":             args.seed,
         "budget_exhausted": budget_exhausted,
         "metrics":          metrics,
-        "items":            packed_items,
-        "problem_view":     problem_view,
-        "gaps":             gaps,
+        "items":            final_items,
+        "problem_view":     final_problem_view,
+        "gaps":             final_gaps,
+        "lateral_balance":  {
+            "before": centered_res['m7_before'],
+            "after": centered_res['m7_after'],
+            "improved": centered_res['improved'],
+            "shifts": centered_res['shifts'],
+        },
+        "centered_items":   centered_items,
     }
     if custom_doc is not None:
         # Post-run check only: the optimizer has no payload constraint.

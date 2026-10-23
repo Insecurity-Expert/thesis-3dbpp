@@ -182,6 +182,16 @@ def study_run_view(study_path, run_index, raw_dir=None):
     pv = annotate(entries, placements, orientations, items)
     gaps = gap_view(entries, placements, container, items)
     render_container = render_container_of(container)
+
+    from lateral_centering import center_arrangement
+    centered_res = center_arrangement(placements, container, items, orientations)
+    centered_entries = []
+    for i, p in centered_res['placements'].items():
+        e = wtpack_entry(items[i], i, p)
+        e.update({"id": items[i].get('id', f"Box-{i+1:03d}"), "item_idx": i, "bin_id": 0})
+        centered_entries.append(e)
+    centered_entries.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
+
     out = {
         "status": "ok", "source": "study", "study": doc.get('name'), "run_index": run_index,
         "strategy": run['configuration'], "instance": run['instance_id'], "seed": run['seed'],
@@ -195,6 +205,13 @@ def study_run_view(study_path, run_index, raw_dir=None):
         "problem_view": pv,
         "gaps": gaps,
         "items": entries,
+        "lateral_balance": {
+            "before": centered_res['m7_before'],
+            "after": centered_res['m7_after'],
+            "improved": centered_res['improved'],
+            "shifts": centered_res['shifts'],
+        },
+        "centered_items": centered_entries,
     }
     if custom_doc is not None:
         out["dataset"] = "custom"

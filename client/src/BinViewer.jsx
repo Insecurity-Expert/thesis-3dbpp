@@ -268,8 +268,9 @@ function EntryDriver({ active, seconds, progress, onDone }) {
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
 const FRAGILE_EDGE = '#f59e0b';
+const SHIFTED_EDGE = '#22d3ee'; // cyan-400: marks boxes that the centering pass moved
 
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave, onSelect, fragile, color, problem, selected }) {
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave, onSelect, fragile, color, problem, selected, shifted }) {
   const [hovered, setHovered] = useState(false);
 
   const nx = Number(x || 0);
@@ -368,6 +369,33 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
           <lineBasicMaterial color="#ffffff" linewidth={2} />
         </lineSegments>
       ) : null}
+      {/* Shifted by lateral centering pass: a bright cyan outline so the user
+          can immediately see which boxes moved when the M-7 toggle is flipped. */}
+      {shifted ? (
+        <lineSegments geometry={edgeGeo} scale={1.045}>
+          <lineBasicMaterial color={SHIFTED_EDGE} transparent opacity={0.9} linewidth={2} />
+        </lineSegments>
+      ) : null}
+    </group>
+  );
+});
+
+// ── Center-of-mass vertical plane ────────────────────────────────────────────
+// A thin translucent vertical plane that marks the lateral position of the
+// loaded mass centre. Flips from amber (imbalanced) to cyan (centered) when
+// the M-7 toggle is on so the user sees the CoM visibly shift.
+const CenterOfMassPlane = React.memo(function CenterOfMassPlane({ x, H, D, balanced }) {
+  const geo = useMemo(() => new THREE.PlaneGeometry(D, H), [D, H]);
+  const color = balanced ? '#22d3ee' : '#f59e0b';
+  return (
+    <group position={[x, H / 2, D / 2]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh geometry={geo}>
+        <meshStandardMaterial color={color} transparent opacity={0.18} side={THREE.DoubleSide} />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[geo]} />
+        <lineBasicMaterial color={color} transparent opacity={0.55} />
+      </lineSegments>
     </group>
   );
 });
@@ -459,7 +487,8 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, fram
 // ── Main viewer ───────────────────────────────────────────────────────────────
 export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, showGuides = true, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract,
                                     colorMode = 'type', heavy = null, stops = [], highlightProblems = false, onSelectItem, selectedIdx = null, legend = null, pictureName = 'STACKR-3D-view',
-                                    plan = null, planCheck = null, showGaps = false, shadeEmpty = false, onPlayStart }) {
+                                    plan = null, planCheck = null, showGaps = false, shadeEmpty = false, onPlayStart,
+                                    shiftedIdxs = null, centerOfMassX = null, comBalanced = false }) {
   // Parse container specs to numbers
   const container = useMemo(() => {
     const raw = result ? result.container : containerProp;
@@ -610,7 +639,12 @@ export default function BinViewer({ result, placements: placementsProp, containe
                 {(showGaps || shadeEmpty) && settled && binId === 0 && (
                   <GapLayer items={binItems} container={container} frame={frame} L={L} H={H} showLines={showGaps} shadeEmpty={shadeEmpty} />
                 )}
+                {/* Center-of-mass marker — only in bin 0, only when provided */}
+                {binId === 0 && centerOfMassX !== null && settled && (
+                  <CenterOfMassPlane x={centerOfMassX} H={H} D={D} balanced={comBalanced} />
+                )}
                 {binItems.map((it) => {
+                  const isShifted = shiftedIdxs !== null && shiftedIdxs.has(Number(it.item_idx));
                   const box = (
                   <ItemBox
                     key={it.item_idx}
@@ -622,6 +656,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     color={fillColor(it, colorMode, heavy, stops)}
                     problem={highlightProblems && Array.isArray(it.violations) && it.violations.length > 0}
                     selected={selectedIdx !== null && selectedIdx === it.item_idx}
+                    shifted={isShifted}
                     showLabels={showLabels}
                     onHover={() => onHoverItem && onHoverItem(it)}
                     onLeave={() => onHoverItem && onHoverItem(null)}
