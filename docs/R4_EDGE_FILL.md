@@ -95,8 +95,30 @@ wall on one side; it is not a sign that R4 loosened anything.
   finished, REP records carry `edge_fill_stats` and every run carries
   `layout.edge`. The stats summary (`stats.layout`) does not yet aggregate the
   edge indicators.
-* `study.py` cannot resume: runs are held in memory and the results file is
-  written only at the end.
+* `study.py` now resumes (see below); it used to hold runs in memory and write
+  the results file only at the end.
 * Viewer (real app, built client + server): opening a REP study run shows the R4
   summary; toggling Center Load switches the Gaps panel to the centered boxes
   (8 → 11 boxes touching nothing sideways on that run).
+
+## Resume, chunks and progress (study.py)
+
+* Every finished run is written at once to `<out>.runs/` (one file per run plus
+  `spec.json` with the settings and commit). Running the same command again
+  skips those runs and assembles `<out>` at the end. A restart with other
+  settings is refused; another commit is refused unless `--force-resume`.
+* Chunks (other seeds, or `--instance-ids 50,485` with `--sample`) are run with
+  their own `--out` and merged with
+  `python experiments/study.py --merge a.json b.json --out all.json`. The merge
+  refuses different settings, overlapping runs and incomplete designs, carries
+  the baselines over, and recomputes the stats.
+* Each finished run prints `[done / total runs | % runs | % est. work] … | elapsed
+  | ETA`. Work weight = n_boxes² × (REP 7, others 1; REP's factor is taken from
+  the runs already on disk if there are ≥ 3 REP and ≥ 3 other runs). ETA uses this
+  session's elapsed time and work only. The same `pct_runs`, `pct_work` and
+  `eta_s` are in `<out>.progress.json`; the study progress bar uses `pct_work`.
+* `stats.layout` now includes the edge measures (isolated and one-side boxes,
+  fillable and dunnage gap counts and totals, side-contact ratio).
+* `python tools/test_study_resume.py` kills a small study, restarts it, and
+  checks the result equals an uninterrupted run, the progress line, the refusal
+  and the merge.

@@ -368,6 +368,8 @@ function forgetStudy(row, userId) {
     for (const f of [row.file, row.progress_file, row.file && row.file.replace(/\.json$/, ".log"), row.file && row.file.replace(/\.json$/, ".tmp")]) {
       try { if (f && fs.existsSync(f)) fs.unlinkSync(f); } catch {}
     }
+    // the per-run files written for resume
+    try { if (row.file) fs.rmSync(row.file + ".runs", { recursive: true, force: true }); } catch {}
   }
 }
 

@@ -30,6 +30,18 @@ alone and M-4 is the process's peak working set (psutil), which is monotonic
 per process and therefore only meaningful when one run owns the process.
 tracemalloc is deliberately not used: it slows the optimizer ~4x.
 
+Resume: every finished run is written at once to its own file in <out>.runs/
+(with spec.json, the settings and commit the runs were made under). Running the
+same command again skips the runs already there and assembles <out> from all
+of them at the end; a restart with different settings or another commit is
+refused (--force-resume overrides the commit check). Chunks run separately
+(other seeds or --instance-ids, each with its own --out) are merged into one
+study file with `--merge a.json b.json --out all.json`.
+
+Every finished run prints one progress line: runs done / total, the share of
+estimated work done (weight n_boxes^2 x config factor, REP = 7 unless the runs
+already on disk say otherwise) and an ETA from this session's elapsed time.
+
 Progress is written to <out>.progress.json after every completed run so a
 detached server job can be polled. The optimizer, decoder, repair and
 preprocessing code are untouched: this file only calls them.
@@ -40,6 +52,7 @@ import json
 import time
 import argparse
 import platform
+import statistics
 import subprocess
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -367,9 +380,137 @@ def _write_progress(path, prog):
         pass
 
 
+# ─── resume: one file per finished run ───────────────────────────────────────
+def task_key(t):
+    """configuration | instance (or custom load) | seed; works for a task or a run row."""
+    inst = t.get('instance_id')
+    return f"{t['configuration']}|{inst if inst is not None else t.get('custom_load')}|{t['seed']}"
+
+
+class RunStore:
+    """<out>.runs/: spec.json plus one <key>.json per finished run, written atomically
+    the moment the run returns, so a kill loses at most the runs in flight."""
+
+    def __init__(self, out):
+        self.dir = Path(str(out) + '.runs')
+
+    def check_spec(self, spec, force=False):
+        """Create spec.json, or refuse to mix runs made under other settings."""
+        path = self.dir / 'spec.json'
+        if not path.exists():
+            self.dir.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(spec, indent=1), encoding='utf-8')
+            return
+        old = json.loads(path.read_text(encoding='utf-8'))
+        diff = {k: [old.get(k), spec.get(k)] for k in spec if old.get(k) != spec.get(k)}
+        commit_diff = diff.pop('commit', None)
+        if commit_diff and not force:
+            raise SystemExit(f"{self.dir}: runs on disk were made at commit {old.get('commit')}, this is "
+                             f"{spec.get('commit')}; the code may differ. Restart at that commit, or pass --force-resume.")
+        if diff:
+            raise SystemExit(f"{self.dir}: cannot resume, settings differ from the runs on disk "
+                             f"(on disk vs now): {json.dumps(diff)}")
+
+    def load(self, log=print):
+        rows = {}
+        for f in sorted(self.dir.glob('*.json')) if self.dir.exists() else []:
+            if f.name == 'spec.json':
+                continue
+            try:
+                row = json.loads(f.read_text(encoding='utf-8'))
+                rows[task_key(row)] = row
+            except (ValueError, KeyError, OSError):
+                log(f"ignoring unreadable run file {f.name} (it will be run again)")
+        return rows
+
+    def save(self, row):
+        name = task_key(row).replace('|', '_') + '.json'
+        tmp = self.dir / (name + '.tmp')
+        tmp.write_text(json.dumps(row), encoding='utf-8')
+        for attempt in range(20):
+            try:
+                os.replace(tmp, self.dir / name)
+                return
+            except PermissionError:          # Windows: another process has it open
+                time.sleep(0.05 * (attempt + 1))
+        (self.dir / name).write_text(json.dumps(row), encoding='utf-8')
+        tmp.unlink(missing_ok=True)
+
+
+# ─── progress: runs %, estimated-work % and ETA ──────────────────────────────
+REP_FACTOR_PRIOR = 7.0
+
+
+def fmt_dur(sec):
+    sec = int(round(sec))
+    d, r = divmod(sec, 86400)
+    h, r = divmod(r, 3600)
+    m, s_ = divmod(r, 60)
+    if d:
+        return f"{d}d {h:02d}h"
+    if h:
+        return f"{h}h {m:02d}m"
+    return f"{m}m {s_:02d}s"
+
+
+def work_factors(done_rows):
+    """Cost of a run relative to a non-REP one. Prior: REP = 7. If the runs already on
+    disk hold at least 3 REP and 3 other runs, their median time per n_boxes^2 gives the
+    ratio instead. Fixed for the session, so the percentage never moves backwards."""
+    per = {'REP': [], 'other': []}
+    for r in done_rows:
+        if r.get('exec_time_ms') and r.get('n_items'):
+            per['REP' if r['configuration'] == 'REP' else 'other'].append(r['exec_time_ms'] / r['n_items'] ** 2)
+    if len(per['REP']) >= 3 and len(per['other']) >= 3:
+        ratio = statistics.median(per['REP']) / statistics.median(per['other'])
+        return {'REP': round(min(max(ratio, 1.0), 50.0), 1), 'source': 'measured on the runs already on disk'}
+    return {'REP': REP_FACTOR_PRIOR, 'source': 'prior'}
+
+
+class StudyProgress:
+    def __init__(self, tasks, boxes_of, done_keys, factors):
+        self.factors, self.boxes_of = factors, boxes_of
+        self.total = len(tasks)
+        self.weights = {task_key(t): self._w(t) for t in tasks}
+        self.w_total = sum(self.weights.values())
+        self.done_keys = set(done_keys)
+        self.w_done = sum(self.weights[k] for k in self.done_keys)
+        self.w_session = 0.0
+        self.t0 = None
+
+    def _w(self, t):
+        inst = t.get('instance_id') if t.get('instance_id') is not None else t.get('custom_load')
+        return self.boxes_of[inst] ** 2 * (self.factors['REP'] if t['configuration'] == 'REP' else 1.0)
+
+    def start(self):
+        self.t0 = time.time()
+
+    def finish(self, key):
+        self.done_keys.add(key)
+        self.w_done += self.weights[key]
+        self.w_session += self.weights[key]
+
+    def snapshot(self):
+        elapsed = time.time() - self.t0 if self.t0 else 0.0
+        remaining = self.w_total - self.w_done
+        eta = elapsed * remaining / self.w_session if self.w_session > 0 else None
+        return {'pct_runs': round(100.0 * len(self.done_keys) / self.total, 2) if self.total else 100.0,
+                'pct_work': round(100.0 * self.w_done / self.w_total, 2) if self.w_total else 100.0,
+                'session_elapsed_s': round(elapsed, 1), 'eta_s': None if eta is None else round(eta, 1)}
+
+    def line(self, row):
+        s_ = self.snapshot()
+        inst = row.get('instance_id') if row.get('instance_id') is not None else row.get('custom_load')
+        eta = 'n/a' if s_['eta_s'] is None else ('~' + fmt_dur(s_['eta_s']) if s_['eta_s'] else '0m 00s')
+        return (f"[{len(self.done_keys):,} / {self.total:,} runs | {s_['pct_runs']:.1f}% runs | "
+                f"{s_['pct_work']:.1f}% est. work] {row['configuration']} inst {inst} seed {row['seed']} "
+                f"done ({row['exec_time_ms'] / 1000:.0f} s) | elapsed {fmt_dur(s_['session_elapsed_s'])} | ETA {eta}")
+
+
 def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lambdas,
               enforce_support, enforce_fragility, workers, out, sample_path=None,
-              configs=CONFIGS, raw_dir=None, run_stats=True, edge_fill=True, log=print):
+              configs=CONFIGS, raw_dir=None, run_stats=True, edge_fill=True,
+              force_resume=False, log=print):
     raw_dir = raw_dir or str(_ROOT / 'data' / 'raw')
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
     sample = load_sample(sample_path) if sample_path else None
@@ -408,48 +549,80 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Resume: runs already on disk (same settings, same commit) are not run again.
+    store = RunStore(out)
+    store.check_spec({'preset': {'name': preset, 'pop_size': pop_size, 'max_iter': max_iter},
+                      'lambdas': lambdas, 'enforce_support': enforce_support,
+                      'enforce_fragility': enforce_fragility, 'edge_fill': edge_fill, 'mode': mode,
+                      'stop_seed': custom_doc['augmentation']['stops']['seed'] if custom_doc else STOP_SEED,
+                      'stop_count': custom_doc['augmentation']['stops']['num_stops'] if custom_doc else STOP_COUNT,
+                      'versions': library_versions(), 'commit': git_start['commit']}, force=force_resume)
+    on_disk = store.load(log)
+    wanted = {task_key(t) for t in tasks}
+    stale = [k for k in on_disk if k not in wanted]
+    if stale:
+        log(f"{len(stale)} run(s) on disk belong to other seeds / instances / configurations and are left out of this study")
+    runs_done = {k: v for k, v in on_disk.items() if k in wanted}
+    todo = [t for t in tasks if task_key(t) not in runs_done]
+
+    boxes_of = {(r['instance_id'] if r['instance_id'] is not None else r['custom_load']): r['n_boxes'] for r in inst_rows}
+    factors = work_factors(list(runs_done.values()))
+    progress_loaded = len(runs_done)
+    progress = StudyProgress(tasks, boxes_of, runs_done, factors)
+    log(f"study: {len(tasks):,} runs | {len(runs_done):,} already on disk"
+        f"{' (resuming)' if runs_done else ''} | {len(todo):,} remaining | "
+        f"work weight n_boxes^2 x (REP {factors['REP']:g} [{factors['source']}], others 1)")
+
     progress_path = out.with_name(out.name + '.progress.json')
     started = time.time()
+    progress.start()
     per_cfg_total = {c: sum(1 for t in tasks if t['configuration'] == c) for c in configs}
-    prog = {'status': 'running', 'done': 0, 'total': len(tasks),
-            'per_configuration': {c: {'done': 0, 'total': per_cfg_total[c]} for c in configs},
+    prog = {'status': 'running', 'done': len(runs_done), 'total': len(tasks),
+            'per_configuration': {c: {'done': sum(1 for k in runs_done if k.split('|')[0] == c),
+                                      'total': per_cfg_total[c]} for c in configs},
             'started_at': started, 'elapsed_s': 0.0, 'mode': mode, 'error': None,
-            'last_run': None}
+            'last_run': None, 'resumed_runs': len(runs_done), **progress.snapshot()}
     _write_progress(progress_path, prog)
 
-    runs = []
     def _done(res):
-        runs.append(res)
+        # Progress is computed here in the parent, after the worker has returned
+        # (and stopped its clock): it cannot touch M-3 / M-4.
+        store.save(res)
+        runs_done[task_key(res)] = res
+        progress.finish(task_key(res))
         prog['done'] += 1
         prog['per_configuration'][res['configuration']]['done'] += 1
         prog['elapsed_s'] = round(time.time() - started, 1)
+        prog.update(progress.snapshot())
         prog['last_run'] = {k: res[k] for k in ('configuration', 'instance_id', 'seed', 'su_pct', 'csr_pct', 'exec_time_ms')}
         _write_progress(progress_path, prog)
         v = res['validation']
-        log(f"[{prog['done']:4d}/{prog['total']}] {res['configuration']:5s} inst={res['instance_id']} "
-            f"seed={res['seed']:3d} SU={res['su_pct']:6.2f} CSR={res['csr_pct']:6.2f} "
-            f"placed={res['placed']}/{res['n_items']} {res['exec_time_ms']/1000:6.1f}s "
+        log(progress.line(res))
+        log(f"    SU={res['su_pct']:.2f} CSR={res['csr_pct']:.2f} placed={res['placed']}/{res['n_items']} "
             f"{res['peak_mem_mb']:.1f}MB validator={'AGREE' if v['agree'] else 'DISAGREE'}")
 
     try:
-        # One fresh process per run, in both modes (see module docstring).
-        _hide_worker_windows()
-        with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
-                                 max_tasks_per_child=1, initializer=warm_worker,
-                                 initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:
-            if mode == 'serial':
-                for t in tasks:
-                    _done(ex.submit(run_task, t).result())
-            else:
-                futs = [ex.submit(run_task, t) for t in tasks]
-                for f in as_completed(futs):
-                    _done(f.result())
+        if todo:
+            # One fresh process per run, in both modes (see module docstring).
+            _hide_worker_windows()
+            with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
+                                     max_tasks_per_child=1, initializer=warm_worker,
+                                     initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:
+                if mode == 'serial':
+                    for t in todo:
+                        _done(ex.submit(run_task, t).result())
+                else:
+                    futs = [ex.submit(run_task, t) for t in todo]
+                    for f in as_completed(futs):
+                        _done(f.result())
     except BaseException as e:
         prog['status'] = 'error'
         prog['error'] = f'{type(e).__name__}: {e}'
         _write_progress(progress_path, prog)
         raise
 
+    runs = [runs_done[task_key(t)] for t in tasks]
     runs.sort(key=lambda r: (r['instance_id'] if r['instance_id'] is not None else -1, r['seed'],
                              configs.index(r['configuration'])))
     bad = [r for r in runs if not r['validation']['agree']]
@@ -505,7 +678,9 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'custom_load': custom_load,
         'custom_load_label': custom_doc.get('label') if custom_doc else None,
         'instances': inst_rows,
-        'wall_clock_s': round(time.time() - started, 1),
+        'wall_clock_s': round(time.time() - started, 1),     # this session only
+        'resume': {'runs_dir': store.dir.name, 'runs_loaded_from_disk': progress_loaded, 'sessions_note':
+                   'wall_clock_s covers the session that assembled this file; runs loaded from disk were timed in their own sessions'},
         'validation': {'arrangements': len(runs), 'agree': len(runs) - len(bad),
                        'disagreements': [{'configuration': r['configuration'], 'instance_id': r['instance_id'],
                                           'seed': r['seed'], **r['validation']} for r in bad]},
@@ -544,6 +719,83 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     return study, 0
 
 
+# ─── merge chunks into one study ─────────────────────────────────────────────
+MERGE_SAME = ('preset', 'lambdas', 'enforce_support', 'enforce_fragility', 'edge_fill', 'support_threshold',
+              'stop_seed', 'stop_count', 'stop_mode', 'seq_budget_split', 'mode', 'custom_load', 'configurations')
+
+
+def merge_studies(paths, out, force=False, log=print):
+    """Merge study files made from disjoint chunks (other seeds or other instances, same
+    settings) into one file the stats step accepts. Refuses chunks with different settings,
+    overlapping runs, or a union that is not a complete instances x seeds x configurations
+    design. Baselines are carried over per instance; stats are recomputed."""
+    docs = [json.loads(Path(p).read_text(encoding='utf-8')) for p in paths]
+    first = docs[0]
+    for p, d in zip(paths[1:], docs[1:]):
+        diff = [k for k in MERGE_SAME if d.get(k) != first.get(k)]
+        if diff:
+            raise SystemExit(f"{p}: cannot merge, differs from {paths[0]} in: {', '.join(diff)}")
+    commits = sorted({d.get('commit') for d in docs})
+    if len(commits) > 1 and not force:
+        raise SystemExit(f"chunks were made at different commits {commits}; pass --force to merge anyway")
+    if len({d['versions']['numba'] for d in docs}) > 1 and not force:
+        raise SystemExit("chunks were made with different numba versions; pass --force to merge anyway")
+    runs, seen = [], {}
+    for p, d in zip(paths, docs):
+        for r in d['runs']:
+            k = task_key(r)
+            if k in seen:
+                raise SystemExit(f"run {k} is in both {seen[k]} and {p}: chunks must not overlap")
+            seen[k] = p
+            runs.append(r)
+    configs = first['configurations']
+    ikey = lambda i: i['instance_id'] if i['instance_id'] is not None else i['custom_load']
+    instances = list({ikey(i): i for d in docs for i in d['instances']}.values())
+    seeds = sorted({r['seed'] for r in runs})
+    missing = [f"{c}|{ikey(i)}|{sd}" for i in instances for sd in seeds for c in configs
+               if f"{c}|{ikey(i)}|{sd}" not in seen]
+    if missing:
+        raise SystemExit(f"merged chunks are not a complete design: {len(missing)} run(s) missing, e.g. {missing[:3]}")
+    runs.sort(key=lambda r: (r['instance_id'] if r['instance_id'] is not None else -1, r['seed'],
+                             configs.index(r['configuration'])))
+    study = {k: v for k, v in first.items() if k not in ('stats', 'baselines')}
+    bad = [r for r in runs if not r['validation']['agree']]
+    per = {}
+    for d in docs:
+        for b in (d.get('baselines') or {}).get('per_instance', []):
+            per.setdefault(b['instance_id'] if b['instance_id'] is not None else b.get('custom_load'), b)
+    study.update({
+        'name': first.get('name'), 'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'commit': commits[0] if len(commits) == 1 else 'mixed: ' + ', '.join(map(str, commits)),
+        'seeds': seeds, 'runs_per_configuration': len(seeds) * len(instances),
+        'instances': instances, 'runs': runs,
+        'wall_clock_s': round(sum(d.get('wall_clock_s') or 0 for d in docs), 1),
+        'merged_from': [{'file': Path(p).name, 'name': d.get('name'), 'commit': d.get('commit'),
+                         'seeds': d.get('seeds'), 'instances': [i['instance_id'] for i in d['instances']],
+                         'runs': len(d['runs'])} for p, d in zip(paths, docs)],
+        'validation': {'arrangements': len(runs), 'agree': len(runs) - len(bad),
+                       'disagreements': [{'configuration': r['configuration'], 'instance_id': r['instance_id'],
+                                          'seed': r['seed'], **r['validation']} for r in bad]},
+    })
+    base = (first.get('baselines') or {})
+    if base and all(per.get(ikey(i)) for i in instances):
+        base = dict(base)
+        base['per_instance'] = [per[ikey(i)] for i in instances]
+        base['validation'] = {'arrangements': sum(1 + len(p_['random_order']) for p_ in base['per_instance']),
+                              'disagreements': sum(1 for p_ in base['per_instance']
+                                                   for r in [p_['weight_sorted']] + p_['random_order']
+                                                   if not r['validation_agree'])}
+        study['baselines'] = base
+    else:
+        from baselines import attach_baselines
+        attach_baselines(study, None, log=log)
+    from stats import analyse
+    study['stats'] = analyse(study)
+    Path(out).write_text(json.dumps(study, indent=1), encoding='utf-8')
+    log(f"merged {len(paths)} files -> {out}: {len(runs)} runs, {len(instances)} instance(s), seeds {seeds[0]}-{seeds[-1]}")
+    return study
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--size', choices=sorted(SIZES), help='one of the UI picker sizes (defaults below can be overridden)')
@@ -563,12 +815,24 @@ def main():
     p.add_argument('--enforce-fragility', action=argparse.BooleanOptionalAction, default=True)
     p.add_argument('--edge-fill', action=argparse.BooleanOptionalAction, default=True,
                    help="REP only: apply repair step R4 (edge filling) to its final arrangement")
+    p.add_argument('--instance-ids', help="comma-separated wtpack ids (a chunk: with --sample they must be in it)")
+    p.add_argument('--force-resume', action='store_true',
+                   help='continue from runs on disk made at another commit')
+    p.add_argument('--merge', nargs='+', metavar='STUDY.json',
+                   help='merge chunk study files (disjoint seeds or instances, same settings) into --out and exit')
+    p.add_argument('--force', action='store_true', help='with --merge: allow chunks from different commits / numba')
     p.add_argument('--name')
     p.add_argument('--out')
     p.add_argument('--no-stats', action='store_true')
     p.add_argument('--print-defaults', action='store_true',
                    help='print the locked study parameters as JSON (the UI shows these) and exit')
     a = p.parse_args()
+
+    if a.merge:
+        if not a.out:
+            p.error('--merge needs --out')
+        merge_studies(a.merge, a.out, force=a.force, log=lambda s: print(s, file=sys.stderr, flush=True))
+        return
 
     if a.print_defaults:
         from thesis_algorithms import ThesisOptimizerBase
@@ -605,6 +869,12 @@ def main():
         except ValueError as e:
             p.error(str(e))
         instance_ids = [c['instance_id'] for c in prov['selected']]
+        if a.instance_ids:
+            want = [int(x) for x in a.instance_ids.split(',')]
+            bad_ids = [i for i in want if i not in instance_ids]
+            if bad_ids:
+                p.error(f"--instance-ids {bad_ids} are not in the sample")
+            instance_ids = want
         if a.n_instances:
             instance_ids = instance_ids[:a.n_instances]
     elif instance is not None:
@@ -622,7 +892,7 @@ def main():
                         lambdas=lambdas, enforce_support=a.enforce_support,
                         enforce_fragility=a.enforce_fragility, workers=a.workers, out=out,
                         sample_path=sample, configs=a.configs.split(','), run_stats=not a.no_stats,
-                        edge_fill=a.edge_fill,
+                        edge_fill=a.edge_fill, force_resume=a.force_resume,
                         log=lambda s: print(s, file=sys.stderr, flush=True))
     sys.exit(code)
 

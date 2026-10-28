@@ -8,7 +8,7 @@ import { methodOf } from "../methods";
 export default function ProcessingPanel({ progress, study, state, error, onStop, stopping, onBack }) {
   const p = progress || {};
   const total = p.total || 0, done = p.done || 0;
-  const pct = total ? (100 * done) / total : 0;
+  const pct = p.pct_work ?? (total ? (100 * done) / total : 0);   // estimated-work share, when reported
   const per = p.per_configuration || {};
   const codes = Object.keys(per);
   const finished = codes.filter((c) => per[c].total && per[c].done >= per[c].total).length;

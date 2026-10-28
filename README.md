@@ -141,6 +141,7 @@ python tools/check_problem_view.py      # the viewer's per-box problem flags equ
 python tools/test_planned.py            # D2(b) planned family and the M-6 / M-7 layout indicators (layout_metrics.py)
 python tools/test_layout_view.py        # the viewer's gap fields equal layout_metrics (M-6); checks the client gap fixture
 python tools/test_edge_fill.py          # R4: flush re-insertion, two-side rule, C3-C6 never broken, compaction, determinism, instance 581
+python tools/test_study_resume.py      # study.py resume after a kill, progress line, chunk merge (about 3 min)
 cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, door helper, gap labels, entry motion, trade-offs, timing
 ```
 
