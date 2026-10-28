@@ -254,6 +254,8 @@ def run_task(task):
         lambda_w=lam['w'], lambda_f=lam['f'], lambda_b=lam['b'], lambda_a=lam['a'],
         enforce_support=task['enforce_support'], enforce_fragility=task['enforce_fragility'],
         seed=task['seed'],
+        # R4 belongs to REP alone; the other configurations take no such switch.
+        **({'edge_fill': task.get('edge_fill', True)} if cfg == 'REP' else {}),
     )
     # Warm every compiled kernel (REP touches decode + evaluate + repair) so
     # M-3 never includes numba cache loading; same as the server's warm-up.
@@ -307,6 +309,11 @@ def run_task(task):
                              'enforce_fragility': bool(opt.enforce_fragility)},
         'budget_exhausted': bool(getattr(best, 'budget_exhausted', False)),
         'repair_stats':     getattr(opt, 'repair_stats', None),
+        # REP only: was R4 (edge filling) applied to the returned arrangement, and
+        # what did it do (before / after indicators, boxes placed, stacks moved,
+        # time_ms = the time it added to M-3).
+        'edge_fill':        bool(opt.edge_fill) if cfg == 'REP' else None,
+        'edge_fill_stats':  getattr(opt, 'edge_fill_stats', None),
         # MOGWO / SEQ / REP: the final Pareto archive's two ends. The reported
         # solution is its highest-SU member; the highest-CSR member (ties on
         # CSR -> higher SU) is the other end of the trade-off it found.
@@ -362,7 +369,7 @@ def _write_progress(path, prog):
 
 def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lambdas,
               enforce_support, enforce_fragility, workers, out, sample_path=None,
-              configs=CONFIGS, raw_dir=None, run_stats=True, log=print):
+              configs=CONFIGS, raw_dir=None, run_stats=True, edge_fill=True, log=print):
     raw_dir = raw_dir or str(_ROOT / 'data' / 'raw')
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
     sample = load_sample(sample_path) if sample_path else None
@@ -386,7 +393,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
                               'custom_load': custom_load, 'seed': seed,
                               'pop_size': pop_size, 'max_iter': max_iter, 'lambdas': lambdas,
                               'enforce_support': enforce_support, 'enforce_fragility': enforce_fragility,
-                              'raw_dir': raw_dir})
+                              'raw_dir': raw_dir, 'edge_fill': edge_fill})
     # Longest jobs first so a parallel pool packs well (REP is the slow one).
     order = {'REP': 0, 'MOGWO': 1, 'DGWO': 2, 'SEQ': 3}
     if mode == 'parallel':
@@ -481,6 +488,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'lambdas': lambdas,
         'enforce_support': enforce_support,
         'enforce_fragility': enforce_fragility,
+        'edge_fill': edge_fill,          # REP's R4 step (optimizer/edge_fill.py)
         'support_threshold': SUPPORT_THRESHOLD,
         # A custom load's stops are the labels stored at conversion (given by
         # the user, or drawn once with the recorded seed).
@@ -553,6 +561,8 @@ def main():
     p.add_argument('--lambda-b', type=float); p.add_argument('--lambda-a', type=float)
     p.add_argument('--enforce-support', action=argparse.BooleanOptionalAction, default=True)
     p.add_argument('--enforce-fragility', action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument('--edge-fill', action=argparse.BooleanOptionalAction, default=True,
+                   help="REP only: apply repair step R4 (edge filling) to its final arrangement")
     p.add_argument('--name')
     p.add_argument('--out')
     p.add_argument('--no-stats', action='store_true')
@@ -612,6 +622,7 @@ def main():
                         lambdas=lambdas, enforce_support=a.enforce_support,
                         enforce_fragility=a.enforce_fragility, workers=a.workers, out=out,
                         sample_path=sample, configs=a.configs.split(','), run_stats=not a.no_stats,
+                        edge_fill=a.edge_fill,
                         log=lambda s: print(s, file=sys.stderr, flush=True))
     sys.exit(code)
 

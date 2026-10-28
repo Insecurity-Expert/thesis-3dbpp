@@ -20,7 +20,7 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "optimizer")):
 
 from thesis_metrics import (per_box_constraints, evaluate_constraints,
                             space_utilization)
-from layout_metrics import face_gaps, gap_metrics, FACES, FACE_NAMES
+from layout_metrics import face_gaps, gap_metrics, edge_indicators, FACES, FACE_NAMES
 
 # Where physics y = 0 is, sent to the viewer as container.y_origin. Every
 # producer today (decoder, repair, metrics, validator) measures y from the rear
@@ -191,6 +191,9 @@ def study_run_view(study_path, run_index, raw_dir=None):
         e.update({"id": items[i].get('id', f"Box-{i+1:03d}"), "item_idx": i, "bin_id": 0})
         centered_entries.append(e)
     centered_entries.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
+    # The Center Load toggle swaps in the centered boxes; its gaps travel with them.
+    annotate(centered_entries, centered_res['placements'], orientations, items)
+    centered_gaps = gap_view(centered_entries, centered_res['placements'], container, items)
 
     out = {
         "status": "ok", "source": "study", "study": doc.get('name'), "run_index": run_index,
@@ -204,6 +207,11 @@ def study_run_view(study_path, run_index, raw_dir=None):
         "verified": {"su_pct": su, "csr_pct": csr, "stored_su_pct": run['su_pct'], "stored_csr_pct": run['csr_pct']},
         "problem_view": pv,
         "gaps": gaps,
+        "edge": edge_indicators(placements, container, items),
+        "uncentered_gaps": gaps,
+        "centered_gaps": centered_gaps,
+        "centered_edge": edge_indicators(centered_res['placements'], container, items),
+        "edge_fill": run.get('edge_fill_stats'),
         "items": entries,
         "lateral_balance": {
             "before": centered_res['m7_before'],
