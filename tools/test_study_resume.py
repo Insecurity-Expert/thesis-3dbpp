@@ -17,7 +17,6 @@ import re
 import sys
 import json
 import time
-import signal
 import tempfile
 import subprocess
 from pathlib import Path
@@ -68,7 +67,7 @@ def main():
     runs_dir = Path(str(out) + '.runs')
     while len(list(runs_dir.glob('*_*_*.json'))) < 3 and p.poll() is None:
         time.sleep(1)
-    p.send_signal(signal.SIGKILL)
+    p.kill()   # SIGKILL on POSIX, TerminateProcess on Windows (no signal.SIGKILL there)
     p.wait()
     n_disk = len([f for f in runs_dir.glob('*.json') if f.name != 'spec.json'])
     check(3 <= n_disk < 6 and not out.exists(), f"killed with {n_disk} of 6 runs on disk and no final file yet")
