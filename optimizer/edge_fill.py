@@ -3,11 +3,14 @@ R4 edge filling (Repair-Based hybrid only): close the sideways gaps in REP's
 final arrangement so boxes sit against each other and the walls.
 
 Why. In a hard turn or brake a box that touches nothing across the truck width
-(an "island") or touches the wall on one side only can slide or tip. The
-diagnosis on REP's arrangements is that this comes from too little cargo across
-the width, not from lateral centering: the boxes the search left out would fit
-in the large sideways gaps, but the per-wolf re-insertion takes the FIRST
-feasible extreme point (deepest-lowest-leftmost) and has no notion of contact.
+(an "island") or touches the wall on one side only can slide or tip. Lateral
+centering is not the cause (gap metrics are the same with it on or off). The
+sideways gaps are mostly pockets above the floor, with nothing under them or
+only boxes that cannot bear the left-out cargo (C3) or are fragile (C4), so the
+boxes the search left out usually cannot be added without breaking a constraint
+(pilot, docs/R4_EDGE_FILL.md). Step A therefore tries, and often finds nothing;
+the tightening comes mostly from Step B. The per-wolf re-insertion has no notion
+of contact: it takes the FIRST feasible extreme point (deepest-lowest-leftmost).
 
 When. Once, on the arrangement REP returns, never per wolf: the search, the
 archive and the leader selection are untouched and R4 draws nothing from the RNG
