@@ -82,3 +82,21 @@ wall on one side; it is not a sign that R4 loosened anything.
   uncentered ones whatever the toggle said).
 * `tools/determinism_reference.json` was regenerated for REP only; the DGWO,
   MOGWO and SEQ hashes are unchanged.
+
+## Pre-run checks (thesis preset, 4-core machine)
+
+* REP at pop 30 × 300, seed 42: 69 boxes 125 s, 105 boxes 300 s, 168 boxes
+  795 s (R4 adds 0.6 s, 1.8 s and 6.5 s). Time grows about with n². Over the 30
+  sample instances that is about 3.9 h of REP per seed plus 1.6 h for DGWO,
+  MOGWO and SEQ, so roughly **165 h for 30 seeds in serial mode** (an estimate
+  from these three points, not a measurement).
+* Dry run (`study.py --sample … --n-instances 1 --preset thesis --seeds 1-2
+  --mode serial`): 8 runs, all validators AGREE, baselines and stats steps
+  finished, REP records carry `edge_fill_stats` and every run carries
+  `layout.edge`. The stats summary (`stats.layout`) does not yet aggregate the
+  edge indicators.
+* `study.py` cannot resume: runs are held in memory and the results file is
+  written only at the end.
+* Viewer (real app, built client + server): opening a REP study run shows the R4
+  summary; toggling Center Load switches the Gaps panel to the centered boxes
+  (8 → 11 boxes touching nothing sideways on that run).
