@@ -31,9 +31,10 @@ export function ProvenanceStrip({ study, stats }) {
 export function StudyProgress({ progress, study }) {
   if (!progress) return null;
   const per = progress.per_configuration || {};
-  const pct = progress.total ? (100 * (progress.done || 0)) / progress.total : 0;
+  // Estimated-work share when the study reports it (runs differ in cost), else the run count.
+  const pct = progress.pct_work ?? (progress.total ? (100 * (progress.done || 0)) / progress.total : 0);
   return (
-    <Section title="Packing your boxes…" desc={`Run ${progress.done || 0} of ${progress.total || "?"} — ${progress.mode === "serial" ? "one run at a time (timing valid)" : "several runs at once (timing flagged concurrent)"}${progress.elapsed_s ? ` · ${Math.round(progress.elapsed_s)} s elapsed` : ""}`}>
+    <Section title="Packing your boxes…" desc={`Run ${progress.done || 0} of ${progress.total || "?"}${progress.pct_work != null ? ` (${progress.pct_work.toFixed(1)}% of the estimated work${progress.eta_s ? `, about ${Math.round(progress.eta_s / 60)} min left` : ""})` : ""} — ${progress.mode === "serial" ? "one run at a time (timing valid)" : "several runs at once (timing flagged concurrent)"}${progress.elapsed_s ? ` · ${Math.round(progress.elapsed_s)} s elapsed` : ""}`}>
       <div style={{ height: 10, background: "var(--bg-input)", borderRadius: 5, overflow: "hidden", marginBottom: 14 }}>
         <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, var(--primary), var(--blush))", transition: "width 0.4s ease" }} />
       </div>

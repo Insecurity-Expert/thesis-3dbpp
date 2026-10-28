@@ -23,6 +23,17 @@ its centre x < L/2, otherwise right. Per half: box count and total mass;
 left-right mass imbalance = |m_left - m_right| / (m_left + m_right) x 100
 (0 when nothing is loaded). Height split into three equal bands by centre z:
 lower [0, H/3), middle [H/3, 2H/3), upper [2H/3, H]. Per band: count and mass.
+
+Edge indicators (descriptive, added with repair step R4; see edge_fill.py). They
+describe how tightly the boxes sit against each other and the walls across the
+truck width (x faces) and along its length (y faces). Contact means a gap of
+exactly 0 over a positive area; a wall counts as a neighbour.
+  isolated_boxes        placed boxes with a gap > 0 on BOTH x faces
+  one_side_boxes        placed boxes touching on exactly one x face
+  lateral_gaps_fillable x-face gaps >= tau (a box of the smallest dimension fits)
+  lateral_gaps_dunnage  x-face gaps in (0, tau): only dunnage can fill them
+  side_contact_ratio    share of the x- and y-face area that touches a wall or box
+Each x face is counted separately, so a gap between two boxes appears twice.
 """
 import numpy as np
 
@@ -109,6 +120,72 @@ def load_distribution(placements, container, items):
             **{f"{b}_mass": round(band[b][1], 4) for b in BANDS}}
 
 
+CONTACT_TOL = 1e-6
+
+
+def contact_areas(box, others, L, W):
+    """Area (cm^2) of the x-, x+, y-, y+ faces of `box` that touches a wall or one
+    of `others` (an (m, 6) array of placements, `box` itself excluded)."""
+    x, y, z, dx, dy, dz = (float(v) for v in box)
+    x1, y1, z1 = x + dx, y + dy, z + dz
+    fx, fy = dy * dz, dx * dz
+    c = [fx if x <= CONTACT_TOL else 0.0, fx if x1 >= L - CONTACT_TOL else 0.0,
+         fy if y <= CONTACT_TOL else 0.0, fy if y1 >= W - CONTACT_TOL else 0.0]
+    if len(others):
+        ox, oy, oz, odx, ody, odz = others.T
+        ox1, oy1, oz1 = ox + odx, oy + ody, oz + odz
+        ovx = np.clip(np.minimum(x1, ox1) - np.maximum(x, ox), 0.0, None)
+        ovy = np.clip(np.minimum(y1, oy1) - np.maximum(y, oy), 0.0, None)
+        ovz = np.clip(np.minimum(z1, oz1) - np.maximum(z, oz), 0.0, None)
+        c[0] += float((ovy * ovz)[np.abs(ox1 - x) <= CONTACT_TOL].sum())
+        c[1] += float((ovy * ovz)[np.abs(ox - x1) <= CONTACT_TOL].sum())
+        c[2] += float((ovx * ovz)[np.abs(oy1 - y) <= CONTACT_TOL].sum())
+        c[3] += float((ovx * ovz)[np.abs(oy - y1) <= CONTACT_TOL].sum())
+    return c
+
+
+def side_contact(placements, container):
+    """(contact area, total face area) summed over the x and y faces of all boxes."""
+    if not placements:
+        return 0.0, 0.0
+    L, W = float(container['L']), float(container['W'])
+    P = np.array([[float(v) for v in p] for p in placements.values()])
+    touch = total = 0.0
+    for k in range(len(P)):
+        touch += float(sum(contact_areas(P[k], np.delete(P, k, axis=0), L, W)))
+        total += float(2.0 * (P[k, 4] * P[k, 5] + P[k, 3] * P[k, 5]))
+    return touch, total
+
+
+def edge_indicators(placements, container, items):
+    """Descriptive edge-tightness indicators for one arrangement (see module doc)."""
+    tau = smallest_box_dimension(items)
+    out = {"significant_threshold_cm": tau, "isolated_boxes": 0, "one_side_boxes": 0,
+           "lateral_gaps_fillable": {"count": 0, "total_cm": 0.0},
+           "lateral_gaps_dunnage": {"count": 0, "total_cm": 0.0},
+           "side_contact_ratio": None}
+    if not placements:
+        return out
+    for faces in face_gaps(placements, container).values():
+        gx = (faces["x-"], faces["x+"])
+        touching = sum(1 for g in gx if g <= 1e-9)
+        out["isolated_boxes"] += int(touching == 0)
+        out["one_side_boxes"] += int(touching == 1)
+        for g in gx:
+            if g >= tau - 1e-9:
+                bucket = out["lateral_gaps_fillable"]
+            elif g > 1e-9:
+                bucket = out["lateral_gaps_dunnage"]
+            else:
+                continue
+            bucket["count"] += 1
+            bucket["total_cm"] = round(bucket["total_cm"] + g, 4)
+    touch, total = side_contact(placements, container)
+    out["side_contact_ratio"] = round(touch / total, 6) if total > 0 else None
+    return out
+
+
 def layout_indicators(placements, container, items):
     return {"gap": gap_metrics(placements, container, items),
-            "load_distribution": load_distribution(placements, container, items)}
+            "load_distribution": load_distribution(placements, container, items),
+            "edge": edge_indicators(placements, container, items)}

@@ -453,6 +453,47 @@ def find_feasible_position(box_idx, items, placements, orientations, container,
     return None
 
 
+def feasible_candidates(box_idx, r, cands, items, placements, orientations, container,
+                        check=R2_CHECK, reject=None):
+    """Indexes of the rows of `cands` ((k, 3) corner positions) where box_idx, in
+    orientation r, satisfies the named constraints, in row order. Same compiled
+    kernel as find_feasible_position, which stops at the first hit; this keeps
+    scanning so the caller can rank every feasible position. `reject`, if given,
+    receives the first failing constraint per rejected position."""
+    cands = np.ascontiguousarray(cands, dtype=float)
+    if cands.shape[0] == 0:
+        return []
+    box = items[box_idx]
+    CL, CW, CH = float(container['L']), float(container['W']), float(container['H'])
+    V = _PlacedView(items, placements, orientations)
+    chk = np.array([c in check for c in _CHK_NAMES])
+    if V.n == 0:
+        Vx = Vy = Vz = Vx1 = Vy1 = Vz1 = Vmass = Vcap = Vborne = np.zeros(0)
+        Vfragile = np.zeros(0, dtype=np.bool_)
+        Vstop = np.zeros(0, dtype=np.int64)
+    else:
+        Vx, Vy, Vz, Vx1, Vy1, Vz1 = V.x, V.y, V.z, V.x1, V.y1, V.z1
+        Vmass, Vfragile, Vstop, Vcap, Vborne = V.mass, V.fragile, V.stop.astype(np.int64), V.cap, V.borne
+    dx, dy, dz = (float(v) for v in get_dims(box, r))
+    b_cap = float(vertical_lbs(box, r)) * dx * dy
+    rej = np.zeros(6, dtype=np.int64)
+    hits, start = [], 0
+    while start < cands.shape[0]:
+        k = _scan(cands[start:], cands.shape[0] - start, dx, dy, dz, CL, CW, CH,
+                  Vx, Vy, Vz, Vx1, Vy1, Vz1, Vmass, Vfragile, Vstop, Vcap, Vborne, V.n,
+                  float(box['mass']), box['fragile'] == 1, int(box['stop']), b_cap,
+                  chk, -1.0, False, 0.0, 0.0, 0.0, 0.0, 0.0, rej)
+        if k < 0:
+            break
+        hits.append(start + k)
+        start += k + 1
+    if reject is not None:
+        for c in range(6):
+            if rej[c]:
+                reject[_CHK_NAMES[c]] += int(rej[c])
+    return hits
+
+
 # -- Relocate-or-defer primitive -----------------------------------------------
 def _relocate_or_defer(ctx, j, unpacked, stats, tag, **kw):
     """Remove j, try to re-place it; on failure push it to the unpacked list."""

@@ -711,21 +711,37 @@ def analyse(study):
     return out
 
 
+# Paths into each run's layout block. The edge indicators (REP's R4 step, optimizer/
+# edge_fill.py) are measured for every configuration, so they are comparable.
 LAYOUT_FIELDS = (("gap", "mean_gap_cm"), ("gap", "max_gap_cm"), ("gap", "significant_gaps"),
                  ("load_distribution", "lr_mass_imbalance_pct"),
                  *(("load_distribution", f"{b}_{q}") for b in ("left", "right", "lower", "middle", "upper")
-                   for q in ("count", "mass")))
+                   for q in ("count", "mass")),
+                 ("edge", "isolated_boxes"), ("edge", "one_side_boxes"),
+                 ("edge", "lateral_gaps_fillable", "count"), ("edge", "lateral_gaps_fillable", "total_cm"),
+                 ("edge", "lateral_gaps_dunnage", "count"), ("edge", "lateral_gaps_dunnage", "total_cm"),
+                 ("edge", "side_contact_ratio"))
+
+
+def _layout_value(layout, path):
+    for k in path:
+        if not isinstance(layout, dict) or k not in layout:
+            return None
+        layout = layout[k]
+    return layout
 
 
 def layout_descriptives(runs, configs):
-    """Descriptive only (Data Analysis Stage 3): not compared, not in any family."""
+    """Descriptive only (Data Analysis Stage 3): not compared, not in any family.
+    A run saved before a block existed contributes nothing to that measure."""
     if not any(r.get("layout") for r in runs):
         return {"available": False, "reason": "runs carry no layout block (study made before M-6 / M-7)"}
     res = {}
-    for grp, k in LAYOUT_FIELDS:
-        res[k] = {c: descriptives([r["layout"][grp][k] for r in runs
-                                   if r["configuration"] == c and r.get("layout") and r["layout"][grp][k] is not None])
-                  for c in configs}
+    for path in LAYOUT_FIELDS:
+        key = path[-1] if len(path) == 2 else f"{path[1]}_{path[2]}"
+        res[key] = {c: descriptives([_layout_value(r.get("layout"), path) for r in runs
+                                     if r["configuration"] == c])
+                    for c in configs}
     res["unloaded_pct"] = {c: descriptives([(r["n_items"] - r["placed"]) / r["n_items"] * 100.0
                                             for r in runs if r["configuration"] == c and r["n_items"]])
                            for c in configs}

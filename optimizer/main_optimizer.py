@@ -33,6 +33,7 @@ from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid,
 from thesis_metrics import (evaluate_constraints,
                             space_utilization as thesis_space_utilization)
 from arrangement_view import wtpack_entry, annotate, gap_view, render_container_of
+from layout_metrics import edge_indicators
 from lateral_centering import center_arrangement
 
 
@@ -96,6 +97,9 @@ def main():
                     default="DGWO", help="Optimization strategy to run")
     parser.add_argument("--center-load", action="store_true", default=False,
                     help="Apply post-processing lateral balancing pass to minimize lateral imbalance (M-7)")
+    parser.add_argument("--edge-fill", action=argparse.BooleanOptionalAction, default=True,
+                    help="REP only: apply repair step R4 (edge filling) once to the final "
+                         "arrangement (default on; --no-edge-fill reports REP without it)")
     args = parser.parse_args()
 
     streaming = args.stream
@@ -145,6 +149,8 @@ def main():
         "enforce_fragility": bool(args.enforce_fragility),
         "seed":              args.seed,
     }
+    if args.strategy == "REP":
+        params["edge_fill"] = bool(args.edge_fill)
     print(f"Params    : pop={params['pop_size']} iter={params['max_iter']} "
           f"lambda=(w={params['lambda_w']}, f={params['lambda_f']}, b={params['lambda_b']}, a={params['lambda_a']}) "
           f"enforce_support={params['enforce_support']} enforce_fragility={params['enforce_fragility']} "
@@ -208,6 +214,7 @@ def main():
         enforce_fragility=params["enforce_fragility"],
         seed=params["seed"],
         stream_cb=emit if streaming else None,
+        **({"edge_fill": params["edge_fill"]} if args.strategy == "REP" else {}),
     )
 
     _start_time = time.perf_counter()
@@ -233,6 +240,7 @@ def main():
     # Per-box C3-C6 for the viewer's problem view (additive; after M-3 timing).
     problem_view = annotate(packed_items, best.placements, best.orientations, items)
     gaps = gap_view(packed_items, best.placements, container, items)   # M-6, display only
+    edge = edge_indicators(best.placements, container, items)          # descriptive
 
     cap_vol      = container['L'] * container['W'] * container['H']
     items_vol    = sum(p['dx'] * p['dy'] * p['dz'] for p in packed_items)
@@ -271,15 +279,21 @@ def main():
         centered_items.append(entry)
     centered_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
 
-    # When --center-load is explicitly passed, use centered placements for the main items
+    # The viewer's Center Load toggle swaps in the centered boxes, so the gaps shown
+    # must be those of the layout in view: both layouts carry their own M-6 and edge
+    # indicators (and per-box face gaps and C3-C6 checks).
+    centered_problem_view = annotate(centered_items, centered_res['placements'], best.orientations, items)
+    centered_gaps = gap_view(centered_items, centered_res['placements'], container, items)
+    centered_edge = edge_indicators(centered_res['placements'], container, items)
+
+    # Centering is off by default, also for REP with R4: it pulls boxes away from
+    # the walls R4 packed them against. --center-load opts in.
     if args.center_load and centered_res['improved']:
-        final_items = centered_items
-        final_problem_view = annotate(centered_items, centered_res['placements'], best.orientations, items)
-        final_gaps = gap_view(centered_items, centered_res['placements'], container, items)
+        final_items, final_problem_view = centered_items, centered_problem_view
+        final_gaps, final_edge = centered_gaps, centered_edge
     else:
-        final_items = packed_items
-        final_problem_view = problem_view
-        final_gaps = gaps
+        final_items, final_problem_view = packed_items, problem_view
+        final_gaps, final_edge = gaps, edge
 
     result = {
         "status":          "ok",
@@ -303,6 +317,12 @@ def main():
         "items":            final_items,
         "problem_view":     final_problem_view,
         "gaps":             final_gaps,
+        "edge":             final_edge,
+        "edge_fill":        getattr(optimizer, "edge_fill_stats", None),
+        "uncentered_gaps":  gaps,
+        "uncentered_edge":  edge,
+        "centered_gaps":    centered_gaps,
+        "centered_edge":    centered_edge,
         "lateral_balance":  {
             "before": centered_res['m7_before'],
             "after": centered_res['m7_after'],

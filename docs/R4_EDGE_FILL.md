@@ -1,0 +1,124 @@
+# R4 edge filling (REP) — pilot results
+
+Panel feedback: some boxes in REP's arrangements stand alone or touch a wall on
+one side only, and could slide or tip in a hard turn or brake. R4
+(`optimizer/edge_fill.py`) tightens the arrangement REP returns. It is part of
+REP only; SEQ is a baseline and DGWO, MOGWO and SEQ are unchanged.
+
+Pilot: REP, seed 42, quick preset (pop 10 × 60), C4/C5 enforced, stop seed 42,
+3 stops. "Before" is the arrangement REP returns without R4 (the search is
+identical with R4 on or off; R4 runs after it). Reproduce with
+`python tools/test_edge_fill.py` (instance 581) or `--no-edge-fill` on the CLI.
+
+| inst | boxes | placed (before → after) | SU % | CSR % | isolated | one-side | fillable gaps ≥ τ | dunnage gaps < τ | side contact | L–R mass imbalance (M-7) | R4 time |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 581 | 69 | 36 → 36 | 51.73 → 51.73 | 100 → 100 | 6 → 4 | 18 → 19 | 7 → 7 | 23 → 20 | 51.7 → 54.2 % | 9.2 → 9.2 % | 0.6 s |
+| 413 | 105 | 56 → 56 | 49.78 → 49.78 | 100 → 100 | 7 → 2 | 26 → 34 | 11 → 11 | 29 → 27 | 46.4 → 49.4 % | 9.5 → 4.9 % | 1.8 s |
+| 147 | 116 | 53 → 53 | 44.96 → 44.96 | 100 → 100 | 11 → 1 | 26 → 30 | 7 → 6 | 41 → 26 | 43.2 → 47.2 % | 1.0 → 1.0 % | 1.9 s |
+| 392 | 124 | 57 → 57 | 46.13 → 46.13 | 100 → 100 | 11 → 3 | 25 → 31 | 12 → 14 | 35 → 23 | 49.7 → 53.6 % | 27.0 → 27.0 % | 2.4 s |
+
+Isolated = gap on both x faces; one-side = touching on exactly one x face;
+gaps are counted per x face. R4 time is part of M-3. Thesis preset (pop 30 ×
+300), instance 581: the run takes about 125 s and R4 adds 0.6 s.
+
+## What the pilot shows
+
+* **Balance** is not what R4 optimises: the left–right mass imbalance is unchanged
+  on three of four instances and falls on 413 (tie-breaking and moves toward the
+  walls can shift mass either way).
+
+* **Compaction (Step B) does the work.** Isolated boxes fall from 6–11 to 1–4
+  per arrangement; boxes move into contact with a wall or a neighbouring stack.
+  Some islands become one-side boxes (they now touch a wall), so the one-side
+  count can rise: it counts boxes that moved out of the isolated class, not new
+  problems. Moves that would break C6 are undone (2 of 4 on 581).
+* **Step A (re-insertion) placed no box on any of the four instances.** This is
+  not a weakness of the candidate set. On 581 every unpacked box was tried at
+  every position on the lattice of all box-face planes (any position flush
+  against anything), in every orientation: 49,348 positions are free of overlap,
+  1,955 of those have C5 support, 29 pass C4 and none passes C3. The boxes the
+  search left out are heavy (about 629 kg) and the boxes below the large
+  sideways gaps cannot bear them (load-bearing, C3) or are fragile (C4); the
+  gaps themselves are mostly pockets above the floor with nothing under them.
+  So the panel's "too little cargo across the width" is real, but on these
+  instances the missing cargo cannot be added without breaking C3–C5. SU does
+  not change.
+* **Dunnage.** Gaps under τ (20–27 per arrangement after R4) are reported, not
+  filled.
+
+## Methodology paragraph
+
+Repair step R4 (edge filling) is applied once, to the arrangement the
+Repair-Based hybrid returns, after the search has finished; it does not enter
+the per-wolf repair, the archive or the leader selection, and it uses no random
+numbers. It has two parts. First, each box the search left out, largest volume
+first, is tried at the extreme points, at points flush against both sides of
+every sideways gap of at least τ (the smallest box dimension in the instance),
+and at those points slid in x until flush against the nearest wall or box. Every
+position that satisfies C1–C6 in both directions is scored by side-contact area,
+the area of the box's lateral faces (across the width and along the length) that
+touches a wall or another box with no gap. A position is accepted only if the box
+touches on at least two of its four lateral sides, at least one of them across
+the width, so R4 cannot create a new isolated box; ties go to the side that lowers
+the left–right mass imbalance (M-7), then to deepest-bottom-left order. Second,
+rigid vertical stacks are moved across the width into contact with the nearer
+wall or stack when that raises total side contact and C1–C6 still hold at 100 %;
+a move that breaks a constraint, in practice C6, is undone. Re-insertion then
+runs once more, because compaction can open new gaps. Sideways gaps below τ cannot
+hold a box and are reported as dunnage. The result is checked to have CSR = 100 %,
+and isolated boxes, one-side boxes, fillable and dunnage gaps and the side-contact
+ratio are reported as descriptive indicators outside the hypothesis family. The
+one-side count can rise after R4, because boxes that were isolated now touch a
+wall on one side; it is not a sign that R4 loosened anything.
+
+## Notes
+
+* Acceptance also requires contact across the width (not only "two sides" of x−,
+  x+, y−, y+): a box wedged between the rear door and a neighbour along the length
+  but free to slide sideways would still be an island. Set
+  `edge_fill.REQUIRE_X_CONTACT = False` for the plain two-side rule.
+* Lateral centering is not run after R4. The Center Load toggle still works, and
+  the Gaps panel now shows the gaps of the layout in view (it used to show the
+  uncentered ones whatever the toggle said).
+* `tools/determinism_reference.json` was regenerated for REP only; the DGWO,
+  MOGWO and SEQ hashes are unchanged.
+
+## Pre-run checks (thesis preset, 4-core machine)
+
+* REP at pop 30 × 300, seed 42: 69 boxes 125 s, 105 boxes 300 s, 168 boxes
+  795 s (R4 adds 0.6 s, 1.8 s and 6.5 s). Time grows about with n². Over the 30
+  sample instances that is about 3.9 h of REP per seed plus 1.6 h for DGWO,
+  MOGWO and SEQ, so roughly **165 h for 30 seeds in serial mode** (an estimate
+  from these three points, not a measurement).
+* Dry run (`study.py --sample … --n-instances 1 --preset thesis --seeds 1-2
+  --mode serial`): 8 runs, all validators AGREE, baselines and stats steps
+  finished, REP records carry `edge_fill_stats` and every run carries
+  `layout.edge`. The stats summary (`stats.layout`) does not yet aggregate the
+  edge indicators.
+* `study.py` now resumes (see below); it used to hold runs in memory and write
+  the results file only at the end.
+* Viewer (real app, built client + server): opening a REP study run shows the R4
+  summary; toggling Center Load switches the Gaps panel to the centered boxes
+  (8 → 11 boxes touching nothing sideways on that run).
+
+## Resume, chunks and progress (study.py)
+
+* Every finished run is written at once to `<out>.runs/` (one file per run plus
+  `spec.json` with the settings and commit). Running the same command again
+  skips those runs and assembles `<out>` at the end. A restart with other
+  settings is refused; another commit is refused unless `--force-resume`.
+* Chunks (other seeds, or `--instance-ids 50,485` with `--sample`) are run with
+  their own `--out` and merged with
+  `python experiments/study.py --merge a.json b.json --out all.json`. The merge
+  refuses different settings, overlapping runs and incomplete designs, carries
+  the baselines over, and recomputes the stats.
+* Each finished run prints `[done / total runs | % runs | % est. work] … | elapsed
+  | ETA`. Work weight = n_boxes² × (REP 7, others 1; REP's factor is taken from
+  the runs already on disk if there are ≥ 3 REP and ≥ 3 other runs). ETA uses this
+  session's elapsed time and work only. The same `pct_runs`, `pct_work` and
+  `eta_s` are in `<out>.progress.json`; the study progress bar uses `pct_work`.
+* `stats.layout` now includes the edge measures (isolated and one-side boxes,
+  fillable and dunnage gap counts and totals, side-contact ratio).
+* `python tools/test_study_resume.py` kills a small study, restarts it, and
+  checks the result equals an uninterrupted run, the progress line, the refusal
+  and the merge.

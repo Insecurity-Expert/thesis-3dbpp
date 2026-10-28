@@ -167,7 +167,12 @@ export default function VisualizationTab({
   const container = result ? result.container : null;
   const details = pinned || hovered;
   const frame = useMemo(() => truckFrame(container), [container]);
-  const gaps = result ? result.gaps : null;
+  // The gaps of the layout in view: the Center Load toggle swaps the boxes, so it
+  // must swap the summary too (results saved before this carry result.gaps only).
+  const showCentered = centerLoad && hasCentered;
+  const gaps = result ? ((showCentered && result.centered_gaps) || result.gaps) : null;
+  const edge = result ? ((showCentered && result.centered_edge) || result.edge) : null;
+  const r4 = result ? result.edge_fill : null;
 
   // Boxes that the centering pass physically moved (shift > 0.5 cm threshold).
   // Used to render a cyan outline in the 3-D viewer so the change is visible.
@@ -393,6 +398,23 @@ export default function VisualizationTab({
                     A face gap is the distance from a box face to the nearest box or wall beyond it; it is significant at τ or more.
                     Every face counts, the roof included; the view leaves out the lines to the roof.
                   </div>
+                  {edge && (
+                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8, display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <Row k="Boxes touching nothing sideways" v={`${edge.isolated_boxes}`} color={edge.isolated_boxes > 0 ? "var(--amber)" : undefined} />
+                      <Row k="Boxes touching one side only" v={`${edge.one_side_boxes}`} />
+                      <Row k="Sideways gaps ≥ τ (a box fits)" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
+                      <Row k="Sideways gaps < τ (dunnage)" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
+                      <Row k="Side contact" v={edge.side_contact_ratio === null ? "—" : `${fmtNum(edge.side_contact_ratio * 100, 1)} % of side-face area`} />
+                      {r4 && !showCentered && (
+                        <div className="field-hint">
+                          R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
+                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush ({fmtNum(r4.time_ms / 1000, 1)} s).
+                          Gaps under τ are left for dunnage.
+                        </div>
+                      )}
+                      {showCentered && <div className="field-hint">Centered view: these figures are for the centered boxes, not the R4 arrangement.</div>}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>
