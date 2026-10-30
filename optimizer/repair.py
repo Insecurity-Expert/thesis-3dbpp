@@ -1,6 +1,6 @@
 """
 Relocate-then-defer repair (Chapter 3): R1 weight (C3), R2 stop order (C6),
-R3 re-evaluation. C4 and C5 are enforced in the decoder and have no repair step.
+R3 fixpoint removal. C4 and C5 are enforced in the decoder and have no repair step.
 
 R1 and R2 first try to RELOCATE a violating box to a feasible extreme point;
 only when no position exists is the box DEFERRED to the unpacked list.
@@ -27,13 +27,27 @@ SUPPORT_THRESHOLD = 0.80
 
 # R2 destinations are checked against C1-C6. Chapter 3 wrote "subject to
 # (C1)-(C5)", which lets a relocated blocker block a DIFFERENT earlier-stop box
-# and prevents the pass loop from ever converging (Step 5: R_MAX hit 800/800).
-# Both directions of the blocking relation are checked (see _feasible_at, C6).
+# (Step 5: R_MAX hit 800/800). Both directions of the blocking relation are
+# checked (see _feasible_at, C6). The pass loop still ends early on a pass with
+# no change, because R1/R2 do not handle C5: a box they move leaves the boxes
+# resting on it unsupported, and those C5 orphans are removed by R3 (the loop
+# used to spin to R_MAX on them; see left_for_R3 in the stats).
 R2_CHECK = ('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
 OPERATORS = ('R1', 'R2')
 
+# left_for_R3: boxes still violating after the R1/R2 loop, by constraint.
+# removed_by_R3: what R3 then removed, by the constraint that first flagged each
+# box (a box violating several is counted under each). Both are dicts keyed
+# 'C3'..'C6'; the others are ints.
+VIOLATION_BITS = (('C3', 1), ('C4', 2), ('C5', 4), ('C6', 8))
+DICT_STAT_KEYS = ('left_for_R3', 'removed_by_R3')
 STAT_KEYS = ('relocated_R1', 'relocated_R2', 'deferred_R1', 'deferred_R2',
-             'removed_R3', 'passes_used', 'rmax_hit', 'reinserted')
+             'removed_R3', 'passes_used', 'rmax_hit', 'reinserted') + DICT_STAT_KEYS
+
+
+def empty_stats():
+    return {k: ({c: 0 for c, _ in VIOLATION_BITS} if k in DICT_STAT_KEYS else 0)
+            for k in STAT_KEYS}
 
 
 # -- Per-pass caches -----------------------------------------------------------
@@ -571,10 +585,11 @@ def _violators_reference(items, placements, orientations):
 
 
 @njit(cache=True)
-def _violation_flags(P, mass, fragile, stop, cap, n):
-    """Compiled transcription of _violators_reference: per box, True if it violates
-    C3, C4, C5 or C6. Sums run in member order, as the reference's do."""
-    bad = np.zeros(n, dtype=np.bool_)
+def _violation_masks(P, mass, fragile, stop, cap, n):
+    """Compiled transcription of _violators_reference: per box, a bitmask of the
+    violated constraints (C3=1, C4=2, C5=4, C6=8; see VIOLATION_BITS). Sums run in
+    member order, as the reference's do."""
+    bad = np.zeros(n, dtype=np.int64)
     above = np.zeros(n, dtype=np.bool_)
     for i in range(n):
         xi = P[i, 0]; yi = P[i, 1]; zi = P[i, 2]
@@ -597,58 +612,73 @@ def _violation_flags(P, mass, fragile, stop, cap, n):
             if abs((zj + dzj) - zi) < 1e-5:
                 supported += (ox if ox > 0.0 else 0.0) * (oy if oy > 0.0 else 0.0)
         if fragile[i] and n_above > 0:
-            bad[i] = True
+            bad[i] |= 2
         if borne > cap[i]:
-            bad[i] = True
+            bad[i] |= 1
         top_area = dxi * dyi
         if zi != 0.0:
             ratio = supported / top_area if top_area > 0.0 else 0.0
             if ratio < SUPPORT_THRESHOLD:
-                bad[i] = True
+                bad[i] |= 4
         for j in range(n):
             if i == j or stop[j] <= stop[i]:
                 continue
             if above[j]:
-                bad[i] = True
+                bad[i] |= 8
                 break
             if P[j, 1] + P[j, 4] <= yi:
                 ox = min(xi + dxi, P[j, 0] + P[j, 3]) - max(xi, P[j, 0])
                 oz = min(zi + dzi, P[j, 2] + P[j, 5]) - max(zi, P[j, 2])
                 if ox > 0.0 and oz > 0.0:
-                    bad[i] = True
+                    bad[i] |= 8
                     break
     return bad
 
 
-def _violators(items, placements, orientations):
-    """Fast path, same contract as _violators_reference. The set is built by adding
-    members in the same order, so its iteration order matches too (this matters:
-    R3 appends removed boxes to `unpacked` in set-iteration order)."""
+def _violator_masks(items, placements, orientations):
+    """{box: bitmask} for every box violating C3-C6, in placement order."""
     members = list(placements)
     n = len(members)
     if n == 0:
-        return set()
+        return {}
     P = np.array([placements[i] for i in members], dtype=np.float64)
     mass = np.array([items[i]['mass'] for i in members], dtype=np.float64)
     fragile = np.array([items[i]['fragile'] == 1 for i in members])
     stop = np.array([items[i]['stop'] for i in members], dtype=np.int64)
     cap = np.array([_capacity(i, items, placements, orientations) for i in members],
                    dtype=np.float64)
-    bad = _violation_flags(P, mass, fragile, stop, cap, n)
+    bad = _violation_masks(P, mass, fragile, stop, cap, n)
+    return {members[k]: int(bad[k]) for k in range(n) if bad[k]}
+
+
+def _violators(items, placements, orientations):
+    """Fast path, same contract as _violators_reference. The set is built by adding
+    members in the same order, so its iteration order matches too (this matters:
+    R3 appends removed boxes to `unpacked` in set-iteration order)."""
     out = set()
-    for k in range(n):
-        if bad[k]:
-            out.add(members[k])
+    for i in _violator_masks(items, placements, orientations):
+        out.add(i)
     return out
+
+
+def _tally(masks, into):
+    for bits in masks.values():
+        for c, b in VIOLATION_BITS:
+            if bits & b:
+                into[c] += 1
 
 
 def repair_R3(ctx, unpacked, stats):
     """Remove every box still in violation, to a fixpoint: pulling a support
     can orphan the boxes above it, so one sweep is not enough."""
     while True:
-        bad = _violators(ctx.items, ctx.placements, ctx.orientations)
-        if not bad:
+        masks = _violator_masks(ctx.items, ctx.placements, ctx.orientations)
+        if not masks:
             return
+        _tally(masks, stats['removed_by_R3'])
+        bad = set()                    # built like _violators, so same iteration order
+        for i in masks:
+            bad.add(i)
         for i in bad:
             ctx.remove(i)
             unpacked.append(i)
@@ -658,20 +688,25 @@ def repair_R3(ctx, unpacked, stats):
 # -- Driver --------------------------------------------------------------------
 def repair_arrangement(placements, orientations, unpacked, items, container):
     """Mutates placements / orientations / unpacked in place. Returns stats."""
-    stats = {k: 0 for k in STAT_KEYS}
+    stats = empty_stats()
     ctx = RepairContext(items, placements, orientations, container)
 
+    # A pass in which neither operator acted leaves the arrangement as it was,
+    # and R1/R2 use no randomness, so every later pass would do nothing too:
+    # stop there. rmax_hit therefore means R1/R2 were still changing things when
+    # R_MAX ran out. Whatever still violates (in practice C5 orphans) is R3's.
     passes = 0
     for _ in range(R_MAX):
         passes += 1
         changed = False
         changed |= repair_R1(ctx, unpacked, stats)
         changed |= repair_R2(ctx, unpacked, stats)
-        if not changed and not _violators(items, placements, orientations):
+        if not changed:
             break
     else:
         stats['rmax_hit'] = 1
     stats['passes_used'] = passes
+    _tally(_violator_masks(items, placements, orientations), stats['left_for_R3'])
 
     repair_R3(ctx, unpacked, stats)
 

@@ -14,7 +14,7 @@ respecting:
 | C2 | boxes do not overlap |
 | C3 | load-bearing: mass borne by a box ≤ its vertical LBS × contact area |
 | C4 | fragility: nothing rests on a fragile box |
-| C5 | stability: floor contact or ≥ 80 % coplanar base support |
+| C5 | support (≥ 80 % base): floor contact or ≥ 80 % coplanar base support. The result keys `C5_balance_pct` / `C5_balance_rate` keep an old name; they measure support, not left–right balance (M-7) |
 | C6 | stop order: no later-stop box above or doorward of an earlier-stop box |
 
 The delivery order is an input; STACKR respects it, it does not plan routes.

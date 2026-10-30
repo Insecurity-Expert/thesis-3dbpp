@@ -362,6 +362,12 @@ one result twice).
 
 ### What PR #3 changed (pre-PR #3 → now, slide table and live demo)
 
+> Label note: "R1–R5" and "R3 re-evaluation" below name the repair of an
+> earlier version. Today's per-wolf repair is R1 weight, R2 stop order, R3
+> fixpoint removal and one re-insertion pass (`optimizer/repair.py`); R4 is edge
+> filling (`optimizer/edge_fill.py`) and R5 is the fragile lift. The numbers on
+> this page are unchanged.
+
 PR #3 made MOGWO, Sequential and Repair-based return the archive member with
 the highest SU (previously the most compliant), cut repair to R1 weight → R2
 stop order → R3 re-evaluation (previously R1–R5 with R_max = 3, now R_max = 5),
@@ -402,7 +408,8 @@ cite them beside the tables above.
 # Superseded (pre-PR #3 algorithms, rear door) — do not cite
 
 Generated before PR #3: MOGWO, Sequential and Repair-based returned the most
-compliant archive member, repair ran R1–R5, and each slide seed used its own
+compliant archive member, repair ran R1–R5 (an earlier repair; the current
+names are R1–R3 plus re-insertion, then R4 edge filling), and each slide seed used its own
 stop seed. Kept for traceability only; every heading below is demoted one level.
 
 **All numbers on this page were generated after the rear-door container fix

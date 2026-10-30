@@ -48,7 +48,7 @@ class WolfContinuous:
             sequence, items, orients_map, container,
             enforce_support=enforce_support, enforce_fragility=enforce_fragility)
 
-        # 3. (Optional) Repair R1-R5
+        # 3. (Optional) per-wolf repair: R1-R3 plus re-insertion
         if apply_repair:
             self._repair(items, container)
 
@@ -67,8 +67,9 @@ class WolfContinuous:
             self.scalar_fitness = None
 
     def _repair(self, items, container):
-        """Relocate-then-defer repair R1-R5 (see repair.py). Mutates the
-        arrangement in place and records per-call stats on self.last_repair."""
+        """Relocate-then-defer repair, R1-R3 plus re-insertion (see repair.py).
+        Mutates the arrangement in place and records per-call stats on
+        self.last_repair."""
         from repair import repair_arrangement
         self.last_repair = repair_arrangement(
             self.placements, self.orientations, self.unplaced, items, container)
@@ -446,6 +447,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
         return out
 
     def _note_repair(self, w):
+        from repair import DICT_STAT_KEYS
         for k, v in w.last_repair.items():
             if k == 'rejections':
                 agg = self.repair_stats.setdefault('rejections', {})
@@ -453,13 +455,17 @@ class RepairBasedHybrid(StandaloneMOGWO):
                     bucket = agg.setdefault(op, {})
                     for c, n in counts.items():
                         bucket[c] = bucket.get(c, 0) + n
+            elif k in DICT_STAT_KEYS:
+                bucket = self.repair_stats.setdefault(k, {})
+                for c, n in v.items():
+                    bucket[c] = bucket.get(c, 0) + n
             else:
                 self.repair_stats[k] = self.repair_stats.get(k, 0) + v
         self.repair_stats['candidates'] = self.repair_stats.get('candidates', 0) + 1
 
     def run(self):
-        from repair import STAT_KEYS
-        self.repair_stats = {k: 0 for k in STAT_KEYS}
+        from repair import empty_stats
+        self.repair_stats = empty_stats()
         self.repair_stats['candidates'] = 0
 
         pop = [self._new_wolf() for _ in range(self.pop_size)]
@@ -479,7 +485,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                # Apply repair R1-R5 before evaluation
+                # Apply the per-wolf repair (R1-R3 + re-insertion) before evaluation
                 self._evaluate(pop[i], apply_repair=True)
                 self._note_repair(pop[i])
                 self._update_archive(archive, pop[i])
