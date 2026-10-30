@@ -428,20 +428,28 @@ class SequentialHybrid(StandaloneMOGWO):
         })
 
 class RepairBasedHybrid(StandaloneMOGWO):
-    def __init__(self, *args, edge_fill=True, **kwargs):
-        """edge_fill: apply repair step R4 (edge_fill.py) once, to the arrangement
-        the run returns. It is applied after the search has finished, so the
-        search, the archive and the leaders are the same with it on or off."""
+    def __init__(self, *args, edge_fill=True, fragile_lift=True, **kwargs):
+        """edge_fill / fragile_lift: apply repair steps R4 (edge_fill.py) and R5
+        (fragile_lift.py) once, to the arrangement the run returns, R5 first.
+        They are applied after the search has finished, so the search, the
+        archive and the leaders are the same with them on or off."""
         super().__init__(*args, **kwargs)
         self.edge_fill = edge_fill
         self.edge_fill_stats = None
+        self.fragile_lift = fragile_lift
+        self.fragile_lift_stats = None
 
-    def _apply_edge_fill(self, best):
-        """R4 on a snapshot of the returned wolf; SU and CSR re-evaluated."""
-        from edge_fill import repair_R4_edge_fill
+    def _apply_final_repairs(self, best):
+        """R5 then R4 on a snapshot of the returned wolf; SU and CSR re-evaluated."""
         out = self._snapshot(best)
-        self.edge_fill_stats = repair_R4_edge_fill(
-            out.placements, out.orientations, out.unplaced, self.items, self.container)
+        if self.fragile_lift:
+            from fragile_lift import repair_R5_fragile_lift
+            self.fragile_lift_stats = repair_R5_fragile_lift(
+                out.placements, out.orientations, out.unplaced, self.items, self.container)
+        if self.edge_fill:
+            from edge_fill import repair_R4_edge_fill
+            self.edge_fill_stats = repair_R4_edge_fill(
+                out.placements, out.orientations, out.unplaced, self.items, self.container)
         out.su = space_utilization(out.placements, self.container)
         out.csr, _ = evaluate_constraints(out.placements, self.items, out.orientations)
         return out
@@ -500,4 +508,4 @@ class RepairBasedHybrid(StandaloneMOGWO):
                 self._emit(iteration, alpha)
 
         best = max(archive, key=lambda w: w.su)
-        return self._apply_edge_fill(best) if self.edge_fill else best
+        return self._apply_final_repairs(best) if (self.fragile_lift or self.edge_fill) else best

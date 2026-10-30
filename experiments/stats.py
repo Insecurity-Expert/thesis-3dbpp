@@ -712,7 +712,8 @@ def analyse(study):
 
 
 # Paths into each run's layout block. The edge indicators (REP's R4 step, optimizer/
-# edge_fill.py) are measured for every configuration, so they are comparable.
+# edge_fill.py) and the fragile indicators (R5, fragile_lift.py) are measured for every
+# configuration, so they are comparable.
 LAYOUT_FIELDS = (("gap", "mean_gap_cm"), ("gap", "max_gap_cm"), ("gap", "significant_gaps"),
                  ("load_distribution", "lr_mass_imbalance_pct"),
                  *(("load_distribution", f"{b}_{q}") for b in ("left", "right", "lower", "middle", "upper")
@@ -720,7 +721,9 @@ LAYOUT_FIELDS = (("gap", "mean_gap_cm"), ("gap", "max_gap_cm"), ("gap", "signifi
                  ("edge", "isolated_boxes"), ("edge", "one_side_boxes"),
                  ("edge", "lateral_gaps_fillable", "count"), ("edge", "lateral_gaps_fillable", "total_cm"),
                  ("edge", "lateral_gaps_dunnage", "count"), ("edge", "lateral_gaps_dunnage", "total_cm"),
-                 ("edge", "side_contact_ratio"))
+                 ("edge", "side_contact_ratio"),
+                 ("fragile", "fragile_placed"), ("fragile", "fragile_on_floor"),
+                 ("fragile", "fragile_dead_volume_m3"), ("fragile", "fragile_dead_volume_pct"))
 
 
 def _layout_value(layout, path):

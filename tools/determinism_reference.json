@@ -68,7 +68,7 @@
   {
    "configuration": "REP",
    "seed": 1,
-   "sha256": "15a9ee6dd186810f74fabc3d3b4369b4309de1334baee0e793a17c35b4c28adf",
+   "sha256": "56c777bb848ae3461c092f30ee317575941c3eb98fcf32b904d8dbb49cbbe68f",
    "placed": 60,
    "su_pct": 47.2484,
    "csr_pct": 100.0
@@ -76,9 +76,9 @@
   {
    "configuration": "REP",
    "seed": 42,
-   "sha256": "f7b23607ba34c736ffaa6eec10e94aa60d710f21654e9d3ddbaf72d1df7cc818",
-   "placed": 62,
-   "su_pct": 44.9341,
+   "sha256": "e035d86e7f56dd8c0a3fd53d7756767093b5d03aa8592282c8646cd29c1b13fa",
+   "placed": 63,
+   "su_pct": 46.0872,
    "csr_pct": 100.0
   }
  ]

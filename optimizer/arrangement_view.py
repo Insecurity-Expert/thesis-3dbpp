@@ -212,6 +212,7 @@ def study_run_view(study_path, run_index, raw_dir=None):
         "centered_gaps": centered_gaps,
         "centered_edge": edge_indicators(centered_res['placements'], container, items),
         "edge_fill": run.get('edge_fill_stats'),
+        "fragile_lift": run.get('fragile_lift_stats'),
         "items": entries,
         "lateral_balance": {
             "before": centered_res['m7_before'],

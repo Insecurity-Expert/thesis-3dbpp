@@ -138,7 +138,7 @@ def main():
     for on in (False, True):
         t0 = time.perf_counter()
         opt = RepairBasedHybrid(inst['boxes'], inst['container'], pop_size=10, max_iter=60,
-                                enforce_support=True, enforce_fragility=True, seed=42, edge_fill=on)
+                                enforce_support=True, enforce_fragility=True, seed=42, edge_fill=on, fragile_lift=False)
         best = opt.run()
         e = edge_indicators(best.placements, inst['container'], inst['boxes'])
         rows[on] = (best, e, opt, time.perf_counter() - t0)
