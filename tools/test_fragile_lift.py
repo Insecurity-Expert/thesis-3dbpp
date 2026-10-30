@@ -8,6 +8,9 @@ Checks:
 2. Refused move: the only higher position breaks C3 (stack too weak) or C6 (stop
    order). R5 leaves the arrangement as it was; each case has a control that
    proves the lift happens without that defect.
+2b. Balance guard: a move that raises SU is refused because it raises the M-7
+   left-right imbalance above its start-of-R5 value (control: same move with a
+   counterweight on the left is kept).
 3. No cargo dropped: a move that raises SU only by losing the fragile box is refused.
 4. Orientation: a box restricted to lying flat is never stood on end; the same box
    allowed to stand on end is.
@@ -63,37 +66,53 @@ def dead(pl, container, items):
 
 def main():
     print("-- 1. Hand-built lift ------------------------------------------------")
-    cont = {'L': 60.0, 'W': 30.0, 'H': 60.0}
+    cont = {'L': 90.0, 'W': 30.0, 'H': 60.0}
     # 0: fragile cube on the floor. 1: sturdy-enough cube beside it (carries 18 kg).
     # 2: 50-kg cube, left out: too heavy for box 1's top (C3), nothing may rest on 0 (C4).
-    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(30, 30, 30, mass=50)]
-    pl, orr, un, st, b0 = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [2])
+    # 3: 60-kg counterweight on the left floor, so the move does not unbalance the load (M-7).
+    row = {3: (0, 0, 0), 0: (30, 0, 0), 1: (60, 0, 0)}
+    cw = box(30, 30, 30, mass=60, lbs=0.001)
+    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(30, 30, 30, mass=50), cw]
+    pl, orr, un, st, b0 = run_r5(cont, items, row, [2])
     check(pl[0][2] == 30.0, f"fragile box 0 lifted onto a stack (top at the roof): {pl[0][:3]}")
-    check(2 in pl and pl[2][:3] == [0.0, 0.0, 0.0], f"heavy box 2 placed on the freed floor: {pl.get(2, None) and pl[2][:3]}")
+    check(2 in pl and pl[2][:3] == [30.0, 0.0, 0.0], f"heavy box 2 placed on the freed floor: {pl.get(2, None) and pl[2][:3]}")
     check(un == [], "box 2 removed from the unpacked list")
     check(space_utilization(pl, cont) > space_utilization(b0, cont), "SU rose")
     check(dead(pl, cont, items) < dead(b0, cont, items), "dead volume fell")
     check(evaluate_constraints(pl, items, orr)[0] == 100.0, "CSR 100")
     check(st['moves_accepted'] == 1 and st['boxes_added'] == [2] and st['fragile_lifted'][0]['item'] == 0,
           "stats: one move, box 2 added, box 0 lifted")
-    check(st['after']['dead_volume_pct'] < st['before']['dead_volume_pct'] and st['after']['placed'] == 3,
+    check(st['after']['dead_volume_pct'] < st['before']['dead_volume_pct'] and st['after']['placed'] == 4,
           "stats: before / after")
 
     print("\n-- 2. Refused moves --------------------------------------------------")
     # control: nothing left out, the lift alone shrinks the dead volume
     items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02)]
-    pl, _, _, st, _ = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [])
-    check(pl[0][:3] == [30.0, 0.0, 30.0], "control: the fragile box is lifted when the stack can carry it")
+    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(1, 1, 1), cw]
+    pl, _, _, st, _ = run_r5(cont, items, row, [])
+    check(pl[0][:3] == [60.0, 0.0, 30.0], "control: the fragile box is lifted when the stack can carry it")
     # C3: the stack bears 4.5 kg, the fragile box weighs 10
-    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.005)]
-    pl, _, _, st, b0 = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [])
+    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.005), box(1, 1, 1), cw]
+    pl, _, _, st, b0 = run_r5(cont, items, row, [])
     check(pl == b0 and st['moves_accepted'] == 0, "C3: stack too weak, arrangement unchanged")
     check(st['rejections'].get('C3', 0) > 0, f"C3 rejections counted: {st['rejections']}")
     # C6: a stop-2 box on a stop-1 box would block it
-    items = [box(30, 30, 30, mass=10, fragile=1, stop=2), box(30, 30, 30, lbs=0.02, stop=1)]
-    pl, _, _, st, b0 = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [])
+    items = [box(30, 30, 30, mass=10, fragile=1, stop=2), box(30, 30, 30, lbs=0.02, stop=1), box(1, 1, 1), cw]
+    pl, _, _, st, b0 = run_r5(cont, items, row, [])
     check(pl == b0 and st['moves_accepted'] == 0, "C6: stop order forbids it, arrangement unchanged")
     check(st['rejections'].get('C6', 0) > 0, f"C6 rejections counted: {st['rejections']}")
+
+    print("\n-- 2b. Balance guard ---------------------------------------------------")
+    # Same boxes as test 1 without the counterweight: the lift is legal and raises SU,
+    # but it puts 50 kg on the left of a load that was balanced (M-7 0 % -> 40 % or more).
+    half = {'L': 60.0, 'W': 30.0, 'H': 60.0}
+    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(30, 30, 30, mass=50)]
+    pl, _, un, st, b0 = run_r5(half, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [2])
+    check(pl == b0 and un == [2] and st['moves_accepted'] == 0,
+          "SU-raising move refused, arrangement unchanged")
+    check(st['refused_balance'] >= 1 and st['move_rejections'].get('balance', 0) >= 1,
+          f"counted as refused_balance: {st['refused_balance']}")
+    check(st['after']['m7_pct'] <= st['before']['m7_pct'], "M-7 not above its start-of-R5 value")
 
     print("\n-- 3. No cargo dropped -------------------------------------------------")
     one = {'L': 30.0, 'W': 30.0, 'H': 30.0}
@@ -114,9 +133,9 @@ def main():
     check(dead(pl, tall, items) < 0.015, "control: standing on end cut the dead volume")
 
     print("\n-- 5. Determinism ---------------------------------------------------")
-    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(30, 30, 30, mass=50)]
-    a = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [2])[0]
-    b = run_r5(cont, items, {0: (0, 0, 0), 1: (30, 0, 0)}, [2])[0]
+    items = [box(30, 30, 30, mass=10, fragile=1), box(30, 30, 30, lbs=0.02), box(30, 30, 30, mass=50), cw]
+    a = run_r5(cont, items, row, [2])[0]
+    b = run_r5(cont, items, row, [2])[0]
     check(a == b, "two runs, identical placements")
 
     print("\n-- 6. Instance 581, REP, quick preset, R5 off vs. on -----------------")
@@ -143,6 +162,11 @@ def main():
               f"seed {seed}: placed and SU do not go down")
         check(f1['fragile_dead_volume_pct'] <= f0['fragile_dead_volume_pct'] + 1e-9,
               f"seed {seed}: dead volume does not go up")
+        s1 = o1.fragile_lift_stats
+        check(s1['after']['m7_pct'] <= s1['before']['m7_pct'] + 1e-9
+              and s1['after']['isolated_boxes'] <= s1['before']['isolated_boxes'],
+              f"seed {seed}: M-7 and isolated boxes not above their start-of-R5 values "
+              f"(refused: balance {s1['refused_balance']}, isolated {s1['refused_isolated']})")
         check(o1.fragile_lift_stats['moves_tried'] > 0, f"seed {seed}: R5 stats recorded "
               f"({o1.fragile_lift_stats['moves_accepted']}/{o1.fragile_lift_stats['moves_tried']} moves, "
               f"{o1.fragile_lift_stats['time_ms']} ms)")

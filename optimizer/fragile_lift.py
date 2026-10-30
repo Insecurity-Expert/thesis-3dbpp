@@ -29,8 +29,11 @@ index), for up to PASSES passes or until a pass accepts nothing:
      side contact, then DBLF order. That is usually on top of a stack and, where
      allowed, standing on end;
   4. accept only if every box placed before is still placed (no cargo dropped
-     to make room), evaluate_constraints is still 100 %, and (SU, -dead volume)
-     is strictly better; otherwise restore the saved state.
+     to make room), evaluate_constraints is still 100 %, (SU, -dead volume) is
+     strictly better, and two guards hold: the left-right mass imbalance (M-7)
+     and the number of isolated boxes are no higher than they were when R5
+     started (the start-of-R5 values, not the previous move's, so a series of
+     accepted moves cannot drift); otherwise restore the saved state.
 Feasibility is the R2 kernel (C1-C6 in both directions), so a moved or added
 box can neither violate a constraint nor create one for a box already placed.
 Only allowed_orientations are used.
@@ -45,7 +48,7 @@ import numpy as np
 
 from geometry_3d import get_dims
 from layout_metrics import (contact_areas, edge_indicators, fragile_dead_volume,
-                            fragile_indicators)
+                            fragile_indicators, load_distribution)
 from repair import R2_CHECK, rebuild_extreme_points, feasible_candidates
 from thesis_metrics import evaluate_constraints
 
@@ -78,7 +81,8 @@ def _snapshot(placements, container, items):
             'dead_volume_m3': fr['fragile_dead_volume_m3'],
             'dead_volume_pct': fr['fragile_dead_volume_pct'],
             'isolated_boxes': edge['isolated_boxes'],
-            'one_side_boxes': edge['one_side_boxes']}
+            'one_side_boxes': edge['one_side_boxes'],
+            'm7_pct': load_distribution(placements, container, items)['lr_mass_imbalance_pct']}
 
 
 def _best_position(j, ctx_eps, extra, placements, orientations, items, container, rej, key_fn):
@@ -110,8 +114,9 @@ def _best_position(j, ctx_eps, extra, placements, orientations, items, container
     return best
 
 
-def _try_move(f, placements, orientations, unpacked, items, container, stats):
-    """One lift attempt for fragile box f. Returns True if the move was kept."""
+def _try_move(f, placements, orientations, unpacked, items, container, stats, limits):
+    """One lift attempt for fragile box f. Returns True if the move was kept.
+    limits: the start-of-R5 M-7 imbalance and isolated-box count (the guards)."""
     H = float(container['H'])
     saved = ({k: list(v) for k, v in placements.items()}, dict(orientations), list(unpacked))
     before_ids = set(placements)
@@ -178,6 +183,17 @@ def _try_move(f, placements, orientations, unpacked, items, container, stats):
             better = su1 > su0 + 1e-6 or (abs(su1 - su0) <= 1e-6 and dead1 < dead0 - 1e-6)
             if not better:
                 reason = 'not_better'
+            else:
+                worse_balance = (load_distribution(placements, container, items)
+                                 ['lr_mass_imbalance_pct'] > limits['m7_pct'] + 1e-9)
+                worse_isolated = (edge_indicators(placements, container, items)
+                                  ['isolated_boxes'] > limits['isolated_boxes'])
+                stats['refused_balance'] += int(worse_balance)
+                stats['refused_isolated'] += int(worse_isolated)
+                if worse_balance:
+                    reason = 'balance'
+                elif worse_isolated:
+                    reason = 'isolated'
     if reason is not None:
         placements.clear()
         placements.update(saved[0])
@@ -206,9 +222,11 @@ def repair_R5_fragile_lift(placements, orientations, unpacked, items, container)
     t0 = time.perf_counter()
     stats = {'before': _snapshot(placements, container, items),
              'moves_tried': 0, 'moves_accepted': 0, 'passes': 0,
+             'refused_balance': 0, 'refused_isolated': 0,
              'boxes_added': [], 'fragile_lifted': [],
              'rejections': {}, 'move_rejections': {}}
     H = float(container['H'])
+    limits = {'m7_pct': stats['before']['m7_pct'], 'isolated_boxes': stats['before']['isolated_boxes']}
     for _ in range(PASSES):
         stats['passes'] += 1
         order = sorted((k for k in placements if items[k]['fragile'] == 1),
@@ -220,7 +238,8 @@ def repair_R5_fragile_lift(placements, orientations, unpacked, items, container)
                 continue
             if H - placements[f][2] - placements[f][5] <= EPS:
                 continue                       # nothing locked above it
-            accepted |= _try_move(f, placements, orientations, unpacked, items, container, stats)
+            accepted |= _try_move(f, placements, orientations, unpacked, items, container,
+                                  stats, limits)
         if not accepted:
             break
     if placements:
