@@ -269,7 +269,8 @@ def run_task(task):
         seed=task['seed'],
         # R4 and R5 belong to REP alone; the other configurations take no such switch.
         **({'edge_fill': task.get('edge_fill', True),
-            'fragile_lift': task.get('fragile_lift', True)} if cfg == 'REP' else {}),
+            'fragile_lift': task.get('fragile_lift', True),
+            'load_order': task.get('load_order', True)} if cfg == 'REP' else {}),
     )
     # Warm every compiled kernel (REP touches decode + evaluate + repair) so
     # M-3 never includes numba cache loading; same as the server's warm-up.
@@ -332,6 +333,8 @@ def run_task(task):
         # (before / after, boxes added, fragile boxes moved, rejections, time_ms).
         'fragile_lift':     bool(opt.fragile_lift) if cfg == 'REP' else None,
         'fragile_lift_stats': getattr(opt, 'fragile_lift_stats', None),
+        # REP only: was the loading-sequence rule (-stop, fragile) applied to every decoded sequence.
+        'load_order':       bool(opt.load_order) if cfg == 'REP' else None,
         # MOGWO / SEQ / REP: the final Pareto archive's two ends. The reported
         # solution is its highest-SU member; the highest-CSR member (ties on
         # CSR -> higher SU) is the other end of the trade-off it found.
@@ -514,7 +517,7 @@ class StudyProgress:
 
 def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lambdas,
               enforce_support, enforce_fragility, workers, out, sample_path=None,
-              configs=CONFIGS, raw_dir=None, run_stats=True, edge_fill=True, fragile_lift=True,
+              configs=CONFIGS, raw_dir=None, run_stats=True, edge_fill=True, fragile_lift=True, load_order=True,
               force_resume=False, log=print):
     raw_dir = raw_dir or str(_ROOT / 'data' / 'raw')
     pop_size, max_iter = PRESETS[preset]['pop_size'], PRESETS[preset]['max_iter']
@@ -540,7 +543,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
                               'pop_size': pop_size, 'max_iter': max_iter, 'lambdas': lambdas,
                               'enforce_support': enforce_support, 'enforce_fragility': enforce_fragility,
                               'raw_dir': raw_dir, 'edge_fill': edge_fill,
-                              'fragile_lift': fragile_lift})
+                              'fragile_lift': fragile_lift, 'load_order': load_order})
     # Longest jobs first so a parallel pool packs well (REP is the slow one).
     order = {'REP': 0, 'MOGWO': 1, 'DGWO': 2, 'SEQ': 3}
     if mode == 'parallel':
@@ -561,7 +564,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
     store.check_spec({'preset': {'name': preset, 'pop_size': pop_size, 'max_iter': max_iter},
                       'lambdas': lambdas, 'enforce_support': enforce_support,
                       'enforce_fragility': enforce_fragility, 'edge_fill': edge_fill,
-                      'fragile_lift': fragile_lift, 'mode': mode,
+                      'fragile_lift': fragile_lift, 'load_order': load_order, 'mode': mode,
                       'stop_seed': custom_doc['augmentation']['stops']['seed'] if custom_doc else STOP_SEED,
                       'stop_count': custom_doc['augmentation']['stops']['num_stops'] if custom_doc else STOP_COUNT,
                       'versions': library_versions(), 'commit': git_start['commit']}, force=force_resume)
@@ -670,6 +673,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         'enforce_fragility': enforce_fragility,
         'edge_fill': edge_fill,          # REP's R4 step (optimizer/edge_fill.py)
         'fragile_lift': fragile_lift,    # REP's R5 step (optimizer/fragile_lift.py), run before R4
+        'load_order': load_order,        # REP's loading-sequence rule (-stop, fragile), applied in the search
         'support_threshold': SUPPORT_THRESHOLD,
         # A custom load's stops are the labels stored at conversion (given by
         # the user, or drawn once with the recorded seed).
@@ -728,7 +732,7 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
 
 
 # ─── merge chunks into one study ─────────────────────────────────────────────
-MERGE_SAME = ('preset', 'lambdas', 'enforce_support', 'enforce_fragility', 'edge_fill', 'fragile_lift', 'support_threshold',
+MERGE_SAME = ('preset', 'lambdas', 'enforce_support', 'enforce_fragility', 'edge_fill', 'fragile_lift', 'load_order', 'support_threshold',
               'stop_seed', 'stop_count', 'stop_mode', 'seq_budget_split', 'mode', 'custom_load', 'configurations')
 
 
@@ -825,6 +829,8 @@ def main():
                    help="REP only: apply repair step R4 (edge filling) to its final arrangement")
     p.add_argument('--fragile-lift', action=argparse.BooleanOptionalAction, default=True,
                    help="REP only: apply repair step R5 (fragile lift) to its final arrangement, before R4")
+    p.add_argument('--load-order', action=argparse.BooleanOptionalAction, default=True,
+                   help="REP only: load the last stop first, fragile boxes last within a stop (stable sort of the decoded sequence)")
     p.add_argument('--instance-ids', help="comma-separated wtpack ids (a chunk: with --sample they must be in it)")
     p.add_argument('--force-resume', action='store_true',
                    help='continue from runs on disk made at another commit')
@@ -902,7 +908,7 @@ def main():
                         lambdas=lambdas, enforce_support=a.enforce_support,
                         enforce_fragility=a.enforce_fragility, workers=a.workers, out=out,
                         sample_path=sample, configs=a.configs.split(','), run_stats=not a.no_stats,
-                        edge_fill=a.edge_fill, fragile_lift=a.fragile_lift, force_resume=a.force_resume,
+                        edge_fill=a.edge_fill, fragile_lift=a.fragile_lift, load_order=a.load_order, force_resume=a.force_resume,
                         log=lambda s: print(s, file=sys.stderr, flush=True))
     sys.exit(code)
 

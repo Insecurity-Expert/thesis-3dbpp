@@ -68,17 +68,17 @@
   {
    "configuration": "REP",
    "seed": 1,
-   "sha256": "a59e3b254c3dcbbe94f8cabf11d3fc01a20e3f62b85edf14b84689d6793263dc",
-   "placed": 60,
-   "su_pct": 47.2484,
+   "sha256": "df9d0f2282f5db6c1a96435ea0ae33bb04a3edc0bfdb03ecedab22e88530fbfe",
+   "placed": 77,
+   "su_pct": 65.341,
    "csr_pct": 100.0
   },
   {
    "configuration": "REP",
    "seed": 42,
-   "sha256": "e035d86e7f56dd8c0a3fd53d7756767093b5d03aa8592282c8646cd29c1b13fa",
-   "placed": 63,
-   "su_pct": 46.0872,
+   "sha256": "b70dd640f0ce856e2ae4d447ffdb89c211e9857a0f43d5b87bd3aa5e48e0e5a4",
+   "placed": 79,
+   "su_pct": 64.97,
    "csr_pct": 100.0
   }
  ]

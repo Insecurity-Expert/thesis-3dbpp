@@ -6,6 +6,19 @@ from thesis_math import decode_position
 from thesis_metrics import validate_items, evaluate_constraints, space_utilization
 from geometry_3d import place_container_dblf
 
+def apply_load_order(sequence, items):
+    """Loading-sequence rule (REP only): stable sort by (-stop, fragile), so the
+    last delivery stop is loaded first and fragile boxes come last within each
+    stop. Within each group the wolf's order is kept; orientations are untouched.
+
+    This makes C6 (stop order) violations rare, not impossible. A box of a later
+    stop is never placed after, and so never lands on top of, a box of an earlier
+    stop. But an earlier-stop box loaded later can still fill a hole deeper in the
+    truck and be blocked from the door by boxes already placed; the repair steps
+    R2 (relocate or defer) and R3 (remove) still handle that."""
+    return sorted(sequence, key=lambda i: (-items[i]['stop'], items[i]['fragile']))
+
+
 class WolfContinuous:
     def __init__(self, n, lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
                  rng=None):
@@ -31,7 +44,7 @@ class WolfContinuous:
 
     def decode_and_evaluate(self, items, container, apply_repair=False,
                             enforce_support=False, enforce_fragility=False,
-                            compute_penalty=False):
+                            compute_penalty=False, load_order=False):
         """
         Decodes X into discrete placements using DBLF and evaluates fitness.
         If apply_repair is True, applies heuristic repair logic before evaluation.
@@ -41,6 +54,8 @@ class WolfContinuous:
         """
         # 1. Decode the genome into a placement sequence and orientations
         sequence, orients_map = decode_position(self.X, items, container)
+        if load_order:
+            sequence = apply_load_order(sequence, items)
 
         # 2. Fill ONE container in the sequence the genome specifies
         (self.placements, self.unplaced, self.orientations,
@@ -99,6 +114,8 @@ def _update_position(wolf, alpha_X, beta_X, delta_X, a, rng):
     wolf.X = np.clip(X_cand.mean(axis=0), -5, 5)
 
 class ThesisOptimizerBase:
+    load_order = False      # only RepairBasedHybrid switches the loading-sequence rule on
+
     def __init__(self, items, container, pop_size=30, max_iter=500,
                  lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
                  stream_cb=None, seed=None, lambda_penalty=None,
@@ -143,7 +160,8 @@ class ThesisOptimizerBase:
         w.decode_and_evaluate(self.items, self.container, apply_repair=apply_repair,
                               enforce_support=self.enforce_support,
                               enforce_fragility=self.enforce_fragility,
-                              compute_penalty=compute_penalty)
+                              compute_penalty=compute_penalty,
+                              load_order=self.load_order)
 
     @staticmethod
     def _snapshot(w):
@@ -428,12 +446,16 @@ class SequentialHybrid(StandaloneMOGWO):
         })
 
 class RepairBasedHybrid(StandaloneMOGWO):
-    def __init__(self, *args, edge_fill=True, fragile_lift=True, **kwargs):
+    def __init__(self, *args, edge_fill=True, fragile_lift=True, load_order=True, **kwargs):
         """edge_fill / fragile_lift: apply repair steps R4 (edge_fill.py) and R5
         (fragile_lift.py) once, to the arrangement the run returns, R5 first.
         They are applied after the search has finished, so the search, the
-        archive and the leaders are the same with them on or off."""
+        archive and the leaders are the same with them on or off.
+
+        load_order: reorder every decoded sequence by (-stop, fragile) before DBLF
+        (apply_load_order). Unlike R4/R5 this acts inside the search, on every wolf."""
         super().__init__(*args, **kwargs)
+        self.load_order = load_order
         self.edge_fill = edge_fill
         self.edge_fill_stats = None
         self.fragile_lift = fragile_lift
