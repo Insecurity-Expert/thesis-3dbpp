@@ -65,6 +65,16 @@ def run_case(args):
                'placed_A2': r4['placed_A2'], 'compaction': r4['compaction'],
                'isolated_before': r4['before']['isolated_boxes'],
                'isolated_after': r4['after']['isolated_boxes'], 'time_ms': r4['time_ms']},
+        # per-wolf repair, summed over every wolf the search evaluated (before R4/R5):
+        # R2 = stop order (C6): relocated / deferred; R3: boxes still violating C6 after R1/R2
+        # and boxes it removed because C6 flagged them first.
+        'repair': {'candidates': opt.repair_stats['candidates'],
+                   'relocated_R2': opt.repair_stats['relocated_R2'],
+                   'deferred_R2': opt.repair_stats['deferred_R2'],
+                   'c6_left_for_R3': opt.repair_stats['left_for_R3']['C6'],
+                   'c6_removed_by_R3': opt.repair_stats['removed_by_R3']['C6'],
+                   'removed_R3': opt.repair_stats['removed_R3'],
+                   'relocated_R1': opt.repair_stats['relocated_R1']},
         'time_s': round(secs, 1),
     }
 

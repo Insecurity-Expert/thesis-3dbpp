@@ -18,10 +18,12 @@ hashes exactly. R1–R3, R4 and R5 are unchanged and still run: C1–C6 are chec
 ## Methodology
 
 Loading the last-delivered stop first is standard practice in vehicle loading: what is delivered first must be
-reachable, so it goes in last and on top, and cargo for later stops goes in first and underneath. A box that is
-loaded before the boxes of earlier stops cannot end up beneath them in a way that blocks them, so the stop-order
-constraint C6 is satisfied by the order of loading rather than having to be repaired afterwards; the repair step
-R2 stays in place as a safeguard and CSR stays at 100 in every run below. Within a stop, putting fragile boxes
+reachable, so it goes in last and on top, and cargo for later stops goes in first and underneath. Loading the last stop first means a
+box of a later stop is never placed after, and so never lands on top of, a box of an earlier stop. This makes C6
+(stop order) violations rare, not impossible: an earlier-stop box that is loaded later can still fill a hole deeper
+in the truck and be blocked from the door by boxes already placed. R2 (relocate or defer) and R3 (remove) therefore
+stay in place and still do that work; CSR is 100 in every run below because of them, not because of the order alone.
+Within a stop, putting fragile boxes
 last means they are placed after the boxes that could carry them, near the top of their stop's stacks. Nothing
 may rest on a fragile box (C4), so a fragile box on the floor or low in a stack leaves a column of dead space above
 it; loaded last, fragile boxes tend to end on top and the column above them is short. The price is that a

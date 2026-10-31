@@ -8,10 +8,14 @@ from geometry_3d import place_container_dblf
 
 def apply_load_order(sequence, items):
     """Loading-sequence rule (REP only): stable sort by (-stop, fragile), so the
-    last delivery stop is loaded first (C6 holds by construction: a box of a later
-    stop never sits above one of an earlier stop) and fragile boxes come last
-    within each stop. Within each group the wolf's order is kept; orientations
-    are untouched."""
+    last delivery stop is loaded first and fragile boxes come last within each
+    stop. Within each group the wolf's order is kept; orientations are untouched.
+
+    This makes C6 (stop order) violations rare, not impossible. A box of a later
+    stop is never placed after, and so never lands on top of, a box of an earlier
+    stop. But an earlier-stop box loaded later can still fill a hole deeper in the
+    truck and be blocked from the door by boxes already placed; the repair steps
+    R2 (relocate or defer) and R3 (remove) still handle that."""
     return sorted(sequence, key=lambda i: (-items[i]['stop'], items[i]['fragile']))
 
 
