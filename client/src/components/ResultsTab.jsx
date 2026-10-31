@@ -152,7 +152,7 @@ export default function ResultsTab({
             const rows = [
               { k: "C3", name: "Load-bearing (C3)",   v: cd.C3_weight_pct,     note: "borne mass ≤ LBS × contact area" },
               { k: "C4", name: "Fragility (C4)",      v: cd.C4_fragility_pct,  note: "nothing rests on a fragile box" },
-              { k: "C5", name: "Stability (C5)",      v: cd.C5_balance_pct,    note: "≥ 80% base support" },
+              { k: "C5", name: "C5 support (≥ 80% base)", v: cd.C5_balance_pct,  note: "base support, not left–right balance" },
               { k: "C6", name: "Stop order (C6)",     v: cd.C6_stop_order_pct, note: "no later stop blocks an earlier one" },
             ];
             return (

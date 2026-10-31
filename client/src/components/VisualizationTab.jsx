@@ -173,6 +173,7 @@ export default function VisualizationTab({
   const gaps = result ? ((showCentered && result.centered_gaps) || result.gaps) : null;
   const edge = result ? ((showCentered && result.centered_edge) || result.edge) : null;
   const r4 = result ? result.edge_fill : null;
+  const r5 = result ? result.fragile_lift : null;
 
   // Boxes that the centering pass physically moved (shift > 0.5 cm threshold).
   // Used to render a cyan outline in the 3-D viewer so the change is visible.
@@ -410,6 +411,14 @@ export default function VisualizationTab({
                           R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
                           {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush ({fmtNum(r4.time_ms / 1000, 1)} s).
                           Gaps under τ are left for dunnage.
+                        </div>
+                      )}
+                      {r5 && !showCentered && (
+                        <div className="field-hint">
+                          R5: {r5.fragile_lifted.length} fragile box move{r5.fragile_lifted.length === 1 ? "" : "s"},
+                          {" "}{r5.boxes_added.length} box{r5.boxes_added.length === 1 ? "" : "es"} added,
+                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%
+                          {" "}({fmtNum(r5.time_ms / 1000, 1)} s).
                         </div>
                       )}
                       {showCentered && <div className="field-hint">Centered view: these figures are for the centered boxes, not the R4 arrangement.</div>}

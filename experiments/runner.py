@@ -129,6 +129,7 @@ def run_one(strategy, boxes, container, seed, pop_size, max_iter, lambdas,
                              'seed': seed},
         'repair_stats':     getattr(opt, 'repair_stats', None),
         'edge_fill_stats':  getattr(opt, 'edge_fill_stats', None),
+        'fragile_lift_stats': getattr(opt, 'fragile_lift_stats', None),
         # the arrangement itself, for the independent validator
         'placements':       {int(k): list(v) for k, v in best.placements.items()},
         'orientations':     {int(k): int(v) for k, v in best.orientations.items()},

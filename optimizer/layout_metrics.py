@@ -34,6 +34,14 @@ exactly 0 over a positive area; a wall counts as a neighbour.
   lateral_gaps_dunnage  x-face gaps in (0, tau): only dunnage can fill them
   side_contact_ratio    share of the x- and y-face area that touches a wall or box
 Each x face is counted separately, so a gap between two boxes appears twice.
+
+Fragile indicators (descriptive, added with repair step R5; see fragile_lift.py).
+Nothing may rest on a fragile box (C4), so the column from its top face to the
+roof is dead space. The dead volume of a fragile box is top_area x (H - top_z).
+  fragile_placed           placed boxes with fragile == 1
+  fragile_on_floor         of those, the ones with z == 0
+  fragile_dead_volume_m3   sum of the dead volumes, in m^3
+  fragile_dead_volume_pct  the same as a share of the container volume
 """
 import numpy as np
 
@@ -185,7 +193,30 @@ def edge_indicators(placements, container, items):
     return out
 
 
+def fragile_dead_volume(placements, container, items):
+    """Dead volume (cm^3) above the placed fragile boxes: top_area x (H - top_z)."""
+    H = float(container['H'])
+    total = 0.0
+    for k, p in placements.items():
+        if items[int(k)]['fragile'] == 1:
+            _, _, z, dx, dy, dz = (float(v) for v in p)
+            total += dx * dy * max(0.0, H - (z + dz))
+    return total
+
+
+def fragile_indicators(placements, container, items):
+    """Descriptive fragile-box indicators for one arrangement (see module doc)."""
+    placed = [int(k) for k in placements if items[int(k)]['fragile'] == 1]
+    on_floor = sum(1 for k in placed if float(placements[k][2]) <= 1e-9)
+    vol = float(container['L']) * float(container['W']) * float(container['H'])
+    dead = fragile_dead_volume(placements, container, items)
+    return {"fragile_placed": len(placed), "fragile_on_floor": int(on_floor),
+            "fragile_dead_volume_m3": round(dead / 1e6, 4),
+            "fragile_dead_volume_pct": round(dead / vol * 100.0, 4) if vol > 0 else 0.0}
+
+
 def layout_indicators(placements, container, items):
     return {"gap": gap_metrics(placements, container, items),
             "load_distribution": load_distribution(placements, container, items),
-            "edge": edge_indicators(placements, container, items)}
+            "edge": edge_indicators(placements, container, items),
+            "fragile": fragile_indicators(placements, container, items)}

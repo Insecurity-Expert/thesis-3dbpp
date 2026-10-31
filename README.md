@@ -14,7 +14,7 @@ respecting:
 | C2 | boxes do not overlap |
 | C3 | load-bearing: mass borne by a box ≤ its vertical LBS × contact area |
 | C4 | fragility: nothing rests on a fragile box |
-| C5 | stability: floor contact or ≥ 80 % coplanar base support |
+| C5 | support (≥ 80 % base): floor contact or ≥ 80 % coplanar base support. The result keys `C5_balance_pct` / `C5_balance_rate` keep an old name; they measure support, not left–right balance (M-7) |
 | C6 | stop order: no later-stop box above or doorward of an earlier-stop box |
 
 The delivery order is an input; STACKR respects it, it does not plan routes.
@@ -49,7 +49,7 @@ seeded). Provenance, citations and the augmentation rules are in
 | **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates); elitist leaders as in Mirjalili et al. (2014): α, β, δ are the best solutions found so far, replaced only by a better wolf, and the best-ever α is returned |
 | **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the archive member with the highest SU |
 | **SEQ** | Sequential | DGWO (elitist, as above) for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
-| **REP** | Repair-based | MOGWO with repair inside the loop — every evaluated wolf is repaired first (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction; the arrangement it returns then gets one edge-filling pass (R4, `optimizer/edge_fill.py`, REP only, `--no-edge-fill` turns it off) |
+| **REP** | Repair-based | MOGWO with repair inside the loop — every evaluated wolf is repaired first (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction; the arrangement it returns then gets a fragile-lift pass (R5, `optimizer/fragile_lift.py`: fragile boxes onto the tops of stacks, left-out heavy boxes onto the freed floor; `--no-fragile-lift` turns it off) and then one edge-filling pass (R4, `optimizer/edge_fill.py`; `--no-edge-fill` turns it off), both REP only. See `docs/R5_FRAGILE_LIFT.md` |
 
 All four share the same decoder (deepest-bottom-left-fill over extreme
 points with a 2n random-key genome: n sequence keys + n orientation keys),
@@ -141,6 +141,7 @@ python tools/check_problem_view.py      # the viewer's per-box problem flags equ
 python tools/test_planned.py            # D2(b) planned family and the M-6 / M-7 layout indicators (layout_metrics.py)
 python tools/test_layout_view.py        # the viewer's gap fields equal layout_metrics (M-6); checks the client gap fixture
 python tools/test_edge_fill.py          # R4: flush re-insertion, two-side rule, C3-C6 never broken, compaction, determinism, instance 581
+python tools/test_fragile_lift.py       # R5: hand-built lift, refused C3/C6 moves, no cargo dropped, orientations, determinism, instance 581
 python tools/test_study_resume.py      # study.py resume after a kill, progress line, chunk merge (about 3 min)
 cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, door helper, gap labels, entry motion, trade-offs, timing
 ```

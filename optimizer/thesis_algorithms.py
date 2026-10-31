@@ -48,7 +48,7 @@ class WolfContinuous:
             sequence, items, orients_map, container,
             enforce_support=enforce_support, enforce_fragility=enforce_fragility)
 
-        # 3. (Optional) Repair R1-R5
+        # 3. (Optional) per-wolf repair: R1-R3 plus re-insertion
         if apply_repair:
             self._repair(items, container)
 
@@ -67,8 +67,9 @@ class WolfContinuous:
             self.scalar_fitness = None
 
     def _repair(self, items, container):
-        """Relocate-then-defer repair R1-R5 (see repair.py). Mutates the
-        arrangement in place and records per-call stats on self.last_repair."""
+        """Relocate-then-defer repair, R1-R3 plus re-insertion (see repair.py).
+        Mutates the arrangement in place and records per-call stats on
+        self.last_repair."""
         from repair import repair_arrangement
         self.last_repair = repair_arrangement(
             self.placements, self.orientations, self.unplaced, items, container)
@@ -427,25 +428,34 @@ class SequentialHybrid(StandaloneMOGWO):
         })
 
 class RepairBasedHybrid(StandaloneMOGWO):
-    def __init__(self, *args, edge_fill=True, **kwargs):
-        """edge_fill: apply repair step R4 (edge_fill.py) once, to the arrangement
-        the run returns. It is applied after the search has finished, so the
-        search, the archive and the leaders are the same with it on or off."""
+    def __init__(self, *args, edge_fill=True, fragile_lift=True, **kwargs):
+        """edge_fill / fragile_lift: apply repair steps R4 (edge_fill.py) and R5
+        (fragile_lift.py) once, to the arrangement the run returns, R5 first.
+        They are applied after the search has finished, so the search, the
+        archive and the leaders are the same with them on or off."""
         super().__init__(*args, **kwargs)
         self.edge_fill = edge_fill
         self.edge_fill_stats = None
+        self.fragile_lift = fragile_lift
+        self.fragile_lift_stats = None
 
-    def _apply_edge_fill(self, best):
-        """R4 on a snapshot of the returned wolf; SU and CSR re-evaluated."""
-        from edge_fill import repair_R4_edge_fill
+    def _apply_final_repairs(self, best):
+        """R5 then R4 on a snapshot of the returned wolf; SU and CSR re-evaluated."""
         out = self._snapshot(best)
-        self.edge_fill_stats = repair_R4_edge_fill(
-            out.placements, out.orientations, out.unplaced, self.items, self.container)
+        if self.fragile_lift:
+            from fragile_lift import repair_R5_fragile_lift
+            self.fragile_lift_stats = repair_R5_fragile_lift(
+                out.placements, out.orientations, out.unplaced, self.items, self.container)
+        if self.edge_fill:
+            from edge_fill import repair_R4_edge_fill
+            self.edge_fill_stats = repair_R4_edge_fill(
+                out.placements, out.orientations, out.unplaced, self.items, self.container)
         out.su = space_utilization(out.placements, self.container)
         out.csr, _ = evaluate_constraints(out.placements, self.items, out.orientations)
         return out
 
     def _note_repair(self, w):
+        from repair import DICT_STAT_KEYS
         for k, v in w.last_repair.items():
             if k == 'rejections':
                 agg = self.repair_stats.setdefault('rejections', {})
@@ -453,13 +463,17 @@ class RepairBasedHybrid(StandaloneMOGWO):
                     bucket = agg.setdefault(op, {})
                     for c, n in counts.items():
                         bucket[c] = bucket.get(c, 0) + n
+            elif k in DICT_STAT_KEYS:
+                bucket = self.repair_stats.setdefault(k, {})
+                for c, n in v.items():
+                    bucket[c] = bucket.get(c, 0) + n
             else:
                 self.repair_stats[k] = self.repair_stats.get(k, 0) + v
         self.repair_stats['candidates'] = self.repair_stats.get('candidates', 0) + 1
 
     def run(self):
-        from repair import STAT_KEYS
-        self.repair_stats = {k: 0 for k in STAT_KEYS}
+        from repair import empty_stats
+        self.repair_stats = empty_stats()
         self.repair_stats['candidates'] = 0
 
         pop = [self._new_wolf() for _ in range(self.pop_size)]
@@ -479,7 +493,7 @@ class RepairBasedHybrid(StandaloneMOGWO):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                # Apply repair R1-R5 before evaluation
+                # Apply the per-wolf repair (R1-R3 + re-insertion) before evaluation
                 self._evaluate(pop[i], apply_repair=True)
                 self._note_repair(pop[i])
                 self._update_archive(archive, pop[i])
@@ -494,4 +508,4 @@ class RepairBasedHybrid(StandaloneMOGWO):
                 self._emit(iteration, alpha)
 
         best = max(archive, key=lambda w: w.su)
-        return self._apply_edge_fill(best) if self.edge_fill else best
+        return self._apply_final_repairs(best) if (self.fragile_lift or self.edge_fill) else best
