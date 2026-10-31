@@ -103,6 +103,9 @@ def main():
     parser.add_argument("--fragile-lift", action=argparse.BooleanOptionalAction, default=True,
                     help="REP only: apply repair step R5 (fragile lift) once to the final "
                          "arrangement, before R4 (default on; --no-fragile-lift reports REP without it)")
+    parser.add_argument("--load-order", action=argparse.BooleanOptionalAction, default=True,
+                    help="REP only: load the last delivery stop first, fragile boxes last within a stop "
+                         "(stable sort of the decoded sequence by (-stop, fragile); default on)")
     args = parser.parse_args()
 
     streaming = args.stream
@@ -155,6 +158,7 @@ def main():
     if args.strategy == "REP":
         params["edge_fill"] = bool(args.edge_fill)
         params["fragile_lift"] = bool(args.fragile_lift)
+        params["load_order"] = bool(args.load_order)
     print(f"Params    : pop={params['pop_size']} iter={params['max_iter']} "
           f"lambda=(w={params['lambda_w']}, f={params['lambda_f']}, b={params['lambda_b']}, a={params['lambda_a']}) "
           f"enforce_support={params['enforce_support']} enforce_fragility={params['enforce_fragility']} "
@@ -218,7 +222,8 @@ def main():
         enforce_fragility=params["enforce_fragility"],
         seed=params["seed"],
         stream_cb=emit if streaming else None,
-        **({"edge_fill": params["edge_fill"], "fragile_lift": params["fragile_lift"]}
+        **({"edge_fill": params["edge_fill"], "fragile_lift": params["fragile_lift"],
+            "load_order": params["load_order"]}
            if args.strategy == "REP" else {}),
     )
 
