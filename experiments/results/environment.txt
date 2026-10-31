@@ -1,3 +1,26 @@
+# experiments/results/environment.txt — reproduction environment for the thesis study (v2)
+generated: 2026-10-31
+commit:    63286dd Merge pull request #19 from Insecurity-Expert/claude/focused-gates-jnxtwl
+           includes: repair loop fix (Part 0), R4 edge fill, R5 fragile lift with guards, REP loading-sequence rule, study resume
+tag:       thesis-run-v2
+
+## machine
+cpu:       12th Gen Intel(R) Core(TM) i5-1235U (10 cores: 2 performance + 8 efficiency, 12 threads)
+ram:       15.7 GB
+os:        Microsoft Windows 11 Home
+note:      thesis_main_v2 ran in parallel (8 workers; flagged concurrent): SU, CSR, placed, layout and
+           fragile measures only. thesis_timing_v2 ran serially on an idle, plugged-in machine with
+           background apps closed and Windows Update paused: M-3 and M-4 come from it.
+           The CPU mixes performance and efficiency cores, so run-to-run timing variation is expected.
+           SU, CSR and placed counts are deterministic and machine-independent
+           (tools/test_reference_hashes.py passed on this machine).
+
+## python
+Python 3.12.5
+numba 0.68.0 | numpy 2.3.5 | scipy 1.16.3 | psutil 7.2.2 | scikit-posthocs 0.17.0
+
+
+
 # experiments/results/environment.txt — reproduction environment for the current reference numbers
 generated: 2026-10-06 (slide_i350_s{1..5}, quick_i350_s42, campaign_dgwo_i350_s{1..5}, experiments/convergence/
            and validator_report.txt regenerated after the SEQ schedule d3696c9 and leader fallback 4069e08;
