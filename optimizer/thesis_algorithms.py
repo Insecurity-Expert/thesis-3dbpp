@@ -11,9 +11,10 @@ def apply_load_order(sequence, items):
     last delivery stop is loaded first and fragile boxes come last within each
     stop. Within each group the wolf's order is kept; orientations are untouched.
 
-    This makes C6 (stop order) violations rare, not impossible. A box of a later
-    stop is never placed after, and so never lands on top of, a box of an earlier
-    stop. But an earlier-stop box loaded later can still fill a hole deeper in the
+    This does not make C6 (stop order) violations impossible, and R2 stays busy
+    (docs/LOAD_ORDER.md counts it; the rule mostly turns removals into
+    relocations). A box of a later stop is never placed after, and so never lands
+    on top of, a box of an earlier stop. But an earlier-stop box loaded later can still fill a hole deeper in the
     truck and be blocked from the door by boxes already placed; the repair steps
     R2 (relocate or defer) and R3 (remove) still handle that."""
     return sorted(sequence, key=lambda i: (-items[i]['stop'], items[i]['fragile']))

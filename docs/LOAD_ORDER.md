@@ -19,10 +19,10 @@ hashes exactly. R1–R3, R4 and R5 are unchanged and still run: C1–C6 are chec
 
 Loading the last-delivered stop first is standard practice in vehicle loading: what is delivered first must be
 reachable, so it goes in last and on top, and cargo for later stops goes in first and underneath. Loading the last stop first means a
-box of a later stop is never placed after, and so never lands on top of, a box of an earlier stop. This makes C6
-(stop order) violations rare, not impossible: an earlier-stop box that is loaded later can still fill a hole deeper
+box of a later stop is never placed after, and so never lands on top of, a box of an earlier stop. This does not make C6
+(stop order) violations impossible, and the repair counts below show that R2 still has a lot to do: an earlier-stop box that is loaded later can still fill a hole deeper
 in the truck and be blocked from the door by boxes already placed. R2 (relocate or defer) and R3 (remove) therefore
-stay in place and still do that work; CSR is 100 in every run below because of them, not because of the order alone.
+stay in place and still do that work (see "How much C6 repair is left?"); CSR is 100 in every run below because of them, not because of the order alone.
 Within a stop, putting fragile boxes
 last means they are placed after the boxes that could carry them, near the top of their stop's stacks. Nothing
 may rest on a fragile box (C4), so a fragile box on the floor or low in a stack leaves a column of dead space above
@@ -130,6 +130,83 @@ So R5 is still correct and still runs, but with the rule on it is close to inert
 fragile box left low. Its guards (M-7, isolated boxes) also still refuse some moves. Whether to keep R5 in the REP
 pipeline is a decision for the study design: it costs 0.1–5 s per run and rarely changes the result. R4 is not made
 redundant: it still places boxes in a few runs and repairs isolated boxes in most.
+
+## How much C6 repair is left?
+
+Per-wolf repair counts, summed over every wolf the search evaluated (quick: 610 wolves per run, thesis: 9,030),
+same runs as the pilot above (a rerun reproduced every row). *R2 relocated*: a box that blocked another (C6) was
+moved to another feasible place. *R2 deferred*: it found none and was taken out of the truck (it may be put back by
+re-insertion). *C6 left for R3 / removed by R3*: boxes still violating C6 after R1/R2, and boxes R3 removed because
+C6 flagged them first. These are repair events, not distinct violations: one box can be handled in several passes
+and in many wolves.
+
+| preset | rule | R2 relocated | R2 deferred | C6 left for R3 | C6 removed by R3 |
+|---|---|---|---|---|---|
+| quick | off | 23,937 | 149,512 | 0 | 0 |
+| quick | on | 31,963 | 72,085 | 0 | 0 |
+| thesis | off | 405,010 | 2,082,152 | 0 | 0 |
+| thesis | on | 543,388 | 1,158,090 | 0 | 0 |
+
+* The rule does not make C6 repair go away. R2 relocations are the same or higher with the rule on (+34 % quick,
+  +34 % thesis in total; lower in 9 of 20 pairs, mostly on 147 and 392), while deferrals fall by about half (−52 % quick,
+  −44 % thesis). Taking a box out of the truck is therefore less common with the rule, but R2 is far from idle.
+* In none of the 40 runs does a C6 violation survive R1/R2 to reach R3 (0 left, 0 removed), with the rule off or on.
+  The boxes R3 does remove (thousands per run, `removed_R3` in the repair statistics) are therefore not flagged
+  for C6.
+* This is why the text above says "not impossible": the rule changes how C6 is repaired, mostly relocation instead of
+  removal, but does not remove the need for R2.
+
+### Per run
+
+Quick preset:
+
+| inst | seed | rule | R2 relocated | R2 deferred | C6 left for R3 | C6 removed by R3 |
+|---|---|---|---|---|---|---|
+| 581 | 3 | off | 1,322 | 7,145 | 0 | 0 |
+| 581 | 3 | on | 1,509 | 4,325 | 0 | 0 |
+| 581 | 42 | off | 1,080 | 7,984 | 0 | 0 |
+| 581 | 42 | on | 2,316 | 3,897 | 0 | 0 |
+| 413 | 3 | off | 1,683 | 13,804 | 0 | 0 |
+| 413 | 3 | on | 3,567 | 7,453 | 0 | 0 |
+| 413 | 42 | off | 2,064 | 13,283 | 0 | 0 |
+| 413 | 42 | on | 1,666 | 5,634 | 0 | 0 |
+| 147 | 3 | off | 2,365 | 13,689 | 0 | 0 |
+| 147 | 3 | on | 1,478 | 5,419 | 0 | 0 |
+| 147 | 42 | off | 2,357 | 13,777 | 0 | 0 |
+| 147 | 42 | on | 1,137 | 3,918 | 0 | 0 |
+| 392 | 3 | off | 1,859 | 16,312 | 0 | 0 |
+| 392 | 3 | on | 784 | 4,655 | 0 | 0 |
+| 392 | 42 | off | 2,640 | 13,447 | 0 | 0 |
+| 392 | 42 | on | 1,356 | 5,378 | 0 | 0 |
+| 454 | 3 | off | 3,996 | 24,947 | 0 | 0 |
+| 454 | 3 | on | 9,272 | 14,768 | 0 | 0 |
+| 454 | 42 | off | 4,571 | 25,124 | 0 | 0 |
+| 454 | 42 | on | 8,878 | 16,638 | 0 | 0 |
+
+Thesis preset:
+
+| inst | seed | rule | R2 relocated | R2 deferred | C6 left for R3 | C6 removed by R3 |
+|---|---|---|---|---|---|---|
+| 581 | 3 | off | 25,653 | 88,386 | 0 | 0 |
+| 581 | 3 | on | 34,485 | 50,783 | 0 | 0 |
+| 581 | 42 | off | 19,479 | 81,858 | 0 | 0 |
+| 581 | 42 | on | 38,665 | 60,296 | 0 | 0 |
+| 413 | 3 | off | 39,780 | 178,303 | 0 | 0 |
+| 413 | 3 | on | 43,743 | 113,437 | 0 | 0 |
+| 413 | 42 | off | 37,410 | 194,014 | 0 | 0 |
+| 413 | 42 | on | 28,313 | 103,737 | 0 | 0 |
+| 147 | 3 | off | 38,272 | 184,767 | 0 | 0 |
+| 147 | 3 | on | 36,561 | 84,571 | 0 | 0 |
+| 147 | 42 | off | 50,362 | 176,359 | 0 | 0 |
+| 147 | 42 | on | 48,900 | 84,904 | 0 | 0 |
+| 392 | 3 | off | 24,792 | 234,313 | 0 | 0 |
+| 392 | 3 | on | 25,440 | 94,907 | 0 | 0 |
+| 392 | 42 | off | 31,474 | 213,134 | 0 | 0 |
+| 392 | 42 | on | 20,108 | 71,039 | 0 | 0 |
+| 454 | 3 | off | 45,841 | 386,962 | 0 | 0 |
+| 454 | 3 | on | 139,951 | 248,584 | 0 | 0 |
+| 454 | 42 | off | 91,947 | 344,056 | 0 | 0 |
+| 454 | 42 | on | 127,222 | 245,832 | 0 | 0 |
 
 ## Reproduce
 
