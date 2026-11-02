@@ -13,8 +13,8 @@
  },
  "recorded_with": {
   "numba": "0.68.0",
-  "python": "3.11.17",
-  "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39"
+  "python": "3.13.18",
+  "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39"
  },
  "cases": [
   {
@@ -68,17 +68,17 @@
   {
    "configuration": "REP",
    "seed": 1,
-   "sha256": "df9d0f2282f5db6c1a96435ea0ae33bb04a3edc0bfdb03ecedab22e88530fbfe",
-   "placed": 77,
-   "su_pct": 65.341,
+   "sha256": "3de691fb45a9bd5cfc497b55a24510d1189e370c01251d0b569825438483d6ac",
+   "placed": 74,
+   "su_pct": 58.6429,
    "csr_pct": 100.0
   },
   {
    "configuration": "REP",
    "seed": 42,
-   "sha256": "b70dd640f0ce856e2ae4d447ffdb89c211e9857a0f43d5b87bd3aa5e48e0e5a4",
+   "sha256": "cd719a64b1a26f37b87dbaf8efdc929e325d299dd62184d433816c273474d9f1",
    "placed": 79,
-   "su_pct": 64.97,
+   "su_pct": 60.6083,
    "csr_pct": 100.0
   }
  ]

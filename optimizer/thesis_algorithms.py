@@ -63,6 +63,22 @@ class WolfContinuous:
             sequence, items, orients_map, container,
             enforce_support=enforce_support, enforce_fragility=enforce_fragility)
 
+        # 2b. REP (Appendix 2.4, step 6): PEN-1 is scored on the decoded
+        # candidate BEFORE repair. After repair every candidate is compliant,
+        # so a post-repair penalty would always be zero. Only reached when
+        # both flags are set, which only RepairBasedHybrid does; DGWO and SEQ
+        # (penalty, no repair) and MOGWO (neither) take the paths below as before.
+        pre_repair_fitness = None
+        if apply_repair and compute_penalty:
+            _, raw_detail = evaluate_constraints(self.placements, items, self.orientations)
+            # Same expression and summation order as step 5 below, so the value
+            # is bit-identical to what DGWO would score for this arrangement.
+            raw_penalty = (self.lambda_w * raw_detail['C3_weight_rate']
+                           + self.lambda_f * raw_detail['C4_fragility_rate']
+                           + self.lambda_b * raw_detail['C5_balance_rate']
+                           + self.lambda_a * raw_detail['C6_stop_order_rate'])
+            pre_repair_fitness = -space_utilization(self.placements, container) + raw_penalty
+
         # 3. (Optional) per-wolf repair: R1-R3 plus re-insertion
         if apply_repair:
             self._repair(items, container)
@@ -72,7 +88,9 @@ class WolfContinuous:
         self.csr, detail = evaluate_constraints(self.placements, items, self.orientations)
 
         # 5. Scalar Fitness F(X) for DGWO — Chapter 3 PEN-1.
-        if compute_penalty:
+        if pre_repair_fitness is not None:
+            self.scalar_fitness = pre_repair_fitness
+        elif compute_penalty:
             penalty = (self.lambda_w * detail['C3_weight_rate']
                        + self.lambda_f * detail['C4_fragility_rate']
                        + self.lambda_b * detail['C5_balance_rate']
@@ -493,7 +511,34 @@ class RepairBasedHybrid(StandaloneMOGWO):
                 self.repair_stats[k] = self.repair_stats.get(k, 0) + v
         self.repair_stats['candidates'] = self.repair_stats.get('candidates', 0) + 1
 
+    def _select_alpha(self, archive):
+        """Alpha from archive A by grid-density selection (Appendix 2.4, step 9;
+        Figure 10). Same roulette as MOGWO's _select_leaders, drawing one member
+        instead of three. Under repair the archive usually holds a single member
+        (S(X) = 1.0 for all of them), in which case no RNG draw is made."""
+        if len(archive) == 1:
+            return archive[0]
+        grid_counts, wolf_grids = self._compute_grid_densities(archive)
+        p = [10.0 / grid_counts[g] for g in wolf_grids]
+        total = sum(p)
+        idx = self.rng.choice(len(archive), size=1, replace=False, p=[x / total for x in p])
+        return archive[int(idx[0])]
+
+    def _dgwo_pair(self, incumbents, pop):
+        """Beta and Delta: the 1st and 2nd of the DGWO PEN-1 ranking before repair
+        (Appendix 2.4, steps 8-9). Elitist, exactly as StandaloneDGWO ranks its
+        leaders (_elite_leaders): a leader is replaced only by a strictly better
+        pre-repair PEN-1 genome. The third slot _elite_leaders fills is unused
+        (Alpha comes from the archive)."""
+        first, second, _ = self._elite_leaders(incumbents, pop)
+        return first, second
+
     def run(self):
+        """Appendix 2.4 / Figure 10. Each wolf: GWO position update (shared with
+        all configurations) -> decode -> PEN-1 on the raw candidate -> repair
+        (R1-R3 + re-insertion) -> MOGWO archive. Leaders for the next update:
+        Alpha from the archive (MOGWO), Beta and Delta from the pre-repair PEN-1
+        ranking (DGWO). The wolf's genome X is never changed by repair."""
         from repair import empty_stats
         self.repair_stats = empty_stats()
         self.repair_stats['candidates'] = 0
@@ -502,12 +547,12 @@ class RepairBasedHybrid(StandaloneMOGWO):
         archive = []
 
         for w in pop:
-            # ONLY DIFFERENCE: apply_repair=True
-            self._evaluate(w, apply_repair=True)
+            self._evaluate(w, apply_repair=True, compute_penalty=True)
             self._note_repair(w)
             self._update_archive(archive, w)
 
-        alpha, beta, delta = self._select_leaders(archive, pop)
+        beta, delta = self._dgwo_pair([], pop)
+        alpha = self._select_alpha(archive)
 
         for iteration in range(self.max_iter):
             a = 2.0 - iteration * (2.0 / self.max_iter)
@@ -515,15 +560,16 @@ class RepairBasedHybrid(StandaloneMOGWO):
 
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                # Apply the per-wolf repair (R1-R3 + re-insertion) before evaluation
-                self._evaluate(pop[i], apply_repair=True)
+                # PEN-1 on the raw candidate, then repair, then archive
+                self._evaluate(pop[i], apply_repair=True, compute_penalty=True)
                 self._note_repair(pop[i])
                 self._update_archive(archive, pop[i])
 
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
 
-            alpha, beta, delta = self._select_leaders(archive, pop)
+            beta, delta = self._dgwo_pair([beta, delta], pop)
+            alpha = self._select_alpha(archive)
             self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:

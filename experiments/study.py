@@ -750,8 +750,12 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
 
 
 # ─── merge chunks into one study ─────────────────────────────────────────────
+# 'configurations' is deliberately not here: chunks may also split the design by
+# configuration (e.g. DGWO, MOGWO, SEQ in one study and REP in another). The
+# merged study takes the union, and the complete-design check below still
+# requires every configuration x instance x seed run to be present exactly once.
 MERGE_SAME = ('preset', 'lambdas', 'enforce_support', 'enforce_fragility', 'edge_fill', 'fragile_lift', 'load_order', 'support_threshold',
-              'stop_seed', 'stop_count', 'stop_mode', 'seq_budget_split', 'mode', 'custom_load', 'configurations')
+              'stop_seed', 'stop_count', 'stop_mode', 'seq_budget_split', 'mode', 'custom_load')
 
 
 def merge_studies(paths, out, force=False, log=print):
@@ -778,8 +782,9 @@ def merge_studies(paths, out, force=False, log=print):
                 raise SystemExit(f"run {k} is in both {seen[k]} and {p}: chunks must not overlap")
             seen[k] = p
             runs.append(r)
-    configs = first['configurations']
-    ikey = lambda i: i['instance_id'] if i['instance_id'] is not None else i['custom_load']
+    in_any = {c for d in docs for c in d['configurations']}
+    configs = [c for c in CONFIGS if c in in_any] + sorted(in_any - set(CONFIGS))
+    ikey =lambda i: i['instance_id'] if i['instance_id'] is not None else i['custom_load']
     instances = list({ikey(i): i for d in docs for i in d['instances']}.values())
     seeds = sorted({r['seed'] for r in runs})
     missing = [f"{c}|{ikey(i)}|{sd}" for i in instances for sd in seeds for c in configs
@@ -797,6 +802,7 @@ def merge_studies(paths, out, force=False, log=print):
     study.update({
         'name': first.get('name'), 'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
         'commit': commits[0] if len(commits) == 1 else 'mixed: ' + ', '.join(map(str, commits)),
+        'configurations': configs,
         'seeds': seeds, 'runs_per_configuration': len(seeds) * len(instances),
         'instances': instances, 'runs': runs,
         'wall_clock_s': round(sum(d.get('wall_clock_s') or 0 for d in docs), 1),
