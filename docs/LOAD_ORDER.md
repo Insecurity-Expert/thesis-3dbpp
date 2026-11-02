@@ -1,3 +1,15 @@
+# Loading order — now in the shared decoder (branch rep-chapter3)
+
+> **Superseded (Nov 2026).** The rule below used to be REP-only. It now lives in
+> `decode_position` (`optimizer/thesis_math.py`) and applies to **all four**
+> configurations, as Chapter 3 describes the decoder: descending stop, fragile
+> boxes last within a stop, then random-key order inside each group. There is no
+> `load_order` switch any more (`apply_load_order`, `--load-order` and
+> `tools/pilot_load_order.py` were removed). All eight reference hashes were
+> regenerated. Studies record `load_order` as the shared-decoder string, so
+> studies made before this change neither resume into nor merge with new ones.
+> The text below is kept as history.
+
 # Loading-sequence rule (REP only)
 
 Code: `apply_load_order` in `optimizer/thesis_algorithms.py`. Switch: `RepairBasedHybrid(load_order=True)`,

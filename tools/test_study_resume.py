@@ -100,6 +100,22 @@ def main():
                         str(tmp / 'AB.json'), '--out', str(tmp / 'x.json')], capture_output=True, text=True)
     check(m.returncode != 0 and 'must not overlap' in (m.stderr + m.stdout), "overlapping chunks are refused")
 
+    print("\n-- chunks split by configuration -------------------------------------")
+    # e.g. DGWO, MOGWO, SEQ in one study and REP (re-run at a later commit) in another
+    run(['--seeds', '1-3', '--configs', 'DGWO', '--name', 'C', '--out', str(tmp / 'C.json')], tmp / 'C.log')
+    run(['--seeds', '1-2', '--configs', 'MOGWO', '--name', 'D', '--out', str(tmp / 'D.json')], tmp / 'D.log')
+    m = subprocess.run([sys.executable, str(_ROOT / 'experiments' / 'study.py'), '--merge', str(tmp / 'C.json'),
+                        str(tmp / 'D.json'), '--out', str(tmp / 'x.json')], capture_output=True, text=True)
+    check(m.returncode != 0 and 'not a complete design' in (m.stderr + m.stdout),
+          "config split with a missing run (MOGWO seed 3) is refused")
+    run(['--seeds', '3', '--configs', 'MOGWO', '--name', 'E', '--out', str(tmp / 'E.json')], tmp / 'E.log')
+    m = subprocess.run([sys.executable, str(_ROOT / 'experiments' / 'study.py'), '--merge', str(tmp / 'D.json'),
+                        str(tmp / 'C.json'), str(tmp / 'E.json'), '--out', str(tmp / 'CDE.json')], capture_output=True, text=True)
+    check(m.returncode == 0, "chunks split by configuration merge")
+    merged = json.loads((tmp / 'CDE.json').read_text())
+    check(merged['configurations'] == ['DGWO', 'MOGWO'] and [det(r) for r in merged['runs']] == [det(r) for r in ref['runs']],
+          "merged configurations are the union in standard order; runs == uninterrupted study")
+
     print()
     if FAILS:
         print(f"FAIL ({len(FAILS)} failures)")
