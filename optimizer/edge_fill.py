@@ -190,7 +190,10 @@ def _compact(placements, orientations, items, container, stats):
                     trials.append((-gain, abs(d), d, trial))
             trials.sort(key=lambda t: t[:3])
             for neg_gain, _, d, trial in trials:
-                csr, _ = evaluate_constraints(trial, items, orientations)
+                # strict C3 (no tie tolerance), as these decisions were made before
+                # the C3_TOL fix: a move that leaves a box at exactly its capacity
+                # is refused, which is conservative and keeps R4's choices unchanged
+                csr, _ = evaluate_constraints(trial, items, orientations, c3_tol=0.0)
                 if csr < 100.0:
                     stats['compaction']['undone'] += 1
                     continue

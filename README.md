@@ -143,6 +143,7 @@ python tools/test_planned.py            # D2(b) planned family and the M-6 / M-7
 python tools/test_layout_view.py        # the viewer's gap fields equal layout_metrics (M-6); checks the client gap fixture
 python tools/test_edge_fill.py          # R4: flush re-insertion, two-side rule, C3-C6 never broken, compaction, determinism, instance 581
 python tools/test_fragile_lift.py       # R5: hand-built lift, refused C3/C6 moves, no cargo dropped, orientations, determinism, instance 581
+python tools/test_c3_tie.py             # C3 at an exact tie (load == capacity) is compliant on every path; a one-gram overload is not
 python tools/test_study_resume.py      # study.py resume after a kill, progress line, chunk merge (about 3 min)
 cd client && PYTHON=python npm test -- --watchAll=false   # Jest: comparison, guide plan, loading plan, door helper, gap labels, entry motion, trade-offs, timing
 ```

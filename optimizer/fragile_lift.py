@@ -174,7 +174,8 @@ def _try_move(f, placements, orientations, unpacked, items, container, stats, li
     if not before_ids <= set(placements):
         reason = 'dropped_cargo'
     else:
-        csr, _ = evaluate_constraints(placements, items, orientations)
+        # strict C3 for the move decision, as before the C3_TOL fix (see edge_fill)
+        csr, _ = evaluate_constraints(placements, items, orientations, c3_tol=0.0)
         if csr != 100.0:
             reason = 'constraints'
         else:
