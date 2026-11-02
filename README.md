@@ -49,10 +49,12 @@ seeded). Provenance, citations and the augmentation rules are in
 | **DGWO** | DGWO | single-objective GWO on a scalar fitness `−SU + Σ λ·V` (penalised constraint violation rates); elitist leaders as in Mirjalili et al. (2014): α, β, δ are the best solutions found so far, replaced only by a better wolf, and the best-ever α is returned |
 | **MOGWO** | MOGWO | multi-objective GWO with a Pareto archive over (SU, CSR); returns the archive member with the highest SU |
 | **SEQ** | Sequential | DGWO (elitist, as above) for the first half of the iterations, then MOGWO from that population for the rest; returns the archive member with the highest SU |
-| **REP** | Repair-based | DGWO and MOGWO with repair inside the loop (Chapter 3, Appendix 2.4) — each moved wolf is decoded, scored with PEN-1 *before* repair, then repaired; Alpha is drawn from the MOGWO archive and Beta and Delta are the 1st and 2nd of the pre-repair PEN-1 ranking (elitist, as in DGWO); every evaluated wolf is repaired (R1 weight, R2 stop order, R3 removal of any box still in violation), so CSR = 100 % by construction; the arrangement it returns then gets a fragile-lift pass (R5, `optimizer/fragile_lift.py`: fragile boxes onto the tops of stacks, left-out heavy boxes onto the freed floor; `--no-fragile-lift` turns it off) and then one edge-filling pass (R4, `optimizer/edge_fill.py`; `--no-edge-fill` turns it off), both REP only. REP also loads in delivery order (`--load-order`, default on: last stop first, fragile last within a stop; `docs/LOAD_ORDER.md`). See `docs/R5_FRAGILE_LIFT.md` |
+| **REP** | Repair-based | DGWO and MOGWO with repair inside the loop (Chapter 3, Appendix 2.4). Each iteration: every wolf is moved, decoded and scored with PEN-1 *before* repair; Beta and Delta are the 1st and 2nd of that PEN-1 ranking (best-so-far, as in DGWO) and Alpha is drawn from the MOGWO archive (grid-density roulette) as it stands before this iteration's repairs; then every wolf is repaired (R1 weight, R2 stop order, R3 removal of any box still in violation, then one re-insertion pass) and offered to the archive, so CSR = 100 % by construction. The arrangement it returns then gets a fragile-lift pass (R5, `optimizer/fragile_lift.py`; `--no-fragile-lift` turns it off) and one edge-filling pass (R4, `optimizer/edge_fill.py`; `--no-edge-fill` turns it off), both REP only. See `docs/R5_FRAGILE_LIFT.md` |
 
 All four share the same decoder (deepest-bottom-left-fill over extreme
-points with a 2n random-key genome: n sequence keys + n orientation keys),
+points with a 2n random-key genome: n sequence keys + n orientation keys;
+boxes are loaded last stop first, fragile boxes last within a stop, and in
+key order inside each of those groups),
 the same evaluator and the same decode-time enforcement flags
 (`enforce_support` for C5, `enforce_fragility` for C4).
 
@@ -124,7 +126,8 @@ python tools/demo_check.py          # DGWO Quick seed 42 on instance 350 reprodu
 python tools/test_geometry.py       # 92 geometry / constraint / decoder / repair checks, compiled == reference
 python tools/test_determinism.py    # same seed -> same hash, different seed -> different hash
 python tools/test_reference_hashes.py   # DGWO / MOGWO / SEQ / REP x seeds 1, 42 match tools/determinism_reference.json
-python tools/test_load_order.py     # REP loading-sequence rule: stable sort by (-stop, fragile), only REP, CSR 100, deterministic
+python tools/test_load_order.py     # shared decoder loading order (stop descending, fragile last, then key) for all four configurations
+python tools/test_rep_leaders.py    # REP step order, pre-repair PEN-1, Beta/Delta from PEN-1 ranking, Alpha from the archive
 python tools/test_elitism.py        # DGWO / SEQ phase 1: best-so-far α, β, δ, replaced only by a better wolf; best-ever α returned
 python tools/test_study_provenance.py   # study files record the start / end commit, dirty flag and library versions
 python tools/test_sample_guard.py       # study.py refuses deprecated samples; the demo instance is outside the study sample

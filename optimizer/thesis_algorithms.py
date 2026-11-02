@@ -6,19 +6,6 @@ from thesis_math import decode_position
 from thesis_metrics import validate_items, evaluate_constraints, space_utilization
 from geometry_3d import place_container_dblf
 
-def apply_load_order(sequence, items):
-    """Loading-sequence rule (REP only): stable sort by (-stop, fragile), so the
-    last delivery stop is loaded first and fragile boxes come last within each
-    stop. Within each group the wolf's order is kept; orientations are untouched.
-
-    This makes C6 (stop order) violations rare, not impossible. A box of a later
-    stop is never placed after, and so never lands on top of, a box of an earlier
-    stop. But an earlier-stop box loaded later can still fill a hole deeper in the
-    truck and be blocked from the door by boxes already placed; the repair steps
-    R2 (relocate or defer) and R3 (remove) still handle that."""
-    return sorted(sequence, key=lambda i: (-items[i]['stop'], items[i]['fragile']))
-
-
 class WolfContinuous:
     def __init__(self, n, lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
                  rng=None):
@@ -44,7 +31,7 @@ class WolfContinuous:
 
     def decode_and_evaluate(self, items, container, apply_repair=False,
                             enforce_support=False, enforce_fragility=False,
-                            compute_penalty=False, load_order=False):
+                            compute_penalty=False):
         """
         Decodes X into discrete placements using DBLF and evaluates fitness.
         If apply_repair is True, applies heuristic repair logic before evaluation.
@@ -53,31 +40,15 @@ class WolfContinuous:
         more boxes are added). compute_penalty computes DGWO's scalar fitness.
         """
         # 1. Decode the genome into a placement sequence and orientations
+        #    (loading order: last stop first, fragile last within a stop,
+        #    then key order; shared by all four configurations)
         sequence, orients_map = decode_position(self.X, items, container)
-        if load_order:
-            sequence = apply_load_order(sequence, items)
 
         # 2. Fill ONE container in the sequence the genome specifies
         (self.placements, self.unplaced, self.orientations,
          self.placement_attempts, self.budget_exhausted) = place_container_dblf(
             sequence, items, orients_map, container,
             enforce_support=enforce_support, enforce_fragility=enforce_fragility)
-
-        # 2b. REP (Appendix 2.4, step 6): PEN-1 is scored on the decoded
-        # candidate BEFORE repair. After repair every candidate is compliant,
-        # so a post-repair penalty would always be zero. Only reached when
-        # both flags are set, which only RepairBasedHybrid does; DGWO and SEQ
-        # (penalty, no repair) and MOGWO (neither) take the paths below as before.
-        pre_repair_fitness = None
-        if apply_repair and compute_penalty:
-            _, raw_detail = evaluate_constraints(self.placements, items, self.orientations)
-            # Same expression and summation order as step 5 below, so the value
-            # is bit-identical to what DGWO would score for this arrangement.
-            raw_penalty = (self.lambda_w * raw_detail['C3_weight_rate']
-                           + self.lambda_f * raw_detail['C4_fragility_rate']
-                           + self.lambda_b * raw_detail['C5_balance_rate']
-                           + self.lambda_a * raw_detail['C6_stop_order_rate'])
-            pre_repair_fitness = -space_utilization(self.placements, container) + raw_penalty
 
         # 3. (Optional) per-wolf repair: R1-R3 plus re-insertion
         if apply_repair:
@@ -88,9 +59,7 @@ class WolfContinuous:
         self.csr, detail = evaluate_constraints(self.placements, items, self.orientations)
 
         # 5. Scalar Fitness F(X) for DGWO — Chapter 3 PEN-1.
-        if pre_repair_fitness is not None:
-            self.scalar_fitness = pre_repair_fitness
-        elif compute_penalty:
+        if compute_penalty:
             penalty = (self.lambda_w * detail['C3_weight_rate']
                        + self.lambda_f * detail['C4_fragility_rate']
                        + self.lambda_b * detail['C5_balance_rate']
@@ -132,8 +101,6 @@ def _update_position(wolf, alpha_X, beta_X, delta_X, a, rng):
     wolf.X = np.clip(X_cand.mean(axis=0), -5, 5)
 
 class ThesisOptimizerBase:
-    load_order = False      # only RepairBasedHybrid switches the loading-sequence rule on
-
     def __init__(self, items, container, pop_size=30, max_iter=500,
                  lambda_w=0.20, lambda_f=0.20, lambda_b=0.20, lambda_a=0.20,
                  stream_cb=None, seed=None, lambda_penalty=None,
@@ -178,8 +145,7 @@ class ThesisOptimizerBase:
         w.decode_and_evaluate(self.items, self.container, apply_repair=apply_repair,
                               enforce_support=self.enforce_support,
                               enforce_fragility=self.enforce_fragility,
-                              compute_penalty=compute_penalty,
-                              load_order=self.load_order)
+                              compute_penalty=compute_penalty)
 
     @staticmethod
     def _snapshot(w):
@@ -464,16 +430,14 @@ class SequentialHybrid(StandaloneMOGWO):
         })
 
 class RepairBasedHybrid(StandaloneMOGWO):
-    def __init__(self, *args, edge_fill=True, fragile_lift=True, load_order=True, **kwargs):
+    def __init__(self, *args, edge_fill=True, fragile_lift=True, **kwargs):
         """edge_fill / fragile_lift: apply repair steps R4 (edge_fill.py) and R5
         (fragile_lift.py) once, to the arrangement the run returns, R5 first.
         They are applied after the search has finished, so the search, the
         archive and the leaders are the same with them on or off.
-
-        load_order: reorder every decoded sequence by (-stop, fragile) before DBLF
-        (apply_load_order). Unlike R4/R5 this acts inside the search, on every wolf."""
+        The loading order (last stop first, fragile last) is the shared decoder's,
+        as for every configuration; REP has no loading rule of its own."""
         super().__init__(*args, **kwargs)
-        self.load_order = load_order
         self.edge_fill = edge_fill
         self.edge_fill_stats = None
         self.fragile_lift = fragile_lift
@@ -512,8 +476,8 @@ class RepairBasedHybrid(StandaloneMOGWO):
         self.repair_stats['candidates'] = self.repair_stats.get('candidates', 0) + 1
 
     def _select_alpha(self, archive):
-        """Alpha from archive A by grid-density selection (Appendix 2.4, step 9;
-        Figure 10). Same roulette as MOGWO's _select_leaders, drawing one member
+        """Alpha from archive A by grid-density selection (Appendix 2.4, step 9).
+        Same roulette as MOGWO's _select_leaders, drawing one member
         instead of three. Under repair the archive usually holds a single member
         (S(X) = 1.0 for all of them), in which case no RNG draw is made."""
         if len(archive) == 1:
@@ -533,12 +497,30 @@ class RepairBasedHybrid(StandaloneMOGWO):
         first, second, _ = self._elite_leaders(incumbents, pop)
         return first, second
 
+    def _repair_and_archive(self, w, archive):
+        """Appendix 2.4, steps 10-33: repair the decoded candidate (R1-R3 plus
+        re-insertion), re-evaluate U and S on the repaired arrangement, and offer
+        it to archive A. The wolf's genome X and its pre-repair PEN-1 score
+        (scalar_fitness) are left as they were."""
+        w._repair(self.items, self.container)
+        w.su = space_utilization(w.placements, self.container)
+        w.csr, _ = evaluate_constraints(w.placements, self.items, w.orientations)
+        self._note_repair(w)
+        self._update_archive(archive, w)
+
     def run(self):
-        """Appendix 2.4 / Figure 10. Each wolf: GWO position update (shared with
-        all configurations) -> decode -> PEN-1 on the raw candidate -> repair
-        (R1-R3 + re-insertion) -> MOGWO archive. Leaders for the next update:
-        Alpha from the archive (MOGWO), Beta and Delta from the pre-repair PEN-1
-        ranking (DGWO). The wolf's genome X is never changed by repair."""
+        """Appendix 2.4 (and the Chapter 3 architecture text). Per iteration:
+          steps 4-7   every wolf: GWO position update (shared by all four
+                      configurations) -> decode -> PEN-1 on the raw candidate;
+          steps 8-9   rank by PEN-1: Beta and Delta are its 1st and 2nd (before
+                      repair; elitist, as in DGWO); Alpha from archive A by
+                      grid-density selection, A as it stands before this
+                      iteration's repaired candidates enter it;
+          steps 10-35 every wolf: repair -> re-evaluate -> archive.
+        The leaders chosen at steps 8-9 guide the next iteration's update.
+        Before the loop the initial population is decoded, scored, repaired and
+        archived (Figure 10 text: "archive A is initialized with non-dominated
+        feasible solutions"), then the first leaders are taken the same way."""
         from repair import empty_stats
         self.repair_stats = empty_stats()
         self.repair_stats['candidates'] = 0
@@ -547,29 +529,32 @@ class RepairBasedHybrid(StandaloneMOGWO):
         archive = []
 
         for w in pop:
-            self._evaluate(w, apply_repair=True, compute_penalty=True)
-            self._note_repair(w)
-            self._update_archive(archive, w)
-
+            self._evaluate(w, compute_penalty=True)        # raw decode + PEN-1
         beta, delta = self._dgwo_pair([], pop)
+        for w in pop:
+            self._repair_and_archive(w, archive)
         alpha = self._select_alpha(archive)
 
         for iteration in range(self.max_iter):
             a = 2.0 - iteration * (2.0 / self.max_iter)
             alpha_X, beta_X, delta_X = alpha.X.copy(), beta.X.copy(), delta.X.copy()
 
+            # steps 4-7: update, decode, PEN-1 before repair
             for i in range(self.pop_size):
                 _update_position(pop[i], alpha_X, beta_X, delta_X, a, self.rng)
-                # PEN-1 on the raw candidate, then repair, then archive
-                self._evaluate(pop[i], apply_repair=True, compute_penalty=True)
-                self._note_repair(pop[i])
-                self._update_archive(archive, pop[i])
+                self._evaluate(pop[i], compute_penalty=True)
+
+            # steps 8-9: leaders for the next update
+            beta, delta = self._dgwo_pair([beta, delta], pop)
+            alpha = self._select_alpha(archive)
+
+            # steps 10-35: repair and archive
+            for i in range(self.pop_size):
+                self._repair_and_archive(pop[i], archive)
 
             if len(archive) > 100:
                 archive = self._prune_archive(archive, max_size=100)
 
-            beta, delta = self._dgwo_pair([beta, delta], pop)
-            alpha = self._select_alpha(archive)
             self._record(iteration, self._archive_best(archive))
 
             if self.stream_cb:

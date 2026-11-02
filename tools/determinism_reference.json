@@ -20,65 +20,65 @@
   {
    "configuration": "DGWO",
    "seed": 1,
-   "sha256": "c62db1926cfa900e53ad573b1b18b950930d9f863cb6de9e152bf0e5d487eca7",
-   "placed": 87,
-   "su_pct": 65.3413,
-   "csr_pct": 47.1264
+   "sha256": "579d7601a6fc3f97c199631f96126018b0357d20cce283b18971fd42cd7a626a",
+   "placed": 88,
+   "su_pct": 64.465,
+   "csr_pct": 77.2727
   },
   {
    "configuration": "DGWO",
    "seed": 42,
-   "sha256": "eee4d9499bd3c06abf139669cb1aa29f2fd777881cf4a9853a6dd4c6e5f55eb0",
-   "placed": 87,
-   "su_pct": 66.3781,
-   "csr_pct": 32.1839
+   "sha256": "2344a71998c3bddccc7b09ad661950b263486bef5e655d94f381645f67a9978b",
+   "placed": 81,
+   "su_pct": 64.2524,
+   "csr_pct": 82.716
   },
   {
    "configuration": "MOGWO",
    "seed": 1,
-   "sha256": "aff19275cd5c90a753d9f9a6d4c29c813217b9504c80850be86fdc68e41e0149",
+   "sha256": "6f0c945bc6770405a42f4d7cc8a55d66ef06b491eb09efc55747e4700a929d3f",
+   "placed": 81,
+   "su_pct": 60.1934,
+   "csr_pct": 74.0741
+  },
+  {
+   "configuration": "MOGWO",
+   "seed": 42,
+   "sha256": "6e8d8627b689cac7b8221457fe8a0dc77dcef3a7b00dcbc2480009eaa2a8a64a",
+   "placed": 86,
+   "su_pct": 61.122,
+   "csr_pct": 66.2791
+  },
+  {
+   "configuration": "SEQ",
+   "seed": 1,
+   "sha256": "af676c189a63d2e3208b811ac06523b8dd9cd64aecf6325088ad0ffc7f0e6847",
    "placed": 80,
-   "su_pct": 62.7103,
-   "csr_pct": 43.75
-  },
-  {
-   "configuration": "MOGWO",
-   "seed": 42,
-   "sha256": "40bbf8a2690471ab178a02fcba60e04c522b6dbb025baac8bee818b9f506e4e6",
-   "placed": 83,
-   "su_pct": 64.7016,
-   "csr_pct": 38.5542
-  },
-  {
-   "configuration": "SEQ",
-   "seed": 1,
-   "sha256": "5caaeb5a0e79c207429087fe095e18be8e08581cc14023d5dcb8b8619f22e601",
-   "placed": 82,
-   "su_pct": 62.4255,
-   "csr_pct": 40.2439
+   "su_pct": 62.3652,
+   "csr_pct": 67.5
   },
   {
    "configuration": "SEQ",
    "seed": 42,
-   "sha256": "73161ceff8af5243e0f3f5341606436ad382b4196798c8c52ef8c37f84f25c86",
-   "placed": 83,
-   "su_pct": 64.5291,
-   "csr_pct": 36.1446
+   "sha256": "f9e4a0de2ae8971bc30232f8dd61e9fa1c46b6f8af10d97131345ae403d1e0c9",
+   "placed": 84,
+   "su_pct": 63.005,
+   "csr_pct": 67.8571
   },
   {
    "configuration": "REP",
    "seed": 1,
-   "sha256": "3de691fb45a9bd5cfc497b55a24510d1189e370c01251d0b569825438483d6ac",
+   "sha256": "8796f3ad2a02d910909d2d4ab83431e7b375061dfec0d8b6dcd8657246f9a44c",
    "placed": 74,
-   "su_pct": 58.6429,
+   "su_pct": 59.4632,
    "csr_pct": 100.0
   },
   {
    "configuration": "REP",
    "seed": 42,
-   "sha256": "cd719a64b1a26f37b87dbaf8efdc929e325d299dd62184d433816c273474d9f1",
-   "placed": 79,
-   "su_pct": 60.6083,
+   "sha256": "ec868bf0d09e6a55a437cd47d5e0a16b7e324ce63dab68e89ac75dbfd0e9ebd6",
+   "placed": 73,
+   "su_pct": 59.9506,
    "csr_pct": 100.0
   }
  ]
