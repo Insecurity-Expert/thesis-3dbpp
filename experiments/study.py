@@ -616,16 +616,34 @@ def run_study(*, name, size, instance_ids, custom_load, preset, seeds, mode, lam
         if todo:
             # One fresh process per run, in both modes (see module docstring).
             _hide_worker_windows()
-            with ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
+            # Not a `with` block: its exit waits for every queued run, so one failed
+            # run used to leave the study computing (and discarding) the rest of the
+            # queue for hours with no output. A failure now names the run, cancels
+            # the queue, stops the running workers and re-raises at once.
+            ex = ProcessPoolExecutor(max_workers=1 if mode == 'serial' else workers,
                                      max_tasks_per_child=1, initializer=warm_worker,
-                                     initargs=(enforce_support, enforce_fragility, raw_dir)) as ex:
+                                     initargs=(enforce_support, enforce_fragility, raw_dir))
+            futs = {}
+            try:
                 if mode == 'serial':
                     for t in todo:
-                        _done(ex.submit(run_task, t).result())
+                        f = ex.submit(run_task, t)
+                        futs[f] = t
+                        _done(f.result())
                 else:
-                    futs = [ex.submit(run_task, t) for t in todo]
+                    futs = {ex.submit(run_task, t): t for t in todo}
                     for f in as_completed(futs):
                         _done(f.result())
+            except BaseException as e:
+                failed = [t for f, t in futs.items() if f.done() and not f.cancelled() and f.exception() is not None]
+                for t in failed:
+                    log(f"RUN FAILED: {task_key(t)} ({type(e).__name__}: {e})")
+                log("stopping: queued runs cancelled; finished runs are on disk and resume with the same command")
+                ex.shutdown(wait=False, cancel_futures=True)
+                for p in list((getattr(ex, '_processes', None) or {}).values()):
+                    p.terminate()
+                raise
+            ex.shutdown(wait=True)
     except BaseException as e:
         prog['status'] = 'error'
         prog['error'] = f'{type(e).__name__}: {e}'

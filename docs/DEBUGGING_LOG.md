@@ -240,3 +240,46 @@ consistent while the container itself was the wrong way round. A geometric
 convention needs a test that pins it to a *physical* claim — here, "a
 stop-2 box between a stop-1 box and the door violates C6 **along the
 length**, and does not **across the width**" (`tools/test_geometry.py`).
+
+---
+
+## 13. C3 at an exact tie stopped the thesis study v2 (fixed; finished runs unchanged)
+
+**Symptom.** The thesis study v2 (tag `thesis-run-v2`) stopped after 850 of 3,600
+runs. REP, instance 209, seed 13 raised the repair's final assertion
+(`repair left S(X_feas) = 98.8506, expected 100.0`), and the study then printed
+nothing for hours.
+
+**Cause.** Box 58 (lbs 0.16673 kg/cm² × 100 × 70 cm = 1167.11 kg capacity)
+carried seven boxes weighing exactly 1167.11 kg. C3 allows that (load ≤
+capacity). The repair kernel (borne mass by matrix product), the reference
+evaluator (Python `sum`, compensated from 3.12) and `tools/validate_arrangement.py`
+(tolerance 1e-5) all accepted it; the compiled evaluator summed the masses in a
+plain loop to 1167.1100000000001 and called it an overload. One box out of 87,
+so 98.85 %. Not a physical violation: a floating-point tie decided differently
+by different summation orders.
+
+The silence was a second defect: the parallel loop sat in a `with
+ProcessPoolExecutor` block, whose exit waits for every queued run. After the
+failure the study kept computing the rest of the queue and saving none of it.
+
+**Fix.** `thesis_metrics.C3_TOL = 1e-6` kg: both evaluators and the per-box view
+compare `load <= capacity + C3_TOL`, so a tie counts as compliant on every path
+(the independent validator already allowed 1e-5). R4 compaction and R5 still
+decide their moves with the strict comparison (`c3_tol=0.0`), as before, so their
+choices are unchanged. The study loop now names the failed run, cancels the queue,
+stops the workers and exits at once.
+
+**Evidence that finished runs are unchanged.** Every REP run that finished passed
+the evaluator's 100 % check, so the tolerance changes nothing in them except
+where R4/R5 would have made a different decision, and those keep the strict
+comparison. Measured: REP on instance 209 at the thesis preset, seeds 11 and 12,
+gives identical placements, orientations and SU with the old and the new code;
+seed 13 now finishes (102 boxes, CSR 100); `tools/test_reference_hashes.py`
+passes unchanged for all four configurations. The study resumes from the 850
+runs on disk with `--force-resume`. `tools/test_c3_tie.py` pins the tie and checks
+that a one-gram overload is still a violation everywhere.
+
+**Lesson.** A safety assertion is only as exact as the arithmetic behind it.
+Two implementations of the same inequality must agree on the boundary, not just
+away from it; a tie needs an explicit tolerance shared by every checker.

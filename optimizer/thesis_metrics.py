@@ -10,6 +10,16 @@ from geometry_3d import vertical_lbs
 REQUIRED_BOX_KEYS = ('id', 'type_id', 'l', 'w', 'h', 'mass', 'lbs_l', 'lbs_w', 'lbs_h',
                      'allowed_orientations', 'fragile', 'stop')
 
+# C3 compares a sum of box masses with lbs x area. When the two are equal (a box
+# carrying exactly its capacity, which C3 allows), the floating-point sum can land
+# a few units in the last place either side of the capacity depending on the order
+# and method of summation: Python's sum() (compensated from 3.12), the compiled
+# loop below and the repair kernel's matrix product all differ there. A tie must
+# count as compliant everywhere, so the evaluator allows C3_TOL kg of rounding
+# (tools/validate_arrangement.py already allows 1e-5). 1e-6 kg is far below any
+# physical meaning and far above double-precision noise on these masses.
+C3_TOL = 1e-6
+
 def validate_items(items):
     """Fail loudly if any box lacks real physics. Never fabricate."""
     for i, box in enumerate(items):
@@ -68,7 +78,7 @@ def space_utilization(placements, container):
     packed = sum(dx * dy * dz for (_, _, _, dx, dy, dz) in placements.values())
     return packed / V_c
 
-def evaluate_constraints_reference(placements, items, orientations):
+def evaluate_constraints_reference(placements, items, orientations, c3_tol=C3_TOL):
     """
     Evaluates C3 (Weight/LBS), C4 (Fragility), C5 (Stability), C6 (Stop-Order)
     under the canonical convention (x=across the truck, y=depth from the rear door, z=height).
@@ -112,7 +122,7 @@ def evaluate_constraints_reference(placements, items, orientations):
         # LBS is a pressure (kg/cm2), so the allowance is lbs * contact area.
         borne_mass = sum(items[j]['mass'] for j in boxes_above)
         capacity = vertical_lbs(items[i], orientations[i]) * top_area
-        is_c3_ok = borne_mass <= capacity
+        is_c3_ok = borne_mass <= capacity + c3_tol
 
         # C4: Fragility — nothing may rest on a fragile box
         is_c4_ok = not (items[i]['fragile'] == 1 and len(boxes_above) > 0)
@@ -189,7 +199,7 @@ def per_box_constraints(placements, items, orientations):
         borne_mass = sum(items[j]['mass'] for j in boxes_above)
         lbs = vertical_lbs(items[i], orientations[i])
         capacity = lbs * top_area
-        is_c3_ok = borne_mass <= capacity
+        is_c3_ok = borne_mass <= capacity + C3_TOL
 
         is_c4_ok = not (items[i]['fragile'] == 1 and len(boxes_above) > 0)
 
@@ -236,7 +246,7 @@ def robustness(su_values):
 # tools/test_geometry.py asserts the two agree on random arrangements.
 
 @njit(cache=True)
-def _constraint_counts(P, mass, fragile, stop, cap, n):
+def _constraint_counts(P, mass, fragile, stop, cap, n, c3_tol):
     """P rows are (x, y, z, dx, dy, dz). Returns (c3, c4, c5, c6, all) counts."""
     c3_ok = 0
     c4_ok = 0
@@ -271,7 +281,7 @@ def _constraint_counts(P, mass, fragile, stop, cap, n):
                 if oy < 0.0:
                     oy = 0.0
                 supported += ox * oy
-        is_c3 = borne <= cap[i]
+        is_c3 = borne <= cap[i] + c3_tol
         is_c4 = not (fragile[i] and n_above > 0)
         if zi == 0.0:
             is_c5 = True
@@ -307,18 +317,20 @@ def _constraint_counts(P, mass, fragile, stop, cap, n):
     return c3_ok, c4_ok, c5_ok, c6_ok, all_ok
 
 
-def evaluate_constraints(placements, items, orientations):
-    """Fast path with the same contract as evaluate_constraints_reference."""
+def evaluate_constraints(placements, items, orientations, c3_tol=C3_TOL):
+    """Fast path with the same contract as evaluate_constraints_reference.
+    c3_tol=0.0 gives the strict comparison used before the tie fix (R4 and R5
+    keep it for their move decisions; see C3_TOL)."""
     total = len(placements)
     if total == 0:
-        return evaluate_constraints_reference(placements, items, orientations)
+        return evaluate_constraints_reference(placements, items, orientations, c3_tol)
     idx = list(placements)
     P = np.array([placements[i] for i in idx], dtype=np.float64)
     mass = np.array([items[i]['mass'] for i in idx], dtype=np.float64)
     fragile = np.array([items[i]['fragile'] == 1 for i in idx])
     stop = np.array([items[i]['stop'] for i in idx], dtype=np.int64)
     cap = np.array([vertical_lbs(items[i], orientations[i]) for i in idx], dtype=np.float64) * P[:, 3] * P[:, 4]
-    c3_ok, c4_ok, c5_ok, c6_ok, all_ok = _constraint_counts(P, mass, fragile, stop, cap, total)
+    c3_ok, c4_ok, c5_ok, c6_ok, all_ok = _constraint_counts(P, mass, fragile, stop, cap, total, c3_tol)
     detail = {
         "C3_weight_pct": (c3_ok / total) * 100.0,
         "C4_fragility_pct": (c4_ok / total) * 100.0,
