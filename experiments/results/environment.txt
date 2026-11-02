@@ -1,3 +1,30 @@
+# experiments/results/environment.txt — reproduction environment for the thesis study (v3)
+generated: 2026-11-02
+commit:    fed576d Merge pull request #21 from Insecurity-Expert/rep-chapter3
+           includes: shared stop-first / fragile-last decoder for all four configurations;
+           REP per Chapter 3 / Appendix 2.4 (PEN-1 before repair: Beta and Delta from the
+           DGWO ranking, Alpha from archive A; repair R1-R3 + re-insertion; R5 then R4);
+           C3 tie tolerance; study stops at once on a failed run
+tag:       thesis-run-v3
+supersedes: thesis-run-v2 / v2.1 (different decoder and REP; v2 runs are not comparable)
+
+## machine
+cpu:       12th Gen Intel(R) Core(TM) i5-1235U (10 cores: 2 performance + 8 efficiency, 12 threads)
+ram:       15.7 GB
+os:        Microsoft Windows 11 Home
+note:      thesis_main_v3 runs 3,600 quality runs in parallel (8 workers; flagged concurrent):
+           SU, CSR, placed, layout and fragile measures only. thesis_timing_v3 runs 360 serial
+           timing runs (30 instances x 3 seeds x 4 configurations) on an idle, plugged-in machine
+           with background apps closed and Windows Update paused: ET and PM come from it.
+           The CPU mixes performance and efficiency cores, so run-to-run timing variation is expected.
+           SU, CSR and placed counts are deterministic and machine-independent
+           (tools/test_reference_hashes.py passed on this machine).
+
+## python
+Python 3.12.5
+numba 0.68.0 | numpy 2.3.5 | scipy 1.16.3 | psutil 7.2.2 | scikit-posthocs 0.17.0
+
+
 # experiments/results/environment.txt — reproduction environment for the thesis study (v2)
 generated: 2026-10-31
 commit:    63286dd Merge pull request #19 from Insecurity-Expert/claude/focused-gates-jnxtwl
