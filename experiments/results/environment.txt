@@ -2,7 +2,7 @@
 generated: 2026-10-31
 commit:    63286dd Merge pull request #19 from Insecurity-Expert/claude/focused-gates-jnxtwl
            includes: repair loop fix (Part 0), R4 edge fill, R5 fragile lift with guards, REP loading-sequence rule, study resume
-tag:       thesis-run-v2
+tag:       thesis-run-v2.1: C3 tie tolerance + study stop-on-failure (docs/DEBUGGING_LOG.md §13); runs 1-850 made at thesis-run-v2, unchanged by the fix
 
 ## machine
 cpu:       12th Gen Intel(R) Core(TM) i5-1235U (10 cores: 2 performance + 8 efficiency, 12 threads)
