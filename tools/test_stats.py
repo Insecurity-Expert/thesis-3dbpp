@@ -24,7 +24,7 @@ sys.path.insert(0, str(_ROOT / 'experiments'))
 import numpy as np
 from scipy import stats as sps
 from stats import (analyse, holm, rm_anova, mauchly, gg_epsilon, rank_biserial_paired, d_z,
-                   apply_verdicts, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
+                   apply_verdicts, combined_composite, summary_lines, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
 
 FAILS = []
 
@@ -245,6 +245,32 @@ def main():
     check(st8['composite']['recommendation']['configuration'] == 'DGWO' and st8['composite']['distinguished'],
           "top of the ranking = best mean CS, reported when Friedman is significant")
     check(fr8['posthoc']['test'] == 'Nemenyi', "Nemenyi post-hoc after a significant Friedman")
+
+    # ── 9b. combined composite: SU, CSR, Rob from the quality study, ET, PM from the timing study ──
+    print("9b. combined composite")
+    q_fn = lambda c, i, s: {'su': toy_su[c][s - 1], 'csr': toy_csr[c], 'et': toy_et[c], 'pm': 5.0}
+    same = make_study(q_fn, [1, 2], [1, 2])
+    cc = combined_composite(same, same)
+    one_study = analyse(same)['composite']
+    check(cc['available'] and cc['mean_cs'] == one_study['mean_cs'],
+          "same study as both sources -> identical to the one-study composite")
+    # quality study run in parallel (its ET is meaningless: reversed here); the timing study supplies ET
+    quality = make_study(lambda c, i, s: {'su': toy_su[c][s - 1], 'csr': toy_csr[c], 'et': 50 - toy_et[c], 'pm': 5.0},
+                         [1, 2], [1, 2], mode='parallel')
+    timing = make_study(lambda c, i, s: {'su': 0.0, 'csr': 0.0, 'et': toy_et[c], 'pm': 5.0}, [1, 2], [1, 2, 3])
+    cc = combined_composite(quality, timing)
+    check(cc['available'], "combined composite available: parallel quality study + serial timing study")
+    for c, e in expected.items():
+        got = cc['per_instance'][0]['per_configuration'][c]['CS']
+        check(abs(got - e) < 1e-5, f"combined CS({c}, instance 1) = {got} (hand: {e:.5f}; ET from timing, SU/CSR/Rob from quality)")
+    check(cc['sources']['SU, CSR, Rob']['seeds'] == 2 and cc['sources']['ET, PM']['seeds'] == 3,
+          "sources record the seed counts of each study")
+    check(any(l.startswith('combined composite (') for l in summary_lines({**analyse(quality), 'composite_combined': cc})),
+          "summary prints the combined composite")
+    bad = combined_composite(quality, make_study(q_fn, [1, 2], [1, 2], mode='parallel'))
+    check(not bad['available'] and 'not serial' in bad['reason'], "refused when the timing study is not serial")
+    bad = combined_composite(quality, make_study(q_fn, [1, 3], [1, 2]))
+    check(not bad['available'] and 'different instances' in bad['reason'], "refused when the instances differ")
 
     # ── 10. concurrent timing refuses SP3 and the composite ──────────────────
     print("10. concurrent timing")
