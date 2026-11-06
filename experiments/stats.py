@@ -2,6 +2,8 @@
 
     python experiments/stats.py experiments/results/studies/<study>.json        # attach stats in place
     python experiments/stats.py <study>.json --print                             # also print a summary
+    python experiments/stats.py <main>.json --timing <timing>.json --print --no-write
+                                     # also the combined composite: SU, CSR, Rob from <main>, ET, PM from <timing>
 
 Input: a study file written by experiments/study.py (one row per run with the
 configuration, instance, seed, SU, placed, n_items, CSR and C3-C6 over placed
@@ -896,15 +898,18 @@ def _z(vals):
     return np.zeros_like(v) if sd == 0 else (v - v.mean()) / sd
 
 
-def composite_scores(rows, configs, instances, csr_key=f"CSR_{PRIMARY_COMPLIANCE}"):
-    """CS(c, p) per instance p and configuration c. Returns (matrix instances x configs, details)."""
+def composite_scores(rows, configs, instances, csr_key=f"CSR_{PRIMARY_COMPLIANCE}", timing_rows=None):
+    """CS(c, p) per instance p and configuration c. Returns (matrix instances x configs, details).
+    timing_rows, if given, supply ET and PM (a serial timing study) while SU, CSR and
+    Rob come from rows (the quality study); otherwise all five come from rows."""
+    trows = rows if timing_rows is None else timing_rows
     mat = np.zeros((len(instances), len(configs)))
     details = []
     for pi, inst in enumerate(instances):
         su = [np.mean([x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
         csr = [np.mean([x[csr_key] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
-        et = [np.mean([x["ET"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
-        pm = [np.mean([x["PM"] for x in rows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        et = [np.mean([x["ET"] for x in trows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
+        pm = [np.mean([x["PM"] for x in trows if x["configuration"] == c and x["instance_id"] == inst]) for c in configs]
         rob = [float(np.std([x["SU"] for x in rows if x["configuration"] == c and x["instance_id"] == inst], ddof=1))
                if len([x for x in rows if x["configuration"] == c and x["instance_id"] == inst]) > 1 else 0.0 for c in configs]
         z_et, z_pm = _z(et), _z(pm)
@@ -919,8 +924,8 @@ def composite_scores(rows, configs, instances, csr_key=f"CSR_{PRIMARY_COMPLIANCE
                 "Rob_n": _f(rob_n[j]), "CS": _f(cs[j])} for j, c in enumerate(configs)}})
     return mat, details
 
-def composite(rows, configs, instances):
-    mat, details = composite_scores(rows, configs, instances)
+def composite(rows, configs, instances, timing_rows=None):
+    mat, details = composite_scores(rows, configs, instances, timing_rows=timing_rows)
     fr = friedman_block(mat, configs, lower_is_better=False)
     mean_cs = {c: _f(mat[:, j].mean()) for j, c in enumerate(configs)}
     sd_cs = {c: _f(mat[:, j].std(ddof=1)) if mat.shape[0] > 1 else None for j, c in enumerate(configs)}
@@ -938,6 +943,39 @@ def composite(rows, configs, instances):
             "mean_cs": mean_cs, "sd_cs": sd_cs, "components": comp, "ranking": ranking,
             "per_instance": details, "friedman": fr, "recommendation": rec,
             "recommendation_note": None if rec else "no configuration distinguished: the Friedman test on the composite score is not significant"}
+COMBINED_COMPOSITE_LABEL = "Composite score, combined studies (Chapter 3 definition)"
+
+
+def combined_composite(quality_study, timing_study):
+    """The Chapter 3 composite with each term from the study that measures it: SU, CSR
+    and Rob (sd of SU over the quality study's seeds per instance) from the quality
+    study, ET and PM from the serial timing study. Same formula, normalisation and
+    Friedman / Nemenyi test as composite(); only the source of ET and PM differs.
+    Refused unless the timing study is serial and both cover the same instances and
+    configurations; a commit mismatch is recorded, not refused."""
+    configs = [c for c in CONFIGS if any(r["configuration"] == c for r in quality_study["runs"])]
+    instances = _instances_of(quality_study)
+    t_valid = bool(timing_study.get("timing_valid", timing_study.get("mode") == "serial"))
+    if not t_valid:
+        return {"available": False, "reason": "the timing study is not serial; ET and PM need a serial study"}
+    if sorted(_instances_of(timing_study)) != sorted(instances):
+        return {"available": False, "reason": "the two studies cover different instances"}
+    t_configs = {r["configuration"] for r in timing_study["runs"]}
+    if set(configs) - t_configs:
+        return {"available": False, "reason": f"the timing study lacks {sorted(set(configs) - t_configs)}"}
+    if len(instances) < 2:
+        return {"available": False, "reason": "requires >= 2 instances (the overall ranking is tested across instances)"}
+    out = composite(derive_rows(quality_study["runs"]), configs, instances,
+                    timing_rows=derive_rows(timing_study["runs"]))
+    qc = (quality_study.get("git") or {}).get("commit_start") or quality_study.get("commit")
+    tc = (timing_study.get("git") or {}).get("commit_start") or timing_study.get("commit")
+    out.update(title=COMBINED_COMPOSITE_LABEL,
+               sources={"SU, CSR, Rob": {"mode": quality_study.get("mode"), "seeds": len(quality_study.get("seeds") or []), "commit": qc},
+                        "ET, PM": {"mode": timing_study.get("mode"), "seeds": len(timing_study.get("seeds") or []), "commit": tc}},
+               same_commit=(qc == tc))
+    return out
+
+
 def outcome_pattern(sp1, sp2_csr, configs):
     """Chapter 3 outcome pattern over the primary metrics: SU (SP1) and CSR over all boxes (SP2)."""
     metrics = {"SU": sp1, "CSR": sp2_csr}
@@ -1040,6 +1078,23 @@ def summary_lines(st):
         top = cs['recommendation']
         L.append(f"   {COMPOSITE_LABEL}: " + (f"highest mean composite score {top['label']} ({top['mean_cs']})" if top else cs['recommendation_note']))
     L.append(f"outcome pattern: {st['outcome']['pattern'] or '-'} - {st['outcome']['description']}")
+    cc = st.get("composite_combined")
+    if cc:
+        if not cc.get("available"):
+            L.append(f"combined composite: {cc['reason']}")
+        else:
+            fr = cc["friedman"]
+            src = cc["sources"]
+            L.append(f"combined composite (SU, CSR, Rob: {src['SU, CSR, Rob']['mode']}, {src['SU, CSR, Rob']['seeds']} seeds; "
+                     f"ET, PM: {src['ET, PM']['mode']}, {src['ET, PM']['seeds']} seeds; same commit: {cc['same_commit']}): "
+                     f"mean CS {cc['mean_cs']}; ranking {cc['ranking']}; Friedman "
+                     + (f"chi2={fr['statistic']} p={fr['p']} sig={fr['significant']}" if fr.get("testable") else fr["reason"]))
+            if fr.get("significant") and fr.get("posthoc"):
+                for pr in fr["posthoc"]["pairs"]:
+                    L.append(f"   Nemenyi {pr['a']} vs {pr['b']}: p={pr['p']} " + ("significant" if pr["significant"] else "not significant")
+                             + (f", favours {pr['favours']}" if pr["significant"] and pr["favours"] else ""))
+            top = cc["recommendation"]
+            L.append(f"   {COMBINED_COMPOSITE_LABEL}: " + (f"highest mean composite score {top['label']} ({top['mean_cs']})" if top else cc["recommendation_note"]))
     tm = st.get("timing")
     if tm and not tm["valid"]:
         L.append(f"TIMING {tm['label']} ({tm['note']})")
@@ -1065,11 +1120,19 @@ def main():
     p.add_argument("study")
     p.add_argument("--print", action="store_true", dest="do_print")
     p.add_argument("--no-write", action="store_true")
+    p.add_argument("--timing", metavar="TIMING_STUDY.json",
+                   help="a serial timing study of the same instances: adds the combined composite "
+                        "(SU, CSR, Rob from this study; ET, PM from the timing study)")
     a = p.parse_args()
     study = json.loads(Path(a.study).read_text(encoding="utf-8"))
     if study.get("stackr_study") != 1:
         sys.exit("not a study file (stackr_study != 1)")
     study["stats"] = analyse(study)
+    if a.timing:
+        timing = json.loads(Path(a.timing).read_text(encoding="utf-8"))
+        if timing.get("stackr_study") != 1:
+            sys.exit("--timing: not a study file (stackr_study != 1)")
+        study["stats"]["composite_combined"] = combined_composite(study, timing)
     if not a.no_write:
         save_stats(study, a.study)
     if a.do_print or a.no_write:
