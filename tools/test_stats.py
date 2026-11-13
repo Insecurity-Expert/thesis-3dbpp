@@ -24,7 +24,7 @@ sys.path.insert(0, str(_ROOT / 'experiments'))
 import numpy as np
 from scipy import stats as sps
 from stats import (analyse, holm, rm_anova, mauchly, gg_epsilon, rank_biserial_paired, d_z,
-                   apply_verdicts, combined_composite, summary_lines, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
+                   apply_verdicts, combined_composite, combined_planned, summary_lines, PRIMARY_COMPLIANCE, CONFIGS, SP2_FAMILY)
 
 FAILS = []
 
@@ -270,6 +270,46 @@ def main():
     bad = combined_composite(quality, make_study(q_fn, [1, 2], [1, 2], mode='parallel'))
     check(not bad['available'] and 'not serial' in bad['reason'], "refused when the timing study is not serial")
     bad = combined_composite(quality, make_study(q_fn, [1, 3], [1, 2]))
+    check(not bad['available'] and 'different instances' in bad['reason'], "refused when the instances differ")
+
+    # ── 9c. planned family across studies: one Holm over 18 ───────────────────
+    print("9c. combined planned family")
+    base_su = {'DGWO': 62.0, 'MOGWO': 61.5, 'SEQ': 62.5, 'REP': 55.0}
+    base_csr = {'DGWO': 45.0, 'MOGWO': 42.0, 'SEQ': 43.0, 'REP': 60.0}
+    base_et = {'DGWO': 40.0, 'MOGWO': 41.0, 'SEQ': 42.0, 'REP': 300.0}
+    jit = lambda c, i, s: ((i * 7 + s * 3 + 2 * CONFIGS.index(c)) % 5) * 0.37
+    q_run = lambda c, i, s: {'su': base_su[c] + jit(c, i, s) + i * 0.1, 'csr': base_csr[c] + jit(c, i, s),
+                             'c3': 80 + CONFIGS.index(c) + jit(c, i, s), 'c6': 75 + jit(c, i, s) + (5 if c == 'REP' else 0),
+                             'et': 500 - base_et[c], 'pm': 100.0 + jit(c, i, s)}
+    t_run = lambda c, i, s: {'su': 10.0 + jit(c, i, s), 'csr': 10.0, 'et': base_et[c] * (1 + i / 50) + jit(c, i, s),
+                             'pm': 100.0 + jit(c, i, s) * 0.1}
+    insts = list(range(1, 9))
+    quality = make_study(q_run, insts, [1, 2, 3], mode='parallel')
+    timing = make_study(t_run, insts, [1, 2])
+    pc = combined_planned(quality, timing)
+    check(pc['available'] and pc['planned_size'] == 18 and pc['holm_family_size'] == 18,
+          "combined planned family: 18 comparisons, all testable, one Holm family")
+    by = {(c['measure'], c['other']): c for c in pc['comparisons']}
+    check(all(by[('ET', o)]['mean_difference'] > 0 for o in ('DGWO', 'MOGWO', 'SEQ')),
+          "ET taken from the timing study (REP slower there; the parallel study's ET is reversed)")
+    check(abs(by[('SU', 'DGWO')]['mean_reference'] - analyse(quality)['SP1']['comparison']['instance_means']['REP']) < 1e-6,
+          "SU taken from the quality study")
+    raw = [c['p_raw'] for c in pc['comparisons']]
+    exp, _ = holm(raw)
+    check(all(abs(c['p_holm'] - e) <= 1e-4 * e for c, e in zip(pc['comparisons'], exp)),
+          "p_holm = one Holm correction across the 18 raw p-values (relative 1e-4; raw p stored rounded)")
+    check(pc['sources']['SU, CSR, C3, C6']['seeds'] == 3 and pc['sources']['ET, PM']['seeds'] == 2,
+          "sources record each study's seed count")
+    serial_q = make_study(q_run, insts, [1, 2, 3])
+    same = combined_planned(serial_q, serial_q)
+    one = analyse(serial_q)['planned_family']
+    check([c['p_holm'] for c in same['comparisons']] == [c['p_holm'] for c in one['comparisons']],
+          "same serial study as both sources reproduces the per-study planned family")
+    check(any(l.startswith('PLANNED FAMILY, combined studies') for l in
+              summary_lines({**analyse(quality), 'planned_family_combined': pc})), "summary prints the combined planned family")
+    bad = combined_planned(quality, make_study(t_run, insts, [1, 2], mode='parallel'))
+    check(not bad['available'] and 'not serial' in bad['reason'], "refused when the timing study is not serial")
+    bad = combined_planned(quality, make_study(t_run, insts[:-1], [1, 2]))
     check(not bad['available'] and 'different instances' in bad['reason'], "refused when the instances differ")
 
     # ── 10. concurrent timing refuses SP3 and the composite ──────────────────

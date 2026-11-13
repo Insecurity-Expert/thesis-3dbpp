@@ -130,8 +130,11 @@ GREEDY_LABEL = "Weight-Sorted Greedy"
 RANDOM_LABEL = "Random Order"
 LOWER_IS_BETTER = {"ET", "PM"}
 # Which family decides H0 in the manuscript: "planned" (D2 b - 18 planned REP
-# comparisons, experiments/planned.py) or "omnibus" (the earlier six-test
-# family, still computed under out["hypothesis_family"]). FOR CONFIRMATION.
+# comparisons, experiments/planned.py), decided with the adviser. The earlier
+# six-test omnibus family is still computed under out["hypothesis_family"] as
+# supporting analysis. With --timing, the 18 comparisons are also computed as one
+# family across the two studies (out["planned_family_combined"]): SU, CSR, C3 and
+# C6 from this study, ET and PM from the serial timing study.
 HYPOTHESIS_DESIGN = "planned"
 
 D_THRESHOLD = 0.5       # Cohen's d practical threshold
@@ -699,7 +702,7 @@ def analyse(study):
     # ── supplementary: non-search baselines (outside SP1-SP3) ─────────────────
     out["supplementary"] = supplementary(study, rows, configs, instances)
 
-    # ── D2(b) planned comparisons, REP as reference (for adviser confirmation) ──
+    # ── D2(b) planned comparisons, REP as reference (the H0 decision family) ──
     from planned import planned_family
     out["planned_family"] = planned_family(
         get_mat, configs, timing_valid, alpha=ALPHA, holm=holm, shapiro=shapiro, d_z=d_z,
@@ -946,6 +949,52 @@ def composite(rows, configs, instances, timing_rows=None):
 COMBINED_COMPOSITE_LABEL = "Composite score, combined studies (Chapter 3 definition)"
 
 
+def _combined_checks(quality_study, timing_study):
+    """Shared refusals for the combined analyses: the timing study must be serial
+    and cover the same instances and configurations. Returns (configs, instances,
+    reason); reason is None when the two studies can be combined."""
+    configs = [c for c in CONFIGS if any(r["configuration"] == c for r in quality_study["runs"])]
+    instances = _instances_of(quality_study)
+    if not bool(timing_study.get("timing_valid", timing_study.get("mode") == "serial")):
+        return configs, instances, "the timing study is not serial; ET and PM need a serial study"
+    if sorted(_instances_of(timing_study)) != sorted(instances):
+        return configs, instances, "the two studies cover different instances"
+    missing = set(configs) - {r["configuration"] for r in timing_study["runs"]}
+    if missing:
+        return configs, instances, f"the timing study lacks {sorted(missing)}"
+    return configs, instances, None
+
+
+def _sources(quality_study, timing_study, quality_terms):
+    qc = (quality_study.get("git") or {}).get("commit_start") or quality_study.get("commit")
+    tc = (timing_study.get("git") or {}).get("commit_start") or timing_study.get("commit")
+    return ({quality_terms: {"mode": quality_study.get("mode"), "seeds": len(quality_study.get("seeds") or []), "commit": qc},
+             "ET, PM": {"mode": timing_study.get("mode"), "seeds": len(timing_study.get("seeds") or []), "commit": tc}},
+            qc == tc)
+
+
+def combined_planned(quality_study, timing_study):
+    """The 18 planned REP comparisons (planned.py) as ONE Holm family across the two
+    studies: SU, CSR, C3 and C6 from the quality study (its 30 seeds), ET and PM from
+    the serial timing study. Same tests, thresholds and decisions as planned_family;
+    only the source of ET and PM differs. Refused unless the timing study is serial
+    and both cover the same instances and configurations."""
+    from planned import planned_family
+    configs, instances, reason = _combined_checks(quality_study, timing_study)
+    if reason:
+        return {"available": False, "reason": reason}
+    rq, rt = derive_rows(quality_study["runs"]), derive_rows(timing_study["runs"])
+    get_mat = lambda key: _block_matrix(rt if key in ("ET", "PM") else rq, key, configs, instances)
+    out = planned_family(get_mat, configs, True, alpha=ALPHA, holm=holm, shapiro=shapiro, d_z=d_z,
+                         rank_biserial_paired=rank_biserial_paired, magnitude=magnitude, labels=LABELS,
+                         measure_labels=MEASURE_LABELS, lower_is_better=LOWER_IS_BETTER,
+                         d_thr=D_THRESHOLD, r_thr=R_THRESHOLD, f=_f)
+    if out.get("available"):
+        src, same = _sources(quality_study, timing_study, "SU, CSR, C3, C6")
+        out.update(sources=src, same_commit=same, n_instances=len(instances))
+    return out
+
+
 def combined_composite(quality_study, timing_study):
     """The Chapter 3 composite with each term from the study that measures it: SU, CSR
     and Rob (sd of SU over the quality study's seeds per instance) from the quality
@@ -953,26 +1002,15 @@ def combined_composite(quality_study, timing_study):
     Friedman / Nemenyi test as composite(); only the source of ET and PM differs.
     Refused unless the timing study is serial and both cover the same instances and
     configurations; a commit mismatch is recorded, not refused."""
-    configs = [c for c in CONFIGS if any(r["configuration"] == c for r in quality_study["runs"])]
-    instances = _instances_of(quality_study)
-    t_valid = bool(timing_study.get("timing_valid", timing_study.get("mode") == "serial"))
-    if not t_valid:
-        return {"available": False, "reason": "the timing study is not serial; ET and PM need a serial study"}
-    if sorted(_instances_of(timing_study)) != sorted(instances):
-        return {"available": False, "reason": "the two studies cover different instances"}
-    t_configs = {r["configuration"] for r in timing_study["runs"]}
-    if set(configs) - t_configs:
-        return {"available": False, "reason": f"the timing study lacks {sorted(set(configs) - t_configs)}"}
+    configs, instances, reason = _combined_checks(quality_study, timing_study)
+    if reason:
+        return {"available": False, "reason": reason}
     if len(instances) < 2:
         return {"available": False, "reason": "requires >= 2 instances (the overall ranking is tested across instances)"}
     out = composite(derive_rows(quality_study["runs"]), configs, instances,
                     timing_rows=derive_rows(timing_study["runs"]))
-    qc = (quality_study.get("git") or {}).get("commit_start") or quality_study.get("commit")
-    tc = (timing_study.get("git") or {}).get("commit_start") or timing_study.get("commit")
-    out.update(title=COMBINED_COMPOSITE_LABEL,
-               sources={"SU, CSR, Rob": {"mode": quality_study.get("mode"), "seeds": len(quality_study.get("seeds") or []), "commit": qc},
-                        "ET, PM": {"mode": timing_study.get("mode"), "seeds": len(timing_study.get("seeds") or []), "commit": tc}},
-               same_commit=(qc == tc))
+    src, same = _sources(quality_study, timing_study, "SU, CSR, Rob")
+    out.update(title=COMBINED_COMPOSITE_LABEL, sources=src, same_commit=same)
     return out
 
 
@@ -1030,6 +1068,23 @@ def summary_lines(st):
         for sp, d in pf["decisions"].items():
             L.append(f"   {sp}: {d['decision']}")
         L.append(f"   outcome (REP): {pf['outcome']['pattern'] or '-'} - {pf['outcome']['description']}")
+    pc = st.get("planned_family_combined")
+    if pc:
+        if not pc.get("available"):
+            L.append(f"PLANNED FAMILY, combined studies: {pc['reason']}")
+        else:
+            src = pc["sources"]
+            L.append(f"PLANNED FAMILY, combined studies [{st.get('hypothesis_design')} decides H0] - REP vs DGWO/MOGWO/SEQ, "
+                     f"one Holm across {pc['holm_family_size']} testable of {pc['planned_size']} "
+                     f"(SU, CSR, C3, C6: {src['SU, CSR, C3, C6']['mode']}, {src['SU, CSR, C3, C6']['seeds']} seeds; "
+                     f"ET, PM: {src['ET, PM']['mode']}, {src['ET, PM']['seeds']} seeds; same commit: {pc['same_commit']}):")
+            for c in pc["comparisons"]:
+                L.append(f"   {c['sp']} {c['measure']} REP vs {c['other']}: " +
+                         (f"{c['test']} mean diff={c['mean_difference']} p={c['p_raw']} p_holm={c['p_holm']} "
+                          f"{c['effect']['name']}={c['effect']['value']} -> {c['verdict']}" if c.get("testable") else c["verdict"]))
+            for sp, d in pc["decisions"].items():
+                L.append(f"   {sp}: {d['decision']}")
+            L.append(f"   outcome (REP): {pc['outcome']['pattern'] or '-'} - {pc['outcome']['description']}")
     hf = st.get("hypothesis_family")
     if hf:
         L.append(f"HYPOTHESIS FAMILY (Holm across {hf['holm_family_size']} testable of 6): {hf['decision']}")
@@ -1122,7 +1177,8 @@ def main():
     p.add_argument("--no-write", action="store_true")
     p.add_argument("--timing", metavar="TIMING_STUDY.json",
                    help="a serial timing study of the same instances: adds the combined composite "
-                        "(SU, CSR, Rob from this study; ET, PM from the timing study)")
+                        "(SU, CSR, Rob from this study; ET, PM from the timing study) and the 18 planned "
+                        "REP comparisons as one Holm family across the two studies")
     a = p.parse_args()
     study = json.loads(Path(a.study).read_text(encoding="utf-8"))
     if study.get("stackr_study") != 1:
@@ -1133,6 +1189,7 @@ def main():
         if timing.get("stackr_study") != 1:
             sys.exit("--timing: not a study file (stackr_study != 1)")
         study["stats"]["composite_combined"] = combined_composite(study, timing)
+        study["stats"]["planned_family_combined"] = combined_planned(study, timing)
     if not a.no_write:
         save_stats(study, a.study)
     if a.do_print or a.no_write:

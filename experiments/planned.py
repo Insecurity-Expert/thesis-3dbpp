@@ -1,5 +1,5 @@
 """D2(b) hypothesis design: planned paired comparisons with the Repair-Based
-Hybrid (REP) as the reference configuration. FOR CONFIRMATION with the adviser.
+Hybrid (REP) as the reference configuration. Adopted as the H0 decision family.
 
 Family: for each of six measures - SU (SP1); CSR, C3 and C6 over all boxes
 (SP2); ET and PM (SP3) - REP is compared with DGWO, MOGWO and SEQ: 6 x 3 = 18
@@ -131,7 +131,7 @@ def planned_family(get_mat, configs, timing_valid, *, alpha, holm, shapiro, d_z,
     per_sp = {sp: decide(lambda c, sp=sp: c["sp"] == sp) for sp in ("SP1", "SP2", "SP3")}
     per_sp["SP4"] = decide(lambda c: c["other"] == BENCHMARK)
     per_sp["SP4"]["confound_note"] = SCHEDULE_CONFOUND
-    return {"available": True, "design": "planned paired comparisons, REP as reference (D2 b, for confirmation)",
+    return {"available": True, "design": "planned paired comparisons, REP as reference (D2 b)",
             "reference": REFERENCE, "others": list(OTHERS), "benchmark": BENCHMARK, "tails": TAILS,
             "correction": "Holm-Bonferroni", "planned_size": len(comps), "holm_family_size": fam,
             "comparisons": comps, "decisions": per_sp,
@@ -139,7 +139,7 @@ def planned_family(get_mat, configs, timing_valid, *, alpha, holm, shapiro, d_z,
 
 
 def outcome(comps, labels):
-    """Outcome patterns restated for REP (FOR CONFIRMATION):
+    """Outcome patterns restated for REP:
     A  REP outperforms all three (DGWO, MOGWO, SEQ) on both primary metrics (SU, CSR);
     B  REP outperforms at least one but not all of them on the primary metrics, and is
        outperformed by none on a primary metric;
