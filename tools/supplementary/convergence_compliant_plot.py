@@ -42,7 +42,7 @@ def main():
 
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10})
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.4), dpi=200)
-    panels = ((axes[0], "csu", "(a) Compliant space utilization", "Compliant SU of current best solution (%)", "top"),
+    panels = ((axes[0], "csu", "(a) Compliant space utilization", "Compliant SU of current best solution (%)", "bottom"),
               (axes[1], "csr", "(b) Constraint satisfaction", "CSR of current best, loaded boxes (%)", "bottom"))
     for ax, key, title, ylab, where in panels:
         for c in CFGS:
@@ -64,12 +64,13 @@ def main():
         ax.grid(alpha=0.25, lw=0.6)
         for s in ("top", "right"):
             ax.spines[s].set_visible(False)
-    axes[0].legend(frameon=False, fontsize=8.5, loc="upper left", ncol=2)
+    axes[0].legend(frameon=False, fontsize=8.5, loc="lower left", bbox_to_anchor=(0.05, 0.0), ncol=2)
     fig.text(0.01, 0.012,
              "Instance 350 (outside the 30-instance sample); population 30; 500 iterations; 5 seeds per configuration. Lines: mean over seeds; bands: ±1 SD.\n"
-             "Each curve follows the configuration's own best solution (DGWO by PEN-1; MOGWO by archive SU; SEQ by PEN-1, then archive SU from iteration 250), not the best by compliant SU, so curves can dip. Code: thesis-run-v3.",
+             "Each curve follows the configuration's own best solution (DGWO: PEN-1; MOGWO: archive SU; SEQ: PEN-1, then archive SU from iteration 250),\n"
+             "not the best by compliant SU, so curves can dip. Code: thesis-run-v3.",
              fontsize=7.3, color="0.3")
-    fig.tight_layout(rect=(0, 0.075, 1, 1))
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     out = Path(a.out)
     fig.savefig(out / "convergence_compliant.png")
     fig.savefig(out / "convergence_compliant.pdf")
