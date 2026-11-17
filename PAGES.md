@@ -8,7 +8,7 @@ saved history); nothing is typed into the components.
 
 | route | page | notes |
 |---|---|---|
-| `/` | `LandingPage.jsx` | public landing page |
+| `/` | `LandingPage.jsx` | public landing page: Log in and Register (Open STACKR when already signed in), What it does and Why it matters in two columns |
 | `/login` | `auth/LoginPage.jsx` | email + password |
 | `/register` | `auth/RegisterPage.jsx` | name, email, password, recovery question and answer |
 | `/app` | `Shell.jsx` | signed-in only; anyone else is sent to `/login` |
@@ -29,7 +29,7 @@ The sidebar groups the pages:
 
 | page | component | what it shows |
 |---|---|---|
-| Home | `components/DashboardTab.jsx` | the "New here?" banner, three step cards, what you need, and counts of your own runs and studies |
+| Home | `components/DashboardTab.jsx` | a compact start screen: the title, Start analysis and the three steps (help stays in the top bar) |
 | Start analysis | `components/LogisticsTab.jsx` | the three-step wizard (below) |
 | Results | `components/ResultsPanel.jsx` (default export), `components/results/*`, `viewer/resultsMetrics.js` | **Performance Overview** of the methods on the selected load (means over its runs): tabs Overall · Packing Efficiency (SP1) · Safety & Delivery Order (SP2) · Computational Resources (SP3). Default: the two hybrids as cards; "Compare All Methods" (`?view=all`) shows all four in a table (one card per method under ~640 px). Best value per metric marked green with ✓ Highest / ✓ Lowest (ties all marked); a descriptive rank (Overall: the equal-weighted composite score; other tabs: the first metric), captioned as not a statistical test. Each method: View Arrangement (3D viewer, representative run) and Export Guide. Time and memory of a parallel study are flagged invalid and neither marked nor ranked |
 | Technical Details | `components/ResultsPanel.jsx` (`TechnicalDetailsPanel`), `study/StudyDetails.jsx`, `study/StatsSections.jsx`, `study/StudyResults.jsx`, `components/ResultsTab.jsx` (single run) | the selected study's detail view. Visible by default: a header line (outcome pattern, test cases, runs, preset) and the SOP Summary: container fill (SU), rule compliance and load-bearing (C3) and stop order (C6) over all boxes, execution time and peak memory, per configuration, with "Best" / "No significant difference" marks (with ≥ 2 test cases only where stats.py's Holm-corrected test and effect-size threshold both support it), the one-sentence finding per SP and the fragility/stability note. Everything else is under **Show all numbers** (closed; nothing mounts until opened), grouped SP1 · SP2 · SP3 · Supplementary · Per load and per run, each part collapsed: summary statistics, normality, omnibus and pairwise tests with effect sizes, the SP3 charts, the composite ranking, the Greedy / Random Order baselines, extra numbers and run settings (λ), saved runs side by side, the configuration cards, every run and the trade-offs chart. A saved run opened from Run History is shown below it |

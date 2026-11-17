@@ -399,15 +399,6 @@ export default function Shell() {
     } catch (e) { setError(`Could not delete study #${s.id}: ${e.message}`); }
   }, [fetchStudies, selectedStudyId]);
 
-  // Run History, on its Runs or Studies tab.
-  const openHistory = useCallback((tab = "runs") => {
-    setActiveTab("history");
-    const p = new URLSearchParams(searchParams);
-    p.set("page", "history");
-    if (tab === "studies") p.set("tab", "studies"); else p.delete("tab");
-    setSearchParams(p, { replace: true });
-  }, [searchParams, setSearchParams]);
-
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
     setActiveTab("results");
@@ -889,7 +880,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} onOpenHistory={openHistory} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} />
       )}
 
       {/* ── LOADING GUIDE ── */}
