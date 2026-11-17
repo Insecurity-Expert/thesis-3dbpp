@@ -293,8 +293,10 @@ function ViewToggle({ all, hybridsHere, full, setFull }) {
 
 // ── Results: Performance Overview ────────────────────────────────────────────
 // Descriptive comparison of the methods on ONE load (means over its runs,
-// viewer/resultsMetrics.js). Hybrids view: two cards; comparison view (?view=all):
-// all four in a table. Ranking is a reading aid, never a statistical test.
+// viewer/resultsMetrics.js). Default view: the proposed hybrid (Repair-Based) as
+// one card; comparison view (?view=all): all four in a table. Ranks and best
+// marks are always taken across all four methods. Ranking is a reading aid,
+// never a statistical test.
 function SkeletonCards() {
   return (
     <div className="ro-cards" aria-busy="true" aria-label="Loading the results">
@@ -381,7 +383,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
         <div>
           <div className="ro-title">Performance Overview</div>
           <div className="ro-sub">
-            {full ? "All four methods on this load." : "How our two proposed hybrid methods performed on this load."} {runCountText(vals)}
+            {full ? "All four methods on this load." : "How our proposed hybrid method performed on this load. Its rank and ✓ marks are among all four methods."} {runCountText(vals)}
           </div>
         </div>
         {full && (
@@ -397,7 +399,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
           {nRan === 1 && <div className="ro-note">Only one method was run on this load, so nothing is ranked or marked best.</div>}
           {!full ? (
             <>
-              <div className="ro-section-label">Proposed hybrid methods</div>
+              <div className="ro-section-label">Proposed hybrid method</div>
               <div className="ro-cards">
                 {cardOrder.map((c) => (
                   <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} invalidNote={invalidNote}
@@ -406,8 +408,8 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
               </div>
               <div className="ro-banner">
                 <div>
-                  <b>See how they compare with DGWO and MOGWO</b>
-                  <div className="ro-sub">DGWO and MOGWO are the baseline methods. Each one also has View Arrangement and Export Guide.</div>
+                  <b>See how it compares with DGWO, MOGWO and Sequential</b>
+                  <div className="ro-sub">These are the methods Repair-Based is compared with. Each one also has View Arrangement and Export Guide.</div>
                 </div>
                 <button type="button" className="btn ro-btn-dark" onClick={() => { setFull(true); setScrollToTable(true); }}>
                   Compare All Methods <span aria-hidden="true">⌄</span>
@@ -422,14 +424,6 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
           )}
         </>
       )}
-
-      <div className="ro-footer">
-        <div className="ro-legend">
-          <span className="ro-legend-key">Green ✓ = best value in that {full ? "column" : "row"}</span>
-          <span>Fragility and stability are guaranteed for every loaded box.</span>
-        </div>
-        {onOpenTechnical && <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details →</button>}
-      </div>
     </div>
   );
 }

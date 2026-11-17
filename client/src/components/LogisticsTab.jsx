@@ -5,7 +5,7 @@
 //   Step 3  Review & run   facts computed from the load, then Run STACKR
 // Every value shown is read from the load, the converter or the server's
 // study sizes; controls that cannot work are disabled with a note.
-import React, { useState } from "react";
+import React from "react";
 
 import { METHODS, methodOf } from "../methods";
 import LoadSources from "./LoadSources";
@@ -88,7 +88,6 @@ export default function LogisticsTab({
   sizesInfo = null, onRunStackr, studyBusy = false, largerSizes = null, testSettings = null,
 }) {
   const toast = useToast();
-  const [preset, setPreset] = useState("quick");   // the Quick Test's preset, for all four configurations
   const custom = selectedLoad.custom;
   const src = loadSources.source;
   const sampleMeta = loadSources.samples && loadSources.samples.samples
@@ -100,12 +99,6 @@ export default function LogisticsTab({
   const setDim = (k, v) => setContainerSpecs({ ...containerSpecs, [k]: v });
 
   const demo = sizesInfo && sizesInfo.sizes ? sizesInfo.sizes.find((s) => s.key === "demo") : null;
-  const PRESET_INFO = {
-    quick:    { label: "Quick demo", pop: 10, iter: 60 },
-    standard: { label: "Standard",   pop: 10, iter: 300 },
-    thesis:   { label: "Thesis",     pop: 30, iter: 300 },
-  };
-
   // Step 1 is done when the load on screen is ready.
   const step1Ready = custom ? !!selectedLoad.checked
     : src === "sample" ? loadSources.sampleId !== null && loadSources.sampleId !== undefined
@@ -270,46 +263,6 @@ export default function LogisticsTab({
               </div>
             )}
           </div>
-
-          <div className="info-callout">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>What Run STACKR does</div>
-              <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                {demo
-                  ? <>It packs this load with all four methods, {demo.runs / 4} times each (repeat codes {String(demo.seeds).replace("-", "–")}): {demo.runs} runs, up to {demo.workers} at a time. Then Results compares Sequential and Repair-Based, with the full four-configuration comparison one click away.</>
-                  : "Reading the run settings from the server…"}
-              </div>
-            </div>
-          </div>
-
-          <details className="collapsible card" style={{ marginTop: 18 }}>
-            <summary>Advanced</summary>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 12 }}>
-              <div>
-                <div className="card-title">Quick Test</div>
-                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run per configuration, one seed (repeat code {seed}), all four with the same settings. Results opens on the two hybrids; Compare All Methods shows all four. Use Run STACKR to compare the configurations over several repeat codes.</div>
-                <div className="tabs-inline grow" style={{ marginBottom: 6 }}>
-                  {Object.entries(PRESET_INFO).map(([key, p]) => (
-                    <button key={key} type="button" onClick={() => setPreset(key)} disabled={running || studyBusy} className={preset === key ? "active" : ""}
-                      title={`pack size ${p.pop} × ${p.iter} iterations — ${quickTestEstimate(runHistory, p.pop, p.iter)}`}>{p.label}</button>
-                  ))}
-                </div>
-                <div className="field-hint" style={{ marginBottom: 2 }}>pack size {PRESET_INFO[preset].pop} × {PRESET_INFO[preset].iter} iterations, for all four configurations</div>
-                <div className="field-hint" style={{ marginBottom: 12 }}>{quickTestEstimate(runHistory, PRESET_INFO[preset].pop, PRESET_INFO[preset].iter)}</div>
-                <button type="button" className="btn btn-secondary" onClick={() => onQuickTest(preset)} disabled={studyBusy || running || !f}>
-                  {studyBusy ? "Starting…" : "Quick Test — one run of each configuration"}
-                </button>
-              </div>
-              {largerSizes && (
-                <div>
-                  <div className="card-title">Larger comparisons</div>
-                  <div className="card-desc" style={{ marginBottom: 10 }}>More repeat codes or more test cases than Run STACKR. They take much longer.</div>
-                  {largerSizes}
-                </div>
-              )}
-            </div>
-          </details>
         </div>
       )}
 

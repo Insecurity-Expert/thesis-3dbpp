@@ -8,8 +8,9 @@
 // placed, n_items, exec_time_ms, peak_mem_mb.
 
 export const METHOD_ORDER = ["SEQ", "REP", "DGWO", "MOGWO"];
-export const HYBRID_METHODS = ["SEQ", "REP"];
-export const BASELINE_METHODS = ["DGWO", "MOGWO"];
+// Repair-Based is the proposed hybrid; the other three are what it is compared with.
+export const HYBRID_METHODS = ["REP"];
+export const BASELINE_METHODS = ["DGWO", "MOGWO", "SEQ"];
 
 // Display name and the tag pill of each method (mechanism, never a result).
 export const METHOD_INFO = {
