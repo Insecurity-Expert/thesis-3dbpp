@@ -399,8 +399,8 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
           {nRan === 1 && <div className="ro-note">Only one method was run on this load, so nothing is ranked or marked best.</div>}
           {!full ? (
             <>
-              <div className="ro-section-label">Proposed hybrid method</div>
-              <div className="ro-cards">
+              <div className="ro-section-label" style={cardOrder.length === 1 ? { textAlign: "center" } : undefined}>Proposed hybrid method</div>
+              <div className={cardOrder.length === 1 ? "ro-cards ro-cards-single" : "ro-cards"}>
                 {cardOrder.map((c) => (
                   <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} invalidNote={invalidNote}
                     onView={() => view(c)} onGuide={() => guide(c)} onRun={run} />
