@@ -236,7 +236,7 @@ def run_task(task):
     from preprocessing.pipeline import load_augmented_instance
     from thesis_algorithms import (StandaloneDGWO, StandaloneMOGWO,
                                    SequentialHybrid, RepairBasedHybrid)
-    from thesis_metrics import evaluate_constraints, space_utilization
+    from thesis_metrics import evaluate_constraints, space_utilization, compliant_space_utilization
     from validate_arrangement import validate
     from layout_metrics import layout_indicators
 
@@ -310,6 +310,8 @@ def run_task(task):
         'n_items':          len(boxes),
         'placed':           len(best.placements),
         'su_pct':           round(space_utilization(best.placements, container) * 100.0, 4),
+        # M-1b (SP1): the volume of loaded boxes that follow C3-C6 (descriptive; not hashed)
+        'compliant_su_pct': round(compliant_space_utilization(best.placements, boxes, best.orientations, container) * 100.0, 4),
         'csr_pct':          round(csr, 4),
         'C3_pct':           round(detail['C3_weight_pct'], 4),
         'C4_pct':           round(detail['C4_fragility_pct'], 4),

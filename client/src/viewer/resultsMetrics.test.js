@@ -94,8 +94,8 @@ test("composite leaves out time and memory when timing is invalid (parallel runs
 test("run-count wording and tab metric order", () => {
   expect(runCountText(methodValues([run("SEQ"), run("SEQ"), run("REP")]))).toBe("Means over 1–2 runs per method.");
   expect(runCountText(methodValues([run("SEQ"), run("REP")]))).toBe("Means over 1 run per method.");
-  expect(metricsFor("overall").map((m) => m.key)).toEqual(["fill", "csr_all", "c3_all"]);
-  expect(metricsFor("sp1").map((m) => m.key)).toEqual(["fill", "spread", "boxes"]);
+  expect(metricsFor("overall").map((m) => m.key)).toEqual(["csu", "fill", "csr_all", "c3_all"]);
+  expect(metricsFor("sp1").map((m) => m.key)).toEqual(["csu", "fill", "spread", "boxes"]);
   expect(metricsFor("sp2").map((m) => m.key)).toEqual(["csr_all", "c3_all", "c6_all", "csr_loaded"]);
   expect(metricsFor("sp3").map((m) => m.key)).toEqual(["time", "memory"]);
 });
@@ -104,4 +104,27 @@ test("number formats: one decimal for %, thousands separators for ms, one decima
   expect(metricByKey("fill").format(61.234)).toBe("61.2%");
   expect(metricByKey("time").format(31618.4)).toBe("31,618 ms");
   expect(metricByKey("memory").format(204.44)).toBe("204.4 MB");
+});
+
+test("compliant fill (M-1b): shown when every run has it, and then used for SP1, spread and the composite", () => {
+  const runs = [
+    run("REP", { su_pct: 55, compliant_su_pct: 55 }), run("REP", { su_pct: 57, compliant_su_pct: 57 }),
+    run("SEQ", { su_pct: 62, compliant_su_pct: 42 }), run("SEQ", { su_pct: 64, compliant_su_pct: 46 }),
+  ];
+  const v = methodValues(runs);
+  expect(v.REP.values.csu).toBe(56);
+  expect(v.SEQ.values.csu).toBe(44);
+  expect(v.SEQ.values.spread).toBeCloseTo(sd([42, 46]));       // SD of compliant fill
+  expect(metricsFor("sp1")[0].key).toBe("csu");
+  expect(ranksFor("sp1", v).criterion).toBe("csu");
+  expect(ranksFor("sp1", v).ranks).toEqual({ REP: 1, SEQ: 2 }); // raw fill would put SEQ first
+  expect(compositeScores(v).terms).toContain("csu");
+  expect(compositeScores(v).terms).not.toContain("fill");
+});
+
+test("compliant fill: an older study file without it shows nothing and falls back to container fill", () => {
+  const v = methodValues([run("REP", { su_pct: 55 }), run("SEQ", { su_pct: 62 })]);
+  expect(v.REP.values.csu).toBeNull();
+  expect(ranksFor("sp1", v).criterion).toBe("fill");
+  expect(compositeScores(v).terms).toContain("fill");
 });

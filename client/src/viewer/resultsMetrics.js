@@ -4,8 +4,9 @@
 // Details / Studies, from experiments/stats.py).
 //
 // Run record fields used (written by experiments/study.py): configuration,
-// su_pct, csr_pct (over placed boxes), C3_pct / C6_pct (over placed boxes),
-// placed, n_items, exec_time_ms, peak_mem_mb.
+// su_pct, compliant_su_pct (M-1b, the SP1 measure; older study files get it
+// from tools/add_compliant_su.py), csr_pct (over placed boxes), C3_pct /
+// C6_pct (over placed boxes), placed, n_items, exec_time_ms, peak_mem_mb.
 
 export const METHOD_ORDER = ["SEQ", "REP", "DGWO", "MOGWO"];
 // Repair-Based is the proposed hybrid; the other three are what it is compared with.
@@ -33,11 +34,18 @@ const fmtPp = (v) => `${v.toFixed(1)} pp`;
 //                    value among the methods; "share": barValue(runs) in percent
 //   higher        -> true when higher is better
 //   decimals      -> precision at which two methods count as tied
+// Compliant fill of every run, or null when a run predates the field (then the
+// fill-based fallbacks below apply, so older study files still read sensibly).
+const csuOf = (rs) => (rs.every((r) => r.compliant_su_pct != null) ? rs.map((r) => r.compliant_su_pct) : null);
+
 export const METRICS = [
+  { key: "csu", tab: ["overall", "sp1"], label: "Compliant fill (rule-following boxes)", unit: "%", higher: true, bar: "pct", decimals: 1,
+    aria: "percent", value: (rs) => { const v = csuOf(rs); return v ? mean(v) : null; }, format: fmtPct },
   { key: "fill", tab: ["overall", "sp1"], label: "Container fill", unit: "%", higher: true, bar: "pct", decimals: 1,
     aria: "percent", value: (rs) => mean(rs.map((r) => r.su_pct)), format: fmtPct },
-  { key: "spread", tab: ["sp1"], label: "Run-to-run spread (SD of fill)", unit: "pp", higher: false, bar: "relative", decimals: 1,
-    aria: "percentage points", value: (rs) => sd(rs.map((r) => r.su_pct)), format: fmtPp, minRuns: 2 },
+  // Robustness (M-5): run-to-run SD of compliant fill, as in the thesis; of fill for older files.
+  { key: "spread", tab: ["sp1"], label: "Run-to-run spread (SD)", unit: "pp", higher: false, bar: "relative", decimals: 1,
+    aria: "percentage points", value: (rs) => sd(csuOf(rs) || rs.map((r) => r.su_pct)), format: fmtPp, minRuns: 2 },
   { key: "boxes", tab: ["sp1"], label: "Boxes loaded", unit: "boxes", higher: true, bar: "share", decimals: 1,
     aria: "boxes", value: (rs) => mean(rs.map((r) => r.placed)),
     barValue: (rs) => mean(rs.map((r) => (r.n_items ? (100 * r.placed) / r.n_items : 0))),
@@ -125,14 +133,17 @@ function normalize(codes, get) {
 
 // Equal-weighted composite (Chapter 3): 0.25 fill + 0.25 compliance (all boxes)
 // + 0.25 (1 - cost) + 0.25 (1 - spread); cost = mean of the normalised time and
-// memory. With timing invalid (parallel runs) or a term missing for some
-// method, that term is left out and the rest are weighted equally.
+// memory. The fill term is compliant fill (M-1b, as in the thesis) when every
+// method has it, container fill otherwise. With timing invalid (parallel runs)
+// or a term missing for some method, that term is left out and the rest are
+// weighted equally.
 export function compositeScores(vals, { timingOk = true } = {}) {
   const codes = Object.values(vals).filter((v) => v.ran).map((v) => v.code);
   if (codes.length < 2) return { scores: {}, terms: [] };
   const has = (k) => codes.every((c) => vals[c].values[k] != null);
   const terms = [];
-  if (has("fill")) terms.push({ key: "fill", n: normalize(codes, (c) => vals[c].values.fill), invert: false });
+  if (has("csu")) terms.push({ key: "csu", n: normalize(codes, (c) => vals[c].values.csu), invert: false });
+  else if (has("fill")) terms.push({ key: "fill", n: normalize(codes, (c) => vals[c].values.fill), invert: false });
   if (has("csr_all")) terms.push({ key: "csr_all", n: normalize(codes, (c) => vals[c].values.csr_all), invert: false });
   if (timingOk && has("time") && has("memory")) {
     const t = normalize(codes, (c) => vals[c].values.time), mm = normalize(codes, (c) => vals[c].values.memory);
@@ -165,7 +176,9 @@ export function ranksFor(tab, vals, { timingOk = true } = {}) {
     const r = (x) => Math.round(x * 1e9) / 1e9;
     return { ranks: rankBy(codes, (c) => (scores[c] == null ? null : r(scores[c])), true), criterion: "composite", terms, scores };
   }
-  const m = metricsFor(tab)[0];
+  // The tab's first metric that every method has (compliant fill on SP1; an
+  // older study file without it falls back to container fill).
+  const m = metricsFor(tab).find((x) => codes.every((c) => vals[c].values[x.key] != null)) || metricsFor(tab)[0];
   if (m.timing && !timingOk) return { ranks: {}, criterion: null };
   return { ranks: rankBy(codes, (c) => (vals[c].values[m.key] == null ? null : round(vals[c].values[m.key], m.decimals)), m.higher),
            criterion: m.key };
@@ -182,7 +195,7 @@ export function runCountText(vals) {
 export function criterionText(rank) {
   if (!rank || !rank.criterion) return null;
   if (rank.criterion === "composite") {
-    const names = { fill: "container fill", csr_all: "rule compliance (all boxes)", cost: "time and memory", spread: "run-to-run spread" };
+    const names = { csu: "compliant fill", fill: "container fill", csr_all: "rule compliance (all boxes)", cost: "time and memory", spread: "run-to-run spread" };
     return `the equal-weighted composite score (${rank.terms.map((t) => names[t]).join("; ")})`;
   }
   return metricByKey(rank.criterion).label.toLowerCase();
