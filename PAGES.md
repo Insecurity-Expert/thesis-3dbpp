@@ -39,14 +39,14 @@ The sidebar groups the pages:
 
 | page | component | what it shows |
 |---|---|---|
-| 3D Viewer | `components/VisualizationTab.jsx`, `BinViewer.jsx` | the packed container in three.js: colour by delivery stop or by box, filter by stop, "Highlight problems" (boxes breaking C3–C6), orientation guides, box names, the rear door and cab end marked |
+| 3D Viewer | `components/VisualizationTab.jsx`, `BinViewer.jsx` | the packed container in three.js, full width: colour by type, box, delivery stop or problem (boxes breaking C3–C6), filter by stop, orientation guides, box names, the rear door and cab end marked. Clicking (or hovering) a box shows its details in a card floating inside the viewer. Under it: the gap figures and the loading order |
 | Run History | `components/RunHistoryTab.jsx`, `study/StudyList.jsx` | two tabs. **Runs**: your saved runs: method, test case, repeat code (seed), container fill, rule scores C3–C6; filter by method, relabel, replay, export as JSON, delete, Download as CSV. **Studies** (`?tab=studies`; the old `/studies` link redirects here): your studies (Open → Results, Delete with confirmation) and, collapsed under "Show precomputed studies (N)", the study files in `experiments/results/studies/` to import, newest first, one entry per study (a file computed again on the same commit with the same settings is listed once) |
 
 **Account**
 
 | page | component | what it shows |
 |---|---|---|
-| Account Settings | `components/AccountTab.jsx` | your details and sign out; actions not built yet are shown disabled |
+| Account Settings | `components/AccountTab.jsx` | your details and sign out (to the landing page); change password and delete account are not built yet and are shown disabled |
 
 ## Start analysis: the wizard (`LogisticsTab.jsx`)
 
@@ -67,7 +67,7 @@ Run STACKR is the only way to start a comparison from the app. Quick Test and th
 |---|---|
 | `components/ui.jsx` | pop-up (modal) and toast |
 | `components/HowToModal.jsx` | the six-step "How to use STACKR" pop-up; opens by itself only on a new account's first login |
-| `components/ThingsToKnow.jsx` | caveats shown in Results and Account, computed from the data held |
+| `components/ThingsToKnow.jsx` | caveats computed from the data held (no longer shown in Account) |
 | `components/TradeoffsChart.jsx` | one dot per run: container fill against rule-following over all boxes |
 | `study/LineChart.jsx` | small inline-SVG line chart |
 | `methods.js` | the four methods' names and one-line descriptions |

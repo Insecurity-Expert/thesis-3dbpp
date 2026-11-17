@@ -1,5 +1,4 @@
 import React from "react";
-import ThingsToKnow from "./ThingsToKnow";
 
 // Display-only account page. Layout follows the groupmate fork's AccountTab;
 // none of its logic is kept (it PUT to /api/auth/me, which this server does
@@ -35,7 +34,7 @@ function ActionRow({ title, desc, button, danger = false, onClick = null, isLast
 export default function AccountTab({ user, logout, studies, result }) {
   if (!user) return null;
   return (
-    <div className="account-layout">
+    <div className="account-layout" style={{ gridTemplateColumns: "1fr", maxWidth: 720 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
         <div className="card">
           <div className="card-head">
@@ -65,13 +64,10 @@ export default function AccountTab({ user, logout, studies, result }) {
         <div className="card" style={{ paddingBottom: 16 }}>
           <div className="card-head" style={{ marginBottom: 12 }}><div><div className="card-title">Account actions</div></div></div>
           <ActionRow title="Password" desc="Change your password" button="Change password" />
-          <ActionRow title="Download the app" desc="Save a copy you can open offline" button="Download" />
           <ActionRow title="Sign out" desc="End your session on this device" button="Sign out" onClick={logout} />
           <ActionRow title="Delete account" desc="Remove your account and saved runs" button="Delete" danger isLast />
         </div>
       </div>
-
-      <ThingsToKnow result={result} studies={studies} />
     </div>
   );
 }

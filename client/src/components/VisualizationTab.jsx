@@ -131,7 +131,6 @@ export default function VisualizationTab({
     result.centered_items &&
     result.centered_items.length > 0
   );
-  const isImproved = Boolean(result && result.lateral_balance && result.lateral_balance.improved);
 
   const items = useMemo(() => {
     if (centerLoad && hasCentered) return result.centered_items;
@@ -307,87 +306,11 @@ export default function VisualizationTab({
       {/* Upper Section: Inspection & 3D Viewer */}
       <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
 
-        {/* Left Column: Box Details (Pinned/Sticky) */}
-        <div style={{ flex: "0 0 340px", minWidth: 320, position: "sticky", top: "24px" }}>
-          <div className="card" style={{ minHeight: "180px", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "14px" }}>
-              <h4 className="section-tag" style={{ margin: 0 }}>● BOX DETAILS</h4>
-              {pinned && <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPinned(null)}>Clear</button>}
-            </div>
-            {details ? renderDetails(details) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--text-dim)", fontSize: "12px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: "8px", padding: "16px" }}>
-                Click a box to keep its details here, or hover to peek.
-              </div>
-            )}
-          </div>
-
+        {/* Gaps and loading order: a row under the full-width viewer (order: 2).
+            Box details float inside the viewer; the lateral-balance panel is gone. */}
+        <div style={{ flex: "1 1 100%", order: 2, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
           {result && (
-            <div className="card" style={{ marginTop: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
-                <h4 className="section-tag" style={{ margin: 0 }}>● LATERAL BALANCE (M-7)</h4>
-                {hasCentered && (
-                  <button
-                    type="button"
-                    className={`btn btn-xs ${centerLoad ? "btn-primary" : "btn-ghost"}`}
-                    onClick={() => setCenterLoad((c) => !c)}
-                    style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px" }}
-                    title={centerLoad ? "Click to view original DBLF packing" : "Click to view balanced arrangement"}
-                  >
-                    {centerLoad ? "Centered ✓" : (isImproved ? "Center Load" : "Centered (Optimal)")}
-                  </button>
-                )}
-              </div>
-              {result.lateral_balance ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-                  <Row
-                    k="Layout Mode"
-                    v={centerLoad && hasCentered ? "Post-Centered (Balanced)" : "Standard DBLF"}
-                    color={centerLoad && hasCentered ? "var(--green)" : "var(--primary)"}
-                  />
-                  <Row
-                    k="Left vs Right Mass"
-                    v={
-                      centerLoad && hasCentered
-                        ? `${fmtNum(result.lateral_balance.after.left_mass, 1)} / ${fmtNum(result.lateral_balance.after.right_mass, 1)} kg`
-                        : `${fmtNum(result.lateral_balance.before.left_mass, 1)} / ${fmtNum(result.lateral_balance.before.right_mass, 1)} kg`
-                    }
-                  />
-                  <Row
-                    k="Imbalance (M-7)"
-                    v={
-                      centerLoad && hasCentered
-                        ? `${fmtNum(result.lateral_balance.after.lr_mass_imbalance_pct, 1)}%${isImproved ? ` (was ${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%)` : ""}`
-                        : `${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%`
-                    }
-                    color={centerLoad && hasCentered ? "var(--green)" : (result.lateral_balance.before.lr_mass_imbalance_pct > 15 ? "var(--amber)" : "var(--text-main)")}
-                  />
-                  <div className="field-hint">
-                    {isImproved
-                      ? "Post-processing shifts rigid vertical stacks toward the centerline without violating constraints C1\u2013C6."
-                      : "Arrangement is already at minimum lateral imbalance or fully bounded by neighboring boxes."}
-                  </div>
-                  {centerLoad && hasCentered && result.lateral_balance.shifts && (() => {
-                    const shifted = Object.values(result.lateral_balance.shifts).filter(d => Math.abs(d) > 0.5);
-                    const maxShift = shifted.length > 0 ? Math.max(...shifted.map(Math.abs)) : 0;
-                    return shifted.length > 0 ? (
-                      <div className="field-hint" style={{ color: '#22d3ee', fontWeight: 600 }}>
-                        {shifted.length} box{shifted.length === 1 ? '' : 'es'} shifted (max {fmtNum(maxShift, 1)} cm) — highlighted cyan in 3D
-                      </div>
-                    ) : (
-                      <div className="field-hint">No boxes needed shifting — layout already optimal.</div>
-                    );
-                  })()}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                  Lateral balance data not available for this run (run STACKR or open a study arrangement to view).
-                </div>
-              )}
-            </div>
-          )}
-
-          {result && (
-            <div className="card" style={{ marginTop: 16 }}>
+            <div className="card">
               <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● GAPS</h4>
               {gaps ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
@@ -432,7 +355,7 @@ export default function VisualizationTab({
           )}
 
           {plan && plan.steps.length > 0 && (
-            <div className="card" style={{ marginTop: 16, fontSize: 12.5 }}>
+            <div className="card" style={{ fontSize: 12.5 }}>
               <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "10px" }}>● LOADING ORDER</h4>
               {!planCheck.ok ? (
                 <div style={{ color: "var(--amber)", fontWeight: 600 }}>No valid loading order: {planCheck.problems[0]}</div>
@@ -458,8 +381,8 @@ export default function VisualizationTab({
           )}
         </div>
 
-        {/* Right Column: 3D Viewer Canvas */}
-        <div style={{ flex: "1 1 600px", minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+        {/* 3D Viewer Canvas: full width, with the box details floating inside it */}
+        <div style={{ flex: "1 1 100%", order: 1, minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: 12, flexWrap: "wrap" }}>
             <div>
               <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Your packed container</h3>
@@ -486,6 +409,18 @@ export default function VisualizationTab({
           ) : result && multiBin && pv ? (
             <div className="alert-danger">The viewer shows one container; this run uses more than one.</div>
           ) : result && container ? (
+            <div style={{ position: "relative" }}>
+            {details && (
+              // Box details, floating in the viewer's top-left corner: the clicked
+              // (pinned) box, or the box under the pointer.
+              <div className="viewer-details" role="dialog" aria-label="Box details">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 10 }}>
+                  <h4 className="section-tag" style={{ margin: 0 }}>● BOX DETAILS</h4>
+                  {pinned && <button type="button" className="btn btn-ghost btn-xs" aria-label="Close box details" onClick={() => setPinned(null)}>✕</button>}
+                </div>
+                {renderDetails(details)}
+              </div>
+            )}
             <BinViewer
               placements={filteredPlacements}
               container={container}
@@ -515,6 +450,7 @@ export default function VisualizationTab({
               centerOfMassX={centerOfMassX}
               comBalanced={comBalanced}
             />
+            </div>
           ) : running && source === "run" ? (
             <LiveProgress stats={stats} />
           ) : (
@@ -575,10 +511,6 @@ export default function VisualizationTab({
               <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
               <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
             </div>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="Shift rigid vertical stacks laterally to balance left-right weight without violating C1-C6">Balance lateral load (M-7)</span>
-              <label className="switch"><input type="checkbox" checked={centerLoad} disabled={!hasCentered} onChange={(e) => setCenterLoad(e.target.checked)} /><span className="slider" /></label>
-            </div>
 
             <div>
               <label style={CAPTION}>Stop</label>
@@ -613,36 +545,6 @@ export default function VisualizationTab({
               {container && (
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px", fontSize: 12, color: "var(--text-dim)" }}>
                   Container: {container.length_cm ?? container.L} × {container.width_cm ?? container.D} × {container.height_cm ?? container.H} cm
-                </div>
-              )}
-
-              {pv && (
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px" }}>
-                  <div className="switch-container" style={{ marginBottom: 10 }}>
-                    <span className="switch-label" style={{ fontWeight: 600 }}>Highlight problems</span>
-                    <label className="switch"><input type="checkbox" checked={highlight} onChange={(e) => setHighlight(e.target.checked)} /><span className="slider" /></label>
-                  </div>
-                  {RULES.some(r => pv.violating[r] > 0) && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {RULES.map((r) => {
-                        const n = pv.violating[r];
-                        if (n === 0) return null;
-                        const on = ruleFilter === r;
-                        return (
-                          <button key={r} type="button"
-                            onClick={() => { setHighlight(true); setRuleFilter(on ? null : r); }}
-                            style={{
-                              padding: "4px 8px", borderRadius: 4, cursor: "pointer",
-                              border: `1px solid ${on ? RULE_COLOR[r] : "var(--border)"}`,
-                              background: on ? "var(--bg-input)" : "transparent",
-                              color: "var(--text-main)", fontSize: 11, fontWeight: on ? 700 : 500
-                            }}>
-                            {r} ({n})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
 

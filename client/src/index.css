@@ -541,6 +541,17 @@ input:checked + .slider:before { transform: translateX(16px); }
   .guide-page:last-child { break-after: auto; }
   .data-table th, .data-table td { color: #000 !important; }
 }
+/* 3D Viewer: box details floating inside the viewer, top-left */
+.viewer-details {
+  position: absolute; top: 12px; left: 12px; z-index: 5;
+  /* ends above the playback bar and the legend row; scrolls when longer */
+  width: 300px; max-width: calc(100% - 24px); max-height: calc(100% - 190px); overflow-y: auto;
+  background: var(--bg-card); color: var(--text-main);
+  border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+  box-shadow: var(--shadow-md); font-size: 12px;
+}
+@media (max-width: 640px) { .viewer-details { width: auto; right: 12px; max-height: 55%; } }
+
 /* The Loading Guide differs on screen (2 pages) and when exported (4 pages). */
 @media screen { .print-only { display: none !important; } }
 @media print { .screen-only { display: none !important; } }
