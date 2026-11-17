@@ -1,6 +1,6 @@
 // client/src/Shell.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import logoImg from "./logo.png";
 
@@ -26,6 +26,13 @@ const PAGES = ["home", "logistics", "results", "technical", "guide", "visualizat
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
+  const navigate = useNavigate();
+  // Sign out lands on the landing page: leave the app first, then end the
+  // session (ending it first would send the sign-in guard to /login).
+  const signOut = useCallback(() => {
+    navigate("/", { replace: true });
+    logout();
+  }, [navigate, logout]);
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   // home, logistics, results, technical, guide, visualization, history, account.
@@ -186,7 +193,12 @@ export default function Shell() {
   useEffect(() => {
     if (source !== "sample" || samples) return;
     customLoadsApi.samples()
-      .then((d) => { setSamples(d); if (sampleId === null && d.samples && d.samples.length) setSampleId(d.samples[0].instance_id); })
+      .then((d) => {
+        // Only samples within the thesis study's box cap are offered.
+        const kept = { ...d, samples: (d.samples || []).filter((s) => !s.over_cap) };
+        setSamples(kept);
+        if (sampleId === null && kept.samples.length) setSampleId(kept.samples[0].instance_id);
+      })
       .catch((e) => setSamples({ error: `Could not load the samples: ${e.message}` }));
   }, [source, samples, sampleId]);
 
@@ -860,7 +872,7 @@ export default function Shell() {
                   <button type="button" className="btn btn-secondary btn-sm btn-block" style={{ marginBottom: 8 }} onClick={() => { setActiveTab("account"); setProfileOpen(false); }}>
                     Account
                   </button>
-                  <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { logout(); setProfileOpen(false); }}>
+                  <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { setProfileOpen(false); signOut(); }}>
                     Log out
                   </button>
                 </div>
@@ -890,7 +902,7 @@ export default function Shell() {
 
       {/* ── ACCOUNT ── */}
       {activeTab === "account" && (
-        <AccountTab user={user} logout={logout} studies={studies} result={finalResult} />
+        <AccountTab user={user} logout={signOut} studies={studies} result={finalResult} />
       )}
 
       {/* ── LOGISTICS TAB ── */}

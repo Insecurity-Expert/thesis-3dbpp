@@ -58,39 +58,14 @@ function FormatHelp({ schema, error }) {
   const stop = schema.columns.find((c) => c.key === "stop");
   const stopNames = stop ? stop.aliases.filter((a) => a !== "stop" && a !== "delivery_stop").map(titleCase) : [];
   const example = parseCsv(schema.template);
+  // The template is the description: its columns, then the rules under it.
   return (
     <div style={{ marginBottom: 14 }}>
-      <div className="info-callout" style={{ marginBottom: 12, display: "block" }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>What your file needs</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-          A CSV file with one row per kind of box and these columns (the first row holds the column names):
-        </div>
-        <div style={{ overflowX: "auto", marginTop: 8 }}>
-          <table className="data-table" style={{ fontSize: 12 }}>
-            <thead><tr><th>Column</th><th>Needed?</th><th>What to put in it</th></tr></thead>
-            <tbody>
-              {schema.columns.map((c) => (
-                <tr key={c.key}>
-                  <td style={{ fontWeight: 700 }}>{c.title}</td>
-                  <td>{c.required ? "Required" : "Optional"}</td>
-                  <td>{c.type} — {c.rule}{c.key === "stop" && stopNames.length > 0 ? `. The column may also be called ${stopNames.map((n) => `“${n}”`).join(", ")}.` : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <ul style={{ margin: "10px 0 0 18px", padding: 0, fontSize: 12.5, lineHeight: 1.65 }}>
-          <li>Sizes are in centimetres (cm) and weights in kilograms (kg). Sizes, weights and max load are positive numbers; Qty is a whole number.</li>
-          <li>Stops: 1 to {schema.stop_count}, where stop 1 is unloaded first. Either every row has a stop or none does; if none do, STACKR assigns balanced stops.</li>
-          <li>“Max load on top” is how many kg can rest on the top of the box.</li>
-          <li>“Handle with care” is optional: “yes” marks a box as fragile, so nothing may rest on it.</li>
-          <li>Up to {schema.max_boxes} boxes in total, after Qty.</li>
-          <li>Boxes are kept upright: the height always stays vertical.</li>
-          <li>Any other column is ignored, and you'll see a note saying so.</li>
-        </ul>
-      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>A small example (this is the template)</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13 }}>What your file needs</div>
+          <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>A CSV file with these columns, one row per kind of box, like this template:</div>
+        </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadTemplate("simple")}>Download the template</button>
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -98,6 +73,17 @@ function FormatHelp({ schema, error }) {
           <thead><tr>{example[0].map((h) => <th key={h}>{h}</th>)}</tr></thead>
           <tbody>{example.slice(1).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
         </table>
+      </div>
+      <div className="info-callout" style={{ marginTop: 12, display: "block" }}>
+        <ul style={{ margin: "0 0 0 18px", padding: 0, fontSize: 12.5, lineHeight: 1.65 }}>
+          <li>Sizes are in centimetres (cm) and weights in kilograms (kg). Sizes, weights and max load are positive numbers; Qty is a whole number.</li>
+          <li>Stops: 1 to {schema.stop_count}, where stop 1 is unloaded first. Either every row has a stop or none does; if none do, STACKR assigns balanced stops.{stopNames.length > 0 ? ` The Stop column may also be called ${stopNames.map((n) => `“${n}”`).join(", ")}.` : ""}</li>
+          <li>“Max load on top” is how many kg can rest on the top of the box.</li>
+          <li>“Box name” is optional. “Handle with care” is optional: “yes” marks a box as fragile, so nothing may rest on it.</li>
+          <li>Up to {schema.max_boxes} boxes in total, after Qty.</li>
+          <li>Boxes are kept upright: the height always stays vertical.</li>
+          <li>Any other column is ignored, and you'll see a note saying so.</li>
+        </ul>
       </div>
     </div>
   );
@@ -148,38 +134,6 @@ export function LoadReady({ boxes, stops, fragile, custom, notes = [], warnings 
       {notes.map((n) => <div key={n} style={{ color: "var(--text-muted)" }}>{n}</div>)}
       {warnings.map((w) => <div key={w} style={{ color: "var(--amber)" }}>⚠ {w}</div>)}
     </div>
-  );
-}
-
-function FragileShareOption({ share, setShare, disabled }) {
-  return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6 }}>
-      <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-        <input type="checkbox" checked={share.on} disabled={disabled} onChange={(e) => setShare({ ...share, on: e.target.checked })} />
-        Also mark the weakest share as fragile
-      </label>
-      <label style={{ display: "inline-flex", gap: 6, alignItems: "center", opacity: share.on ? 1 : 0.5 }}>
-        target
-        <input type="number" min="1" max="99" value={share.target} disabled={disabled || !share.on}
-          onChange={(e) => setShare({ ...share, target: e.target.value })} style={{ ...inputStyle, width: 64, padding: "4px 6px" }} />%
-      </label>
-      <span style={{ color: "var(--text-dim)" }}>
-        the thesis's type-level rule: box types ranked weakest first, cut at the type boundary closest to the target. A "Handle with care" tick always wins.
-      </span>
-    </div>
-  );
-}
-
-function CustomAdvanced({ fragileShare, setFragileShare, running }) {
-  return (
-    <details className="collapsible" style={{ marginTop: 12 }}>
-      <summary>Advanced</summary>
-      <FragileShareOption share={fragileShare} setShare={setFragileShare} disabled={running} />
-      <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 8 }}>
-        Advanced CSV: adds Type ID, L/W/H flag (0/1: may that side point up) and LBS L/W/H (kg/cm²), used exactly as given.{" "}
-        <button type="button" className="link-btn" onClick={() => downloadTemplate("advanced")}>Download the advanced template</button>
-      </div>
-    </details>
   );
 }
 
@@ -294,7 +248,6 @@ export default function LoadSources({
             <summary>File format and template</summary>
             <div style={{ marginTop: 10 }}><FormatHelp schema={schema} error={schemaErr} /></div>
           </details>
-          <CustomAdvanced fragileShare={fragileShare} setFragileShare={setFragileShare} running={running} />
         </div>
       )}
 
@@ -308,7 +261,6 @@ export default function LoadSources({
                 Stop 1–{stopCount} (stop 1 is unloaded first): give every row a stop, or leave them all blank and STACKR assigns balanced stops.</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" className="btn btn-secondary btn-sm" disabled={running} onClick={() => setSource("csv")}>Upload a file instead</button>
               <button type="button" className="btn btn-primary btn-sm" disabled={running} onClick={() => setTypedRows([...typedRows, blankRow()])}>+ Add a box</button>
             </div>
           </div>
@@ -350,7 +302,6 @@ export default function LoadSources({
           </div>
           <ErrorList errors={customErrors} />
           {customSummary}
-          <CustomAdvanced fragileShare={fragileShare} setFragileShare={setFragileShare} running={running} />
         </div>
       )}
 
@@ -384,7 +335,6 @@ export default function LoadSources({
                       <div style={{ fontSize: 18, fontWeight: 800 }}>{s.n_boxes} boxes</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.br_class} · {s.n_types} box types · instance {s.instance_id}</div>
                       <div style={{ fontSize: 12, color: "var(--amber)" }}>{s.fragile_count} fragile ({Math.round(s.fragile_rate * 100)}%)</div>
-                      {s.over_cap && <div style={{ marginTop: 6 }}><span className="badge badge-warn" style={{ textTransform: "none" }}>larger than the thesis study's {samples.cap}-box cap</span></div>}
                     </button>
                   ))}
                 </div>

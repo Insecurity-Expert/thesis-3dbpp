@@ -51,17 +51,17 @@ The sidebar groups the pages:
 ## Start analysis: the wizard (`LogisticsTab.jsx`)
 
 1. **Your boxes** (`components/LoadSources.jsx`), with three ways in:
-   - **Upload your own dataset**: a CSV, checked by `preprocessing/custom_load.py`. Problems appear in the Invalid Dataset panel, each naming its row and column.
+   - **Upload your own dataset**: a CSV, checked by `preprocessing/custom_load.py`. "What your file needs" is the template itself (with Download the template), followed by the rules. Problems appear in the Invalid Dataset panel, each naming its row and column.
    - **Type in your boxes**: rows typed into a table, checked by the same converter.
-   - **Try a sample**: OR-Library wtpack instances, either the ready-made samples or the thesis's standard test cases.
+   - **Try a sample**: OR-Library wtpack instances, either the ready-made samples (only those within the thesis study's 200-box cap) or the thesis's standard test cases.
 
    A typed or uploaded load is a *custom load*. It carries the "not part of the thesis dataset" label everywhere (`components/CustomLoadBanner.jsx`).
-2. **Settings**: the container (587 × 233 × 220 cm by default), the four methods and the safety rules. The penalty weights λ and the C4/C5 enforcement are fixed to `experiments/calibration.json`; they are shown but can't be edited.
+2. **Settings**: the container (587 × 233 × 220 cm by default), the four methods and the safety rules. The penalty weights λ and the C4/C5 enforcement are fixed to `experiments/calibration.json` and are not shown.
 3. **Review & run**: facts computed from the load, then **Run STACKR**. This launches a comparison of all four methods on the load (`POST /api/studies`). `components/ProcessingPanel.jsx` shows its real progress, and Stop ends every process of the comparison.
 
 Under **Advanced** on Review & run:
 
-- **Quick Test** runs all four configurations once each with the repeat code from Settings → Advanced and the chosen preset (Quick demo / Standard / Thesis, the same for all four), one at a time. It is a one-seed study (`POST /api/studies` with `preset`, `seeds`, `mode: serial`, name "Quick Test"), so it goes through the Processing screen to the normal Results page (hybrids first, Compare All Methods for all four) and is listed in Run History → Studies. Its time estimate is the sum of the four configurations' median times at that preset on this machine (saved runs and earlier Quick Tests), or "no estimate yet".
+- **Quick Test** runs all four configurations once each with repeat code 42 and the chosen preset (Quick demo / Standard / Thesis, the same for all four), one at a time. It is a one-seed study (`POST /api/studies` with `preset`, `seeds`, `mode: serial`, name "Quick Test"), so it goes through the Processing screen to the normal Results page (hybrids first, Compare All Methods for all four) and is listed in Run History → Studies. Its time estimate is the sum of the four configurations' median times at that preset on this machine (saved runs and earlier Quick Tests), or "no estimate yet".
 - **Full Comparison** (`study/StudyLauncher.jsx`) is the larger study sizes.
 
 Precomputed study files are imported from Run History → Studies.

@@ -240,17 +240,6 @@ export default function LogisticsTab({
               </div>
             </div>
           </div>
-
-          <details className="collapsible card" style={{ marginTop: 18 }}>
-            <summary>Advanced</summary>
-            <div style={{ marginTop: 12, maxWidth: 360 }}>
-              <label className="field-label">Repeat code (seed) — for Quick Test</label>
-              <input type="number" className="field-input" value={seed} disabled={running}
-                onChange={(e) => setSeed(e.target.value === "" ? "" : Number(e.target.value))} placeholder="random" />
-              <div className="field-hint">Same code, same load and same settings give the same result. Run STACKR always uses repeat codes {demo ? String(demo.seeds).replace("-", "–") : "—"}, so its results can be repeated too.</div>
-            </div>
-            {testSettings && <div style={{ marginTop: 16 }}>{testSettings}</div>}
-          </details>
         </div>
       )}
 
@@ -299,7 +288,7 @@ export default function LogisticsTab({
             <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 12 }}>
               <div>
                 <div className="card-title">Quick Test</div>
-                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run per configuration, one seed (the repeat code from Settings → Advanced), all four with the same settings. Results opens on the two hybrids; Compare All Methods shows all four. Use Run STACKR to compare the configurations over several repeat codes.</div>
+                <div className="card-desc" style={{ marginBottom: 10 }}>Preview: one run per configuration, one seed (repeat code {seed}), all four with the same settings. Results opens on the two hybrids; Compare All Methods shows all four. Use Run STACKR to compare the configurations over several repeat codes.</div>
                 <div className="tabs-inline grow" style={{ marginBottom: 6 }}>
                   {Object.entries(PRESET_INFO).map(([key, p]) => (
                     <button key={key} type="button" onClick={() => setPreset(key)} disabled={running || studyBusy} className={preset === key ? "active" : ""}
