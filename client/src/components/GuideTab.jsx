@@ -23,12 +23,19 @@ const RULE_ROW = {
 };
 const secs = (ms) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)} s`);
 
-function Page({ n, title, desc, custom, children }) {
+// On screen the guide is two pages (loading and unloading tables, then the
+// container pictures); the exported / printed guide keeps all four (Page 1-3
+// and the Appendix). `only` = "screen" | "print" shows a page in one of them;
+// a page with neither is in both, and its tag can differ (`tag` / `printTag`).
+function Page({ n, title, desc, custom, children, only = null, tag = null, printTag = null }) {
+  const label = tag ?? (typeof n === "number" ? `Page ${n} of 3` : n);
   return (
-    <div className="card guide-page" style={{ marginBottom: 20 }}>
+    <div className={`card guide-page${only ? ` ${only}-only` : ""}`} style={{ marginBottom: 20 }}>
       <div className="card-head">
         <div>
-          <div className="section-tag">{typeof n === "number" ? `Page ${n} of 3` : n}</div>
+          <div className="section-tag">
+            {printTag ? <><span className="screen-only">{label}</span><span className="print-only">{printTag}</span></> : label}
+          </div>
           <div className="card-title">{title}</div>
           {desc && <div className="card-desc">{desc}</div>}
         </div>
@@ -70,7 +77,8 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
     return () => { alive = false; };
   }, [done, row && row.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A request from Results ("Export Guide" on a card) picks the method and load.
+  // A request from Results ("View Guide" on a card) picks the method and load;
+  // it no longer prints (print: false) — Export Guide on this page does that.
   useEffect(() => {
     if (!request) return;
     setSingle("");
@@ -133,7 +141,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
   const controls = (
     <div className="no-print">
       <div className="help-banner">
-        <div className="help-banner-text"><b>This is your loading plan.</b> Print it and take it to the truck. Page 1 lists the loading and unloading order, Page 2 shows where every box goes, Page 3 summarises the solution.</div>
+        <div className="help-banner-text"><b>This is your loading plan.</b> Page 1 lists the loading and unloading order, Page 2 shows where every box goes. Export Guide prints the full guide to take to the truck, with a solution summary and every box's details.</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={!ready}>Download page 1 (CSV)</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={exportPrint} disabled={!ready}>
@@ -201,7 +209,70 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
     <>
       {controls}
 
-      <Page n={1} title="Loading & Unloading Guide" custom={customText}
+      {/* ── On screen: Page 1 of 2 — loading and unloading as tables ── */}
+      <Page only="screen" tag="Page 1 of 2" title="Loading & Unloading Guide" custom={customText}
+        desc={single ? "Preview: one run, one seed." : null}>
+        {!single && (
+          <div className="info-callout" style={{ marginBottom: 14, display: "block" }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>
+              Solution shown: {methodLabel(methodCode)}, repeat code {seed}
+            </div>
+          </div>
+        )}
+        <div className="card-title" style={{ marginBottom: 4 }}>Loading order</div>
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 0, marginBottom: 6 }}>
+          Load from step 1 down. Last stop first; within a stop, from the front wall toward the rear door, floor boxes first, then build up.
+        </p>
+        <div style={{ overflowX: "auto" }}>
+          <table className="data-table compact" style={{ width: "100%", fontSize: 11.5 }}>
+            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Orientation</th><th>Weight</th><th>Position (x, y, z)</th><th>Load on top</th><th>Base support</th><th>Unload order</th></tr></thead>
+            <tbody>
+              {guide.steps.map((s) => (
+                <tr key={s.step}>
+                  <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>{s.stop}</td>
+                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.size}</td><td>{s.orientationShort ?? "not recorded"}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{fmtNum(s.mass, 1)} kg</td>
+                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.position}</td>
+                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td><Status text={s.c6} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {guide.fixes.length > 0 && (
+          <p className="field-hint" style={{ color: "var(--amber)" }}>
+            {guide.fixes.length} box{guide.fixes.length === 1 ? "" : "es"} could not go in at {guide.fixes.length === 1 ? "its" : "their"} stop's turn,
+            so the order above loads what {guide.fixes.length === 1 ? "it needs" : "they need"} first.
+          </p>
+        )}
+
+        <div className="card-title" style={{ marginTop: 18, marginBottom: 4 }}>Unloading order</div>
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 0, marginBottom: 6 }}>Stop {guide.stops[0]} first. Within a stop, nearest the door and topmost first.</p>
+        <div style={{ overflowX: "auto" }}>
+          <table className="data-table compact" style={{ width: "100%", fontSize: 11.5 }}>
+            <thead><tr><th>Stop</th><th>Boxes</th><th>Move these first</th><th>Then unload, in this order</th></tr></thead>
+            <tbody>
+              {guide.unloadStops.map((g) => {
+                const byStop = {};
+                for (const b of g.blockers) (byStop[b.stop] = byStop[b.stop] || []).push(b.id);
+                return (
+                  <tr key={g.stop}>
+                    <td style={{ fontWeight: 700 }}>{g.stop}</td>
+                    <td>{g.boxes.length}</td>
+                    <td style={{ color: g.blockers.length ? "var(--red)" : undefined }}>
+                      {g.blockers.length ? Object.entries(byStop).map(([st, ids]) => `${boxList(ids)} (stop ${st})`).join("; ") : "nothing"}
+                    </td>
+                    <td>{boxList(g.boxes.map((b) => b.id))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Page>
+
+      {/* ── Exported / printed guide: the original four pages ── */}
+      <Page only="print" n={1} title="Loading & Unloading Guide" custom={customText}
         desc={single ? "Preview: one run, one seed." : null}>
         {!single && (
           <div className="info-callout" style={{ marginBottom: 14, display: "block" }}>
@@ -268,12 +339,12 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         )}
       </Page>
 
-      <Page n={2} title="Container arrangement" custom={customText}
+      <Page n={2} tag="Page 2 of 2" printTag="Page 2 of 3" title="Container arrangement" custom={customText}
         desc={`Door and cab end marked; ${fmtNum(container.length_cm ?? container.D)} × ${fmtNum(container.width_cm ?? container.L)} × ${fmtNum(container.height_cm ?? container.H)} cm (length × width × height).`}>
         <GuideViews guide={guide} container={container} />
       </Page>
 
-      <Page n={3} title="Solution summary" custom={customText}>
+      <Page only="print" n={3} title="Solution summary" custom={customText}>
         <div className="info-callout" style={{ marginBottom: 14, display: "block", fontSize: 13.5, fontWeight: 700 }}>
           {guide.rehandling === 0
             ? "No box needs other boxes moved before it can be unloaded."
@@ -312,7 +383,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         </details>
       </Page>
 
-      <Page n="Appendix" title="Box details (for checking)" custom={customText}
+      <Page only="print" n="Appendix" title="Box details (for checking)" custom={customText}
         desc="Every loaded box in loading order. Positions in cm: x across the truck, y from the front wall, z above the floor. Sizes as placed: across × deep × high.">
         <div style={{ overflowX: "auto" }}>
           <table className="data-table compact" style={{ width: "100%", fontSize: 11 }}>

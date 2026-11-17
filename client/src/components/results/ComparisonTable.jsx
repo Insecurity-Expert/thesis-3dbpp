@@ -46,7 +46,7 @@ export default function ComparisonTable({ metrics, vals, bests, ranks, invalidNo
                       ))}
                       <td className="ro-output">
                         <button type="button" className="btn btn-secondary btn-sm" disabled={!ran} onClick={() => onView(c)}>View Arrangement</button>
-                        <button type="button" className="btn btn-primary btn-sm" disabled={!ran} onClick={() => onGuide(c)}>Export Guide</button>
+                        <button type="button" className="btn btn-primary btn-sm" disabled={!ran} onClick={() => onGuide(c)}>View Guide</button>
                       </td>
                     </tr>
                   );

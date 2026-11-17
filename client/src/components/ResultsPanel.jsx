@@ -111,7 +111,7 @@ function SolutionCard({ code, means, rep, seqSplit, timingOk = true, onView, onG
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto", paddingTop: 12 }}>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Hide details" : "Details"}</button>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onView}>View Arrangement</button>
-        <button type="button" className="btn btn-primary btn-sm" onClick={onGuide}>Export Guide</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={onGuide}>View Guide</button>
       </div>
     </div>
   );
@@ -347,8 +347,8 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   const header = <Header studies={studies} selectedStudyId={selectedStudyId} onSelectStudy={onSelectStudy} rep={rep} loadKey={loadKey} onLoad={setLoadKey} />;
   const quickHint = hasQuickTest && onOpenTechnical ? (
     <div className="card" style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-      <div className="card-desc" style={{ margin: 0 }}>Your Quick Test result (one run, one seed) is in Technical Details.</div>
-      <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Technical Details</button>
+      <div className="card-desc" style={{ margin: 0 }}>Your Quick Test result (one run, one seed) is in Statistics.</div>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenTechnical}>Open Statistics</button>
     </div>
   ) : null;
   const early = notReady({ row, progress, study, done, header, emptyExtra: quickHint });
@@ -364,7 +364,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   const nRan = METHOD_ORDER.filter((c) => vals[c].ran).length;
   const crit = criterionText(rank);
   const caption = crit
-    ? `Ranked by ${crit} on this load${tab === "overall" && !timingOk ? " (time and memory left out: these runs shared the CPU)" : ""}. Not a statistical test — see Technical Details for significance results.`
+    ? `Ranked by ${crit} on this load${tab === "overall" && !timingOk ? " (time and memory left out: these runs shared the CPU)" : ""}. Not a statistical test — see Statistics for significance results.`
     : tab === "sp3" && !timingOk && nRan > 1 ? "Not ranked: these runs shared the CPU (parallel), so their time and memory are not comparable." : null;
 
   const view = (c) => load && load.representative[c] && onViewArrangement({ studyId: row.id, runIndex: load.representative[c].run_index, method: c });
@@ -409,7 +409,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
               <div className="ro-banner">
                 <div>
                   <b>See how it compares with DGWO, MOGWO and Sequential</b>
-                  <div className="ro-sub">These are the methods Repair-Based is compared with. Each one also has View Arrangement and Export Guide.</div>
+                  <div className="ro-sub">These are the methods Repair-Based is compared with. Each one also has View Arrangement and View Guide.</div>
                 </div>
                 <button type="button" className="btn ro-btn-dark" onClick={() => { setFull(true); setScrollToTable(true); }}>
                   Compare All Methods <span aria-hidden="true">⌄</span>

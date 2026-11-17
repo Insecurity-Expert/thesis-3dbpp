@@ -122,7 +122,7 @@ function sp3Sentence(parts) {
 }
 
 export const TIMING_NOT_COMPARED =
-  "Time and memory are not compared: these runs ran in parallel and shared the CPU (see Technical Details).";
+  "Time and memory are not compared: these runs ran in parallel and shared the CPU (see Statistics).";
 
 // runs: the study runs of one load; codes: the configurations shown, in order.
 export function descriptiveModel({ runs, codes, nameOf = (c) => c, timingOk = true }) {

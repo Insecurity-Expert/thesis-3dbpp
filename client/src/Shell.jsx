@@ -789,10 +789,11 @@ export default function Shell() {
     { id: "home", group: "Get started", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
     { id: "logistics", group: "Get started", label: "Start analysis", title: "Start analysis", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
     { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
-    { id: "technical", group: "Get started", label: "Technical Details", title: "Technical Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
     { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+    // The study's statistics (significance tests): out of the client's path, kept for review.
+    { id: "technical", group: "Advanced tools", label: "Statistics", title: "Statistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
@@ -969,7 +970,7 @@ export default function Shell() {
           studyDoc={studyDoc}
           progress={studyProgress}
           onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
-          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: false, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
           onOpenTechnical={() => setActiveTab("technical")}
@@ -987,7 +988,7 @@ export default function Shell() {
           studyDoc={studyDoc}
           progress={studyProgress}
           onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
-          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: false, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
           runHistory={runHistory}

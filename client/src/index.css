@@ -541,6 +541,9 @@ input:checked + .slider:before { transform: translateX(16px); }
   .guide-page:last-child { break-after: auto; }
   .data-table th, .data-table td { color: #000 !important; }
 }
+/* The Loading Guide differs on screen (2 pages) and when exported (4 pages). */
+@media screen { .print-only { display: none !important; } }
+@media print { .screen-only { display: none !important; } }
 
 /* ── Guided flow (design/Updated_Prototype.html), on the STACKR tokens ───── */
 .help-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-radius: var(--radius-md);
