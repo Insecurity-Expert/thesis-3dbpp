@@ -456,7 +456,8 @@ def derive_rows(runs):
         n, placed = r["n_items"], r["placed"]
         frac = (placed / n) if n else 0.0
         row = {"configuration": r["configuration"], "instance_id": r.get("instance_id"),
-               "seed": r["seed"], "SU": r["su_pct"], "placed": placed, "n_items": n,
+               "seed": r["seed"], "SU": r["su_pct"], "CSU": r.get("compliant_su_pct"),
+               "placed": placed, "n_items": n,
                "ET": r["exec_time_ms"], "PM": r["peak_mem_mb"]}
         for m, key in COMPLIANCE_KEYS.items():
             row[f"{m}_placed"] = r[key]
@@ -472,6 +473,20 @@ def group_values(rows, key, configs, instance_id=None):
 
 def _instances_of(study):
     return [i["instance_id"] for i in study.get("instances", [])]
+
+
+def sp1_compliant_blocks(rows, configs, instances):
+    """SP1 on compliant space utilisation (M-1b): {"descriptives_CSU": ...,
+    "SP1_compliant": {...}} when every run records compliant_su_pct, else {}.
+    Same repeated-measures procedure as SP1 (compare_rm). Used by analyse() and
+    by tools/add_compliant_su.py for study files analysed before the field."""
+    if not rows or any(x.get("CSU") is None for x in rows):
+        return {}
+    groups = group_values(rows, "CSU", configs)
+    return {"descriptives_CSU": {c: descriptives(v) for c, v in groups.items()},
+            "SP1_compliant": {"measure": "compliant SU",
+                              "comparison": compare_rm(_block_matrix(rows, "CSU", configs, instances), configs,
+                                                       "compliant SU", run_groups=groups)}}
 
 
 def analyse(study):
@@ -529,6 +544,9 @@ def analyse(study):
                                     f"{study.get('seq_budget_split', {}).get('dgwo_iters', '?')} of "
                                     f"{study.get('preset', {}).get('max_iter', '?')} iterations go to DGWO, the rest to the MOGWO phase, "
                                     "so its utilisation is not a like-for-like comparison with standalone DGWO.")}
+    # SP1 on compliant SU (M-1b), when every run records it: additive, the
+    # raw-SU block above is unchanged.
+    out.update(sp1_compliant_blocks(rows, configs, instances))
 
     # ── SP2 ──────────────────────────────────────────────────────────────────
     # The hypothesis is tested on the manuscript's definition (all boxes); the

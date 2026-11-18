@@ -102,7 +102,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
     return () => { alive = false; };
   }, [single, load, shownMethod, row && row.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Advanced: a single saved run (or the Quick Test on screen) instead.
+  // Advanced: a single saved run (or the run open now, e.g. reopened from Run History) instead.
   useEffect(() => {
     if (!single) { setSingleResult(null); return undefined; }
     if (single === "screen") { setSingleResult(finalResult); return undefined; }
@@ -143,7 +143,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       <div className="help-banner">
         <div className="help-banner-text"><b>This is your loading plan.</b> Page 1 lists the loading and unloading order, Page 2 shows where every box goes. Export Guide prints the full guide to take to the truck, with a solution summary and every box's details.</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={!ready}>Download page 1 (CSV)</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={!ready}>Download loading order (CSV)</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={exportPrint} disabled={!ready}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
             Export Guide (print / PDF)
@@ -174,7 +174,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         <summary>Advanced: a single saved run instead</summary>
         <select className="field-input" style={{ marginTop: 10, maxWidth: 520 }} value={single} onChange={(e) => setSingle(e.target.value === "" || e.target.value === "screen" ? e.target.value : Number(e.target.value))}>
           <option value="">— the comparison's solution (above) —</option>
-          <option value="screen" disabled={!finalResult}>The Quick Test on screen{finalResult ? "" : " (none)"}</option>
+          <option value="screen" disabled={!finalResult}>The run open now (from Run History){finalResult ? "" : " (none)"}</option>
           {savedRows.map((r) => <option key={r.id} value={r.id}>#{r.id} · {methodLabel(r.strategy_code || r.strategy)} · {r.instance}{r.seed != null ? ` · repeat code ${r.seed}` : ""}</option>)}
         </select>
         <div className="field-hint">Preview: one run, one seed. Its guide is built the same way.</div>

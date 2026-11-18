@@ -53,7 +53,7 @@ const SECONDARY_BTN = { ...BTN, background: 'var(--bg-card)', color: 'var(--prim
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   return (
     <div style={{
       minHeight: '100vh',
@@ -89,9 +89,10 @@ export default function LandingPage() {
           Define your items and container, let the solver search for a
           layout, and watch the result take shape in 3D.
         </p>
-        {/* Signed in: straight to the app. Otherwise: Log in or Register. */}
-        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {user ? (
+        {/* Signed in: straight to the app. Otherwise: Log in or Register.
+            Nothing until the sign-in check answers, so the buttons never flip. */}
+        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', minHeight: 52 }}>
+          {loading ? null : user ? (
             <button type="button" onClick={() => navigate('/app')} style={PRIMARY_BTN}>Open STACKR</button>
           ) : (
             <>

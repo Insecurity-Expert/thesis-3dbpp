@@ -6,7 +6,7 @@ The original curves (experiments/convergence/*_pop30_s*_i350.csv) logged SU, CSR
 and boxes placed per iteration but not the arrangement, so compliant SU cannot be
 derived from them. The runs are deterministic, so this script repeats the SAME
 runs (same code, seeds, instance, population and budget) and, at every iteration,
-also evaluates the current best with per_box_constraints (the rule used by
+also evaluates the current best with thesis_metrics.compliant_space_utilization (the rule used by
 compliant_su.py). The hook only observes: it never touches the RNG or a decision.
 
 Reproduction check: every iteration's SU, CSR and boxes placed must equal the
@@ -37,22 +37,18 @@ RERUN = ("DGWO", "MOGWO", "SEQ")
 def run_one(cfg, seed):
     from preprocessing.pipeline import load_augmented_instance
     from thesis_algorithms import StandaloneDGWO, StandaloneMOGWO, SequentialHybrid
-    from thesis_metrics import per_box_constraints
+    from thesis_metrics import compliant_space_utilization
     cls = {"DGWO": StandaloneDGWO, "MOGWO": StandaloneMOGWO, "SEQ": SequentialHybrid}[cfg]
     inst = load_augmented_instance({"data": {"raw_dir": str(ROOT / "data" / "raw")}},
                                    instance_id=INSTANCE, stop_seed=42)
     boxes, C = inst["boxes"], inst["container"]
-    vol = C["L"] * C["W"] * C["H"]
-    opt = cls(boxes, C, pop_size=POP, max_iter=ITERS, lambda_penalty=0.20,
+    opt =cls(boxes, C, pop_size=POP, max_iter=ITERS, lambda_penalty=0.20,
               enforce_support=True, enforce_fragility=True, seed=seed, record_history=True)
     csu_log = []
 
     def record(iteration, best, _orig=opt._record):
         _orig(iteration, best)                       # the original history row
-        P, O = best.placements, best.orientations
-        ok = [k for k, x in per_box_constraints(P, boxes, O).items()
-              if x["C3"] and x["C4"] and x["C5"] and x["C6"]]
-        csu_log.append(100.0 * sum(P[k][3] * P[k][4] * P[k][5] for k in ok) / vol)
+        csu_log.append(100.0 * compliant_space_utilization(best.placements, boxes, best.orientations, C))
 
     opt._record = record
     t0 = time.perf_counter()

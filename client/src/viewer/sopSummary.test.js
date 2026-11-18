@@ -167,3 +167,41 @@ describe("testedModel (stats.py verdicts)", () => {
     expect(modelText(m)).not.toMatch(FORBIDDEN);
   });
 });
+
+describe("SP1 on compliant fill (M-1b)", () => {
+  const runs = [
+    run("SEQ", 1, { su_pct: 64, compliant_su_pct: 42 }), run("SEQ", 2, { su_pct: 65, compliant_su_pct: 43 }),
+    run("REP", 1, { su_pct: 55, compliant_su_pct: 55 }), run("REP", 2, { su_pct: 56, compliant_su_pct: 56 }),
+  ];
+
+  test("one load: compliant fill is judged; container fill is a companion with no marks", () => {
+    const m = descriptiveModel({ runs, codes: ["SEQ", "REP"], nameOf: name });
+    const sp1 = m.rows.find((r) => r.id === "SP1");
+    expect(sp1.measures.map((x) => x.key)).toEqual(["csu", "su"]);
+    expect(sp1.measures[0].cells.REP.status).toBe("best");
+    expect(sp1.measures[1].cells.SEQ.status).toBeNull();          // raw fill: never marked
+    expect(sp1.sentence).toMatch(/Repair-Based filled the container most with boxes that follow the rules/);
+  });
+
+  test("one load without compliant fill (older file): SP1 stays on container fill", () => {
+    const m = descriptiveModel({ runs: runs.map(({ compliant_su_pct, ...r }) => r), codes: ["SEQ", "REP"], nameOf: name });
+    expect(m.rows.find((r) => r.id === "SP1").measures.map((x) => x.key)).toEqual(["su"]);
+  });
+
+  test("tested study: SP1 verdict comes from stats.SP1_compliant, not stats.SP1", () => {
+    const pairs = (winner) => [{ a: "SEQ", b: "REP", outperforms: winner }];
+    const cmp = (winner) => ({ omnibus: { testable: true }, pairs: pairs(winner) });
+    const stats = {
+      provenance: { n_instances: 30 }, primary_compliance: "all_boxes",
+      descriptives: { SU: { SEQ: { mean: 64, sd: 1 }, REP: { mean: 55, sd: 1 } } },
+      SP1: { comparison: cmp("SEQ") },
+      descriptives_CSU: { SEQ: { mean: 42, sd: 1 }, REP: { mean: 55, sd: 1 } },
+      SP1_compliant: { comparison: cmp("REP") },
+    };
+    const sp1 = testedModel({ stats, codes: ["SEQ", "REP"], nameOf: name }).rows.find((r) => r.id === "SP1");
+    expect(sp1.measures.map((x) => x.key)).toEqual(["csu", "su"]);
+    expect(sp1.measures[0].cells.REP.status).toBe("best");
+    expect(sp1.measures[1].cells.SEQ.status).toBeNull();
+    expect(sp1.sentence).toMatch(/significantly higher compliant fill/);
+  });
+});

@@ -18,6 +18,7 @@
 // Words never used here: "recommended", "winner", "overall best".
 
 export const SOP_MEASURES = {
+  csu:     { key: "csu",     label: "Compliant fill (M-1b)",            unit: "%",  higher: true },
   su:      { key: "su",      label: "Container fill (SU)",              unit: "%",  higher: true },
   csr_all: { key: "csr_all", label: "Rule compliance, all boxes (CSR)", unit: "%",  higher: true, primary: true },
   c3_all:  { key: "c3_all",  label: "Load-bearing (C3), all boxes",     unit: "%",  higher: true },
@@ -29,12 +30,20 @@ export const SOP_MEASURES = {
 // Measures that are never highlighted, whatever their values.
 export const NEVER_BEST = new Set(["csr_placed", "csr_placed_pct"]);
 
+// SP1 is judged on compliant fill (M-1b) when the study has it; container fill
+// (raw SU) is then shown beside it as a companion with no marks. Older study
+// files without compliant fill keep SP1 on container fill.
 export const SOP_ROWS = [
   { id: "SP1", title: "Packing efficiency", better: "Higher", measures: ["su"] },
   { id: "SP2", title: "Safety and delivery-order compliance", better: "Higher", measures: ["csr_all", "c3_all", "c6_all"],
     note: "Fragility and stability are guaranteed for every loaded box by the decoder." },
   { id: "SP3", title: "Computational resources", better: "Lower", measures: ["time", "mem"] },
 ];
+
+// The rows for a study: with compliant fill, SP1 shows it first (judged) and
+// container fill after it (companion, never marked).
+const rowsFor = (hasCsu) => SOP_ROWS.map((r) => (r.id === "SP1" && hasCsu ? { ...r, measures: ["csu", "su"] } : r));
+const isCompanion = (hasCsu, k) => hasCsu && k === "su";
 
 export const singleInstanceNote = (runsEach) =>
   `One instance, ${runsEach ?? "N"} runs each; differences are not tested for significance. Every statistic is under Show all numbers.`;
@@ -46,6 +55,7 @@ const share = (r) => (r.n_items ? r.placed / r.n_items : 0);
 // count an unloaded box as not following the rule (experiments/stats.py).
 export function runValue(r, key) {
   switch (key) {
+    case "csu": return r.compliant_su_pct;
     case "su": return r.su_pct;
     case "csr_all": return r.csr_pct * share(r);
     case "c3_all": return r.C3_pct * share(r);
@@ -101,7 +111,9 @@ const list = (xs) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", 
 
 // ── descriptive model (one load) ─────────────────────────────────────────────
 const PHRASE = {
-  su:      { best: (n, v) => `${n} filled the container most (${v}).`,
+  csu:     { best: (n, v) => `${n} filled the container most with boxes that follow the rules (${v}).`,
+             tie: (ns) => `${ns} filled the container about the same with boxes that follow the rules; the gap is within their run-to-run variation.` },
+  su:     { best: (n, v) => `${n} filled the container most (${v}).`,
              tie: (ns) => `${ns} filled the container about the same; the gap is within their run-to-run variation.` },
   csr_all: { best: (n, v) => `${n} kept the loading rules for the largest share of all boxes (${v}).`,
              tie: (ns) => `${ns} kept the loading rules for about the same share of all boxes; the gap is within their run-to-run variation.` },
@@ -122,7 +134,7 @@ function sp3Sentence(parts) {
 }
 
 export const TIMING_NOT_COMPARED =
-  "Time and memory are not compared: these runs ran in parallel and shared the CPU (see Statistics).";
+  "Time and memory are not compared: these runs ran in parallel and shared the CPU.";
 
 // runs: the study runs of one load; codes: the configurations shown, in order.
 export function descriptiveModel({ runs, codes, nameOf = (c) => c, timingOk = true }) {
@@ -132,15 +144,16 @@ export function descriptiveModel({ runs, codes, nameOf = (c) => c, timingOk = tr
     stats[c] = Object.fromEntries(Object.keys(SOP_MEASURES).map((k) => [k, meanSd(mine.map((r) => runValue(r, k)))]));
   }
   const runsEach = codes.length ? Math.min(...codes.map((c) => stats[c].su.n)) : 0;
-  const rows = SOP_ROWS.map((row) => {
+  const hasCsu = runs.length > 0 && runs.every((r) => r.compliant_su_pct != null);
+  const rows = rowsFor(hasCsu).map((row) => {
     const measures = row.measures.map((k) => {
       const m = SOP_MEASURES[k];
-      const comparable = row.id !== "SP3" || timingOk;
+      const comparable = (row.id !== "SP3" || timingOk) && !isCompanion(hasCsu, k);
       const pick = comparable ? pickBest(codes.map((c) => ({ code: c, ...stats[c][k] })), { higherIsBetter: m.higher, key: k }) : { status: {} };
       const cells = Object.fromEntries(codes.map((c) => [c, {
         value: stats[c][k].mean, sd: stats[c][k].sd, text: fmtValue(m.unit, stats[c][k].mean), status: pick.status[c] || null,
       }]));
-      return { ...m, cells, invalid: !comparable };
+      return { ...m, cells, invalid: row.id === "SP3" && !timingOk };
     });
     let sentence;
     if (row.id === "SP3") {
@@ -179,7 +192,7 @@ export function testedVerdict({ cmps, codes, means, higherIsBetter }) {
   return { tested: true, status, top, beaten, notSep, vals };
 }
 
-const WHAT = { su: "container fill", csr_all: "rule compliance over all boxes", time: "execution time", mem: "peak memory" };
+const WHAT = { csu: "compliant fill", su: "container fill", csr_all: "rule compliance over all boxes", time: "execution time", mem: "peak memory" };
 
 export function testedSentence(key, v, nameOf, higherIsBetter, untestedReason) {
   const what = WHAT[key];
@@ -200,7 +213,9 @@ export function testedModel({ stats, codes, nameOf = (c) => c, timingOk = true }
   const sp3 = stats.SP3;
   const sp3Classes = sp3 && sp3.available ? (sp3.profiles || []) : [];
   const sp3All = sp3 && sp3.available ? sp3.all_instances : null;
+  const hasCsu = !!(stats.descriptives_CSU && stats.SP1_compliant);
   const src = {
+    csu:     { desc: stats.descriptives_CSU, cmps: [stats.SP1_compliant && stats.SP1_compliant.comparison] },
     su:      { desc: d.SU, cmps: [stats.SP1 && stats.SP1.comparison] },
     csr_all: { desc: d.CSR && d.CSR[primary], cmps: [sp2 && sp2.per_measure.CSR] },
     c3_all:  { desc: d.C3 && d.C3[primary], cmps: [sp2 && sp2.per_measure.C3] },
@@ -211,13 +226,13 @@ export function testedModel({ stats, codes, nameOf = (c) => c, timingOk = true }
     mem:     { desc: d.PM, cmps: sp3All ? [sp3All.PM] : sp3Classes.map((p) => p.friedman && p.friedman.PM) },
   };
   const nInst = stats.provenance ? stats.provenance.n_instances : null;
-  const rows = SOP_ROWS.map((row) => {
+  const rows = rowsFor(hasCsu).map((row) => {
     const verdicts = {};
     const measures = row.measures.map((k) => {
       const m = SOP_MEASURES[k];
       const desc = src[k].desc || {};
       const means = Object.fromEntries(codes.map((c) => [c, desc[c] ? desc[c].mean : null]));
-      const comparable = row.id !== "SP3" || (timingOk && sp3 && sp3.available);
+      const comparable = (row.id !== "SP3" || (timingOk && sp3 && sp3.available)) && !isCompanion(hasCsu, k);
       const v = comparable ? testedVerdict({ cmps: src[k].cmps, codes, means, higherIsBetter: m.higher }) : { tested: false, status: {} };
       verdicts[k] = v;
       const cells = Object.fromEntries(codes.map((c) => [c, {

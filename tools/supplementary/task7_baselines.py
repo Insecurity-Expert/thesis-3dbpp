@@ -7,7 +7,7 @@ task7_baselines.py - validator plan, optional task 7.
     numpy default_rng([random_seed, instance_id]) per instance. This script rebuilds
     every arrangement with experiments/baselines.py itself, checks that SU, CSR and
     boxes placed reproduce the stored values exactly, and then counts the volume of
-    loaded boxes satisfying C3-C6 (the same per_box_constraints rule as
+    loaded boxes satisfying C3-C6 (thesis_metrics.compliant_space_utilization, as
     compliant_su.py). Descriptive only, no tests.
 
 (b) Scatter plot, one point per instance and configuration: compliant SU (y)
@@ -31,7 +31,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "optimizer"), str(ROOT / "experiments")]
 
 import numpy as np  # noqa: E402
 from preprocessing.pipeline import load_augmented_instance  # noqa: E402
-from thesis_metrics import per_box_constraints  # noqa: E402
+from thesis_metrics import compliant_space_utilization  # noqa: E402
 from baselines import pack  # noqa: E402
 
 CONFIGS = ("DGWO", "MOGWO", "SEQ", "REP")
@@ -42,11 +42,11 @@ STUDIES = ROOT / "experiments" / "results" / "studies"
 TOL = 1e-3     # stored baseline values are rounded to 4 decimals
 
 
-def compliant_su(r, boxes, vol):
+def compliant_su(r, boxes, container):
+    """Compliant SU (%) of one baseline pass: the shared M-1b rule (thesis_metrics)."""
     P = {int(k): v for k, v in r["placements"].items()}
     O = {int(k): v for k, v in r["orientations"].items()}
-    ok = [k for k, x in per_box_constraints(P, boxes, O).items() if x["C3"] and x["C4"] and x["C5"] and x["C6"]]
-    return 100.0 * sum(P[k][3] * P[k][4] * P[k][5] for k in ok) / vol
+    return 100.0 * compliant_space_utilization(P, boxes, O, container)
 
 
 def same(r, stored):
@@ -65,7 +65,6 @@ def rebuild(study, raw_dir, log):
         inst = load_augmented_instance({"data": {"raw_dir": raw_dir}}, instance_id=iid,
                                        stop_seed=study["stop_seed"], stop_count=study["stop_count"])
         boxes, C = inst["boxes"], inst["container"]
-        vol = C["L"] * C["W"] * C["H"]
         idx = list(range(len(boxes)))
         g = pack(sorted(idx, key=lambda i: -boxes[i]["mass"]), boxes, C, es, ef)
         rng = np.random.default_rng([seed, iid])
@@ -73,10 +72,10 @@ def rebuild(study, raw_dir, log):
         bad = (not same(g, row["weight_sorted"])) + sum(not same(d, s) for d, s in zip(draws, row["random_order"]))
         mismatches += bad
         out[iid] = {
-            "Greedy": {"su": g["su_pct"], "csu": compliant_su(g, boxes, vol),
+            "Greedy": {"su": g["su_pct"], "csu": compliant_su(g, boxes, C),
                        "csr_all": row["weight_sorted"]["csr_all_pct"]},
             "Random": {"su": st.mean(d["su_pct"] for d in draws),
-                       "csu": st.mean(compliant_su(d, boxes, vol) for d in draws),
+                       "csu": st.mean(compliant_su(d, boxes, C) for d in draws),
                        "csr_all": st.mean(s["csr_all_pct"] for s in row["random_order"])},
         }
         log(f"instance {iid}: greedy compliant SU {out[iid]['Greedy']['csu']:.2f}, random mean "

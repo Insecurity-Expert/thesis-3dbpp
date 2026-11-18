@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
-import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, PROBLEM_OUTLINE, stopColor } from "../BinViewer";
+import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, stopColor } from "../BinViewer";
 import { studiesApi } from "../services/api";
 import {
   heavyRule, isHeavy, RULES, RULE_NAME, RULE_SHORT, RULE_COLOR,
@@ -84,28 +84,25 @@ export default function VisualizationTab({
   const [shadeEmpty, setShadeEmpty] = useState(false);   // translucent blocks over significant gaps
   const [selectedStop, setSelectedStop] = useState("All");
   const [colorMode, setColorMode] = useState("type");
-  const [highlight, setHighlight] = useState(false);
-  const [ruleFilter, setRuleFilter] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [pinned, setPinned] = useState(null);
   const [source, setSource] = useState("run");          // run | study
   const [studyView, setStudyView] = useState(null);
   const [studyError, setStudyError] = useState(null);
   const [requestBusy, setRequestBusy] = useState(false);
-  const [centerLoad, setCenterLoad] = useState(false);
 
   // A new or reopened run is what the viewer shows; a "View Arrangement"
   // request (below, declared later so it wins on mount) switches to a study run.
   useEffect(() => { if (finalResult) setSource("run"); }, [finalResult]);
 
-  // "View Arrangement" on a Results card: that method's representative run,
-  // with the boxes that break a rule highlighted.
+  // "View Arrangement" on a Results card: that method's representative run.
+  // Rule-breaking boxes are shown only on request (Color mode: By problem).
   useEffect(() => {
     if (!request) return undefined;
     let alive = true;
     setSource("study"); setStudyError(null); setStudyView(null); setRequestBusy(true);
     studiesApi.runView(request.studyId, request.runIndex)
-      .then((v) => { if (!alive) return; setStudyView({ ...v, study_label: v.study_name || "Comparison" }); setHighlight(true); })
+      .then((v) => { if (!alive) return; setStudyView({ ...v, study_label: v.study_name || "Comparison" }); })
       .catch((e) => alive && setStudyError(`This run could not be shown: ${e.message}`))
       .finally(() => alive && setRequestBusy(false));
     return () => { alive = false; };
@@ -124,18 +121,9 @@ export default function VisualizationTab({
     return null;
   }, [source, studyView, finalResult, placements, instanceInfo, binsUsed]);
 
-  useEffect(() => { setPinned(null); setHovered(null); setRuleFilter(null); setCenterLoad(false); }, [result]);
+  useEffect(() => { setPinned(null); setHovered(null); }, [result]);
 
-  const hasCentered = Boolean(
-    result &&
-    result.centered_items &&
-    result.centered_items.length > 0
-  );
-
-  const items = useMemo(() => {
-    if (centerLoad && hasCentered) return result.centered_items;
-    return (result && result.items) || [];
-  }, [result, centerLoad, hasCentered]);
+  const items = useMemo(() => (result && result.items) || [], [result]);
   const pv = result ? result.problem_view : null;
   const heavy = useMemo(() => heavyRule(result), [result]);
 
@@ -149,14 +137,13 @@ export default function VisualizationTab({
   // A box can be both heavy and fragile; hiding either category hides it.
   const filteredPlacements = useMemo(() => items.filter((p) => {
     if (selectedStop !== "All" && Number(p.stop) !== Number(selectedStop)) return false;
-    if (ruleFilter && !(p.violations || []).includes(ruleFilter)) return false;
     const fr = p.fragile === 1 || p.fragile === true || p.type === "Fragile";
     const hv = isHeavy(p.mass ?? p.weight, heavy);
     if (fr && !filterFragile) return false;
     if (hv && !filterHeavy) return false;
     if (!fr && !hv && !filterStandard) return false;
     return true;
-  }), [items, selectedStop, ruleFilter, filterStandard, filterFragile, filterHeavy, heavy]);
+  }), [items, selectedStop, filterStandard, filterFragile, filterHeavy, heavy]);
 
   const nItems = result ? (pv ? pv.n_items : result.n_items) : null;
   const nPlaced = items.length;
@@ -166,37 +153,12 @@ export default function VisualizationTab({
   const container = result ? result.container : null;
   const details = pinned || hovered;
   const frame = useMemo(() => truckFrame(container), [container]);
-  // The gaps of the layout in view: the Center Load toggle swaps the boxes, so it
-  // must swap the summary too (results saved before this carry result.gaps only).
-  const showCentered = centerLoad && hasCentered;
-  const gaps = result ? ((showCentered && result.centered_gaps) || result.gaps) : null;
-  const edge = result ? ((showCentered && result.centered_edge) || result.edge) : null;
+  // The gap figures of the arrangement in view (the lateral-balance "centered"
+  // view and its centre-of-mass plane were removed from the viewer).
+  const gaps = result ? result.gaps : null;
+  const edge = result ? result.edge : null;
   const r4 = result ? result.edge_fill : null;
   const r5 = result ? result.fragile_lift : null;
-
-  // Boxes that the centering pass physically moved (shift > 0.5 cm threshold).
-  // Used to render a cyan outline in the 3-D viewer so the change is visible.
-  const shiftedIdxs = useMemo(() => {
-    if (!centerLoad || !hasCentered || !result || !result.lateral_balance || !result.lateral_balance.shifts) return null;
-    const s = new Set();
-    for (const [idx, delta] of Object.entries(result.lateral_balance.shifts)) {
-      if (Math.abs(delta) > 0.5) s.add(Number(idx));
-    }
-    return s.size > 0 ? s : null;
-  }, [centerLoad, hasCentered, result]);
-
-  // Lateral centre-of-mass x position (physics x-axis = across the truck width).
-  // Weighted by left_mass / total_mass, scaled to container width L.
-  const centerOfMassX = useMemo(() => {
-    if (!result || !result.lateral_balance || !container) return null;
-    const lb = centerLoad && hasCentered ? result.lateral_balance.after : result.lateral_balance.before;
-    if (!lb) return null;
-    const total = lb.left_mass + lb.right_mass;
-    if (total <= 0) return null;
-    const L = Number(container.L || container.length_cm || 0);
-    return (lb.left_mass / total) * L;
-  }, [centerLoad, hasCentered, result, container]);
-  const comBalanced = centerLoad && hasCentered;
   const idName = useMemo(() => {
     const m = new Map(items.map((it) => [Number(it.item_idx), it.id ?? `#${it.item_idx}`]));
     return (j) => `Box ${m.get(Number(j)) ?? j}`;
@@ -225,8 +187,6 @@ export default function VisualizationTab({
         </>
       )}
       <Swatch color="#f59e0b" outline label="Fragile (outline)" />
-      {highlight && pv && <Swatch color={PROBLEM_OUTLINE} outline label={`Breaks a rule: ${pv.n_placed - pv.compliant_placed}`} />}
-      {centerLoad && shiftedIdxs && <Swatch color="#22d3ee" outline label={`Balanced — ${shiftedIdxs.size} box${shiftedIdxs.size === 1 ? '' : 'es'} shifted`} />}
       {nNotLoaded !== null && (
         <span style={{ ...LEGEND_TXT, fontWeight: 700, color: nNotLoaded > 0 ? "#fbbf24" : "#cbd5e1" }}>
           {nNotLoaded} of {nItems} boxes not loaded
@@ -329,14 +289,14 @@ export default function VisualizationTab({
                       <Row k="Sideways gaps ≥ τ (a box fits)" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
                       <Row k="Sideways gaps < τ (dunnage)" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
                       <Row k="Side contact" v={edge.side_contact_ratio === null ? "—" : `${fmtNum(edge.side_contact_ratio * 100, 1)} % of side-face area`} />
-                      {r4 && !showCentered && (
+                      {r4 && (
                         <div className="field-hint">
                           R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
                           {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush ({fmtNum(r4.time_ms / 1000, 1)} s).
                           Gaps under τ are left for dunnage.
                         </div>
                       )}
-                      {r5 && !showCentered && (
+                      {r5 && (
                         <div className="field-hint">
                           R5: {r5.fragile_lifted.length} fragile box move{r5.fragile_lifted.length === 1 ? "" : "s"},
                           {" "}{r5.boxes_added.length} box{r5.boxes_added.length === 1 ? "" : "es"} added,
@@ -344,7 +304,6 @@ export default function VisualizationTab({
                           {" "}({fmtNum(r5.time_ms / 1000, 1)} s).
                         </div>
                       )}
-                      {showCentered && <div className="field-hint">Centered view: these figures are for the centered boxes, not the R4 arrangement.</div>}
                     </div>
                   )}
                 </div>
@@ -412,8 +371,11 @@ export default function VisualizationTab({
             <div style={{ position: "relative" }}>
             {details && (
               // Box details, floating in the viewer's top-left corner: the clicked
-              // (pinned) box, or the box under the pointer.
-              <div className="viewer-details" role="dialog" aria-label="Box details">
+              // (pinned) box, or the box under the pointer. A hover-only card lets
+              // the pointer through, so a box under it never loses hover and the
+              // card does not flicker; a pinned card takes the pointer (for ✕).
+              <div className="viewer-details" role="dialog" aria-label="Box details"
+                style={{ pointerEvents: pinned ? "auto" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 10 }}>
                   <h4 className="section-tag" style={{ margin: 0 }}>● BOX DETAILS</h4>
                   {pinned && <button type="button" className="btn btn-ghost btn-xs" aria-label="Close box details" onClick={() => setPinned(null)}>✕</button>}
@@ -437,7 +399,6 @@ export default function VisualizationTab({
               colorMode={colorMode}
               heavy={heavy}
               stops={uniqueStops}
-              highlightProblems={highlight && !!pv}
               legend={legend}
               pictureName={pictureName}
               plan={plan}
@@ -446,9 +407,6 @@ export default function VisualizationTab({
               shadeEmpty={shadeEmpty}
               onPlayStart={() => triggerViewReset("Loading")}
               onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
-              shiftedIdxs={shiftedIdxs}
-              centerOfMassX={centerOfMassX}
-              comBalanced={comBalanced}
             />
             </div>
           ) : running && source === "run" ? (

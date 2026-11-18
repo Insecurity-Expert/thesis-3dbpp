@@ -15,7 +15,9 @@ stored su_pct (to 0.001), so the arrangement belongs to that run.
     python tools/add_compliant_su.py experiments/results/studies/<study>.json
     python tools/add_compliant_su.py <study.json> --dry-run      # compute and report, write nothing
 
-The original file is kept as <study>.json.bak.
+The original file is kept as <study>.json.bak (made on the first run only, so a
+second run never replaces it). The attached statistics gain SP1 on compliant SU
+(stats.sp1_compliant_blocks); the rest of them is not recomputed.
 """
 import argparse
 import json
@@ -80,15 +82,28 @@ def main():
     for c in ("DGWO", "MOGWO", "SEQ", "REP"):
         if by_cfg[c]:
             print(f"  {c:5s} mean SU {st.mean(x for x, _ in by_cfg[c]):6.2f}   mean compliant SU {st.mean(y for _, y in by_cfg[c]):6.2f}")
+    # The study's attached statistics gain SP1 on compliant SU (stats.sp1_compliant_
+    # blocks); every other part of them is left exactly as it was.
+    stats_added = False
+    if isinstance(study.get("stats"), dict) and "SP1_compliant" not in study["stats"]:
+        import stats as S
+        configs = [c for c in S.CONFIGS if any(r["configuration"] == c for r in study["runs"])]
+        study["stats"].update(S.sp1_compliant_blocks(S.derive_rows(study["runs"]), configs, S._instances_of(study)))
+        stats_added = "SP1_compliant" in study["stats"]
     if a.dry_run:
-        print(f"dry run: {added} run(s) would get compliant_su_pct ({already} already had it); nothing written")
+        print(f"dry run: {added} run(s) would get compliant_su_pct ({already} already had it)"
+              f"{'; the attached statistics would gain SP1 on compliant SU' if stats_added else ''}; nothing written")
         return
-    if added:
-        shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+    if stats_added:
+        print("attached statistics: added SP1 on compliant SU (descriptives_CSU, SP1_compliant); the rest unchanged")
+    if added or stats_added:
+        bak = path.with_suffix(path.suffix + ".bak")
+        if not bak.exists():          # never replace the first (true original) backup
+            shutil.copy2(path, bak)
         path.write_text(json.dumps(study, indent=1), encoding="utf-8")
-        print(f"added compliant_su_pct to {added} run(s) ({already} already had it); original kept as {path.name}.bak")
+        print(f"added compliant_su_pct to {added} run(s) ({already} already had it); the original is kept as {bak.name}")
     else:
-        print(f"nothing to add: all {already} run(s) already have compliant_su_pct")
+        print(f"nothing to add: all {already} run(s) already have compliant_su_pct and the statistics have SP1 on it")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 // client/src/Shell.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import logoImg from "./logo.png";
 
@@ -26,13 +26,9 @@ const PAGES = ["home", "logistics", "results", "technical", "guide", "visualizat
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
-  const navigate = useNavigate();
-  // Sign out lands on the landing page: leave the app first, then end the
-  // session (ending it first would send the sign-in guard to /login).
-  const signOut = useCallback(() => {
-    navigate("/", { replace: true });
-    logout();
-  }, [navigate, logout]);
+  // Sign out lands on the landing page (AuthContext.logout tells the sign-in
+  // guard where to go; it never throws).
+  const signOut = useCallback(() => { logout({ to: "/" }); }, [logout]);
   const toast = useToast();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   // home, logistics, results, technical, guide, visualization, history, account.
@@ -127,9 +123,15 @@ export default function Shell() {
   // Requests from Results: open a study run in the 3D viewer / a method's guide.
   const [vizRequest, setVizRequest] = useState(null);
   const [guideRequest, setGuideRequest] = useState(null);
-  // Results and Technical Details: the two hybrids by default, all four on request.
+  // Results and Statistics: the proposed hybrid by default, all four on request.
+  // Switching from one study to another goes back to the default; the first
+  // selection on load does not, so a ?view=all link keeps the full comparison.
   const [showAllConfigs, setShowAllConfigs] = useState(false);
-  useEffect(() => { setShowAllConfigs(false); }, [selectedStudyId]);
+  const prevStudyId = useRef(null);
+  useEffect(() => {
+    if (prevStudyId.current !== null && prevStudyId.current !== selectedStudyId) setShowAllConfigs(false);
+    prevStudyId.current = selectedStudyId;
+  }, [selectedStudyId]);
   const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
