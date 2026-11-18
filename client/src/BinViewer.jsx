@@ -422,7 +422,7 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, fram
     // Per view, because the labels sit outside the shell in different
     // directions: Side and Top carry a label at each end of the 587 cm axis,
     // and Top must also clear the playback bar along the canvas bottom.
-    const MARGIN = { Door: 1.35, Side: 1.50, Top: 1.60, "3D": 1.45, Loading: 1.25 };
+    const MARGIN = { Door: 1.35, Side: 1.50, Top: 1.60, "3D": 1.45 };
     const vFov = (Number(camera.fov || 30) * Math.PI) / 180;
     const aspect = Number(camera.aspect || 1.6);
     const fit = (screenW, screenH) => {
@@ -432,9 +432,9 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, fram
     };
     // Render axes: x = across (totalWidth), y = height, z = depth.
     const dist =
-      orientation === "Door" || orientation === "Loading" ? fit(nW, nH) :
-      orientation === "Side"  ? fit(nD, nH) :
-      orientation === "Top"   ? fit(nW, nD) :
+      orientation === "Door" ? fit(nW, nH) :
+      orientation === "Side" ? fit(nD, nH) :
+      orientation === "Top"  ? fit(nW, nD) :
       fit(Math.hypot(nW, nD) * 0.85, Math.max(nH, nD * 0.55));
     const nCamDist = dist > 0 ? dist : Number(camDist || 0);
 
@@ -446,25 +446,9 @@ function CameraController({ orientation, target, H, camDist, totalWidth, D, fram
       camera.up.set(0, 1, 0);
     }
 
-    // The door is at render z = doorZ and the truck runs `inward` from it
-    // (truckFrame). "Door" looks in through the door; "Loading" (playback)
-    // looks in through the door from above and behind it, so a box starts
-    // near the viewer and slides away into the truck; "3D" is a three-quarter
-    // view from behind and above the door so the long axis runs away from the
-    // viewer toward the front wall.
-    // Each view is framed against the plane it actually shows. Door looks in
-    // through the door, so its distance is measured from the door plane, not
-    // from the container centre 293 cm further in - otherwise a box at the
-    // door looms over the frame and its label projects off-screen.
-    // Top is aimed slightly doorward so the door label clears the playback bar
-    // along the bottom of the canvas.
     const aim = [target[0], target[1], target[2]];
     if (orientation === "Door") {
       camera.position.set(target[0], target[1], doorZ - inward * nCamDist);
-    } else if (orientation === "Loading") {
-      aim[1] = nH * 0.25;
-      aim[2] = doorZ + inward * nD * 0.5;
-      camera.position.set(target[0] + nW * 0.3, nH * 1.75, doorZ - inward * nCamDist * 1.25);
     } else if (orientation === "Side") {
       camera.position.set(target[0] + nCamDist, target[1], target[2]);
     } else if (orientation === "Top") {

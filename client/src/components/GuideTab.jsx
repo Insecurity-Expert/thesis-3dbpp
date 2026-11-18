@@ -137,7 +137,6 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
     }
   });   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const savedRows = (runHistory || []).filter((r) => r.has_result && r.status !== "failed");
   const controls = (
     <div className="no-print">
       <div className="help-banner">
@@ -153,11 +152,11 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
           <label className="field-label" htmlFor="guide-config">Which configuration's plan do you want to see?</label>
-          <select id="guide-config" className="field-input" style={{ minWidth: 380 }} value={shownMethod || ""} disabled={!load || !!single}
+          <select id="guide-config" className="field-input" style={{ minWidth: 340 }} value={shownMethod || ""} disabled={!load}
             onChange={(e) => setMethod(e.target.value || null)}>
             <option value="">{load ? "— choose a configuration —" : "— run STACKR first —"}</option>
             {load && ordered(load.configurations).map((c) => (
-              <option key={c} value={c}>{methodLabel(c)} — {fmtNum(load.representative[c].su_pct, 1)}% full</option>
+              <option key={c} value={c}>{methodLabel(c)}</option>
             ))}
           </select>
         </div>
@@ -170,15 +169,6 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
           </div>
         )}
       </div>
-      <details className="collapsible card" style={{ marginBottom: 18 }}>
-        <summary>Advanced: a single saved run instead</summary>
-        <select className="field-input" style={{ marginTop: 10, maxWidth: 520 }} value={single} onChange={(e) => setSingle(e.target.value === "" || e.target.value === "screen" ? e.target.value : Number(e.target.value))}>
-          <option value="">— the comparison's solution (above) —</option>
-          <option value="screen" disabled={!finalResult}>The run open now (from Run History){finalResult ? "" : " (none)"}</option>
-          {savedRows.map((r) => <option key={r.id} value={r.id}>#{r.id} · {methodLabel(r.strategy_code || r.strategy)} · {r.instance}{r.seed != null ? ` · repeat code ${r.seed}` : ""}</option>)}
-        </select>
-        <div className="field-hint">Preview: one run, one seed. Its guide is built the same way.</div>
-      </details>
     </div>
   );
 
@@ -210,12 +200,11 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       {controls}
 
       {/* ── On screen: Page 1 of 2 — loading and unloading as tables ── */}
-      <Page only="screen" tag="Page 1 of 2" title="Loading & Unloading Guide" custom={customText}
-        desc={single ? "Preview: one run, one seed." : null}>
+      <Page only="screen" tag="Page 1 of 2" title="Loading & Unloading Guide" custom={customText}>
         {!single && (
           <div className="info-callout" style={{ marginBottom: 14, display: "block" }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>
-              Solution shown: {methodLabel(methodCode)}, repeat code {seed}
+              Solution shown: {methodLabel(methodCode)}
             </div>
           </div>
         )}
@@ -225,15 +214,14 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         </p>
         <div style={{ overflowX: "auto" }}>
           <table className="data-table compact" style={{ width: "100%", fontSize: 11.5 }}>
-            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Size as placed (cm)</th><th>Orientation</th><th>Weight</th><th>Position (x, y, z)</th><th>Load on top</th><th>Base support</th><th>Unload order</th></tr></thead>
+            <thead><tr><th>Step</th><th>Box</th><th>Stop</th><th>Placement</th><th>Orientation</th><th>Fragile</th></tr></thead>
             <tbody>
               {guide.steps.map((s) => (
                 <tr key={s.step}>
-                  <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>{s.stop}</td>
-                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.size}</td><td>{s.orientationShort ?? "not recorded"}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtNum(s.mass, 1)} kg</td>
-                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{s.position}</td>
-                  <td style={{ whiteSpace: "nowrap" }}><Status text={s.c3} /></td><td style={{ whiteSpace: "nowrap" }}><Status text={s.c5} /></td><td><Status text={s.c6} /></td>
+                  <td className="mono">{s.step}</td><td className="mono" style={{ whiteSpace: "nowrap" }}>{s.label}</td><td>Stop {s.stop}</td>
+                  <td>{s.instruction}{s.reachable && <span className="sub" style={{ color: "var(--primary-hover)", fontWeight: 700, marginLeft: 6 }}>{s.reachable}</span>}</td>
+                  <td>{s.orientationShort ?? "—"}</td>
+                  <td>{s.fragile ? <b style={{ color: "var(--amber)" }}>Yes</b> : "No"}</td>
                 </tr>
               ))}
             </tbody>
@@ -241,8 +229,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
         </div>
         {guide.fixes.length > 0 && (
           <p className="field-hint" style={{ color: "var(--amber)" }}>
-            {guide.fixes.length} box{guide.fixes.length === 1 ? "" : "es"} could not go in at {guide.fixes.length === 1 ? "its" : "their"} stop's turn,
-            so the order above loads what {guide.fixes.length === 1 ? "it needs" : "they need"} first.
+            Some boxes could not go in at their stop's turn, so the order above loads what they need first.
           </p>
         )}
 
@@ -257,10 +244,10 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
                 for (const b of g.blockers) (byStop[b.stop] = byStop[b.stop] || []).push(b.id);
                 return (
                   <tr key={g.stop}>
-                    <td style={{ fontWeight: 700 }}>{g.stop}</td>
+                    <td style={{ fontWeight: 700 }}>Stop {g.stop}</td>
                     <td>{g.boxes.length}</td>
                     <td style={{ color: g.blockers.length ? "var(--red)" : undefined }}>
-                      {g.blockers.length ? Object.entries(byStop).map(([st, ids]) => `${boxList(ids)} (stop ${st})`).join("; ") : "nothing"}
+                      {g.blockers.length ? Object.entries(byStop).map(([, ids]) => boxList(ids)).join("; ") : "Nothing"}
                     </td>
                     <td>{boxList(g.boxes.map((b) => b.id))}</td>
                   </tr>
@@ -340,7 +327,7 @@ export default function GuideTab({ finalResult, runHistory = [], request = null,
       </Page>
 
       <Page n={2} tag="Page 2 of 2" printTag="Page 2 of 3" title="Container arrangement" custom={customText}
-        desc={`Door and cab end marked; ${fmtNum(container.length_cm ?? container.D)} × ${fmtNum(container.width_cm ?? container.L)} × ${fmtNum(container.height_cm ?? container.H)} cm (length × width × height).`}>
+        desc={<><span className="screen-only">Door and cab end marked.</span><span className="print-only">{`Door and cab end marked; ${fmtNum(container.length_cm ?? container.D)} × ${fmtNum(container.width_cm ?? container.L)} × ${fmtNum(container.height_cm ?? container.H)} cm (length × width × height).`}</span></>}>
         <GuideViews guide={guide} container={container} />
       </Page>
 

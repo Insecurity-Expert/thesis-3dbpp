@@ -174,7 +174,7 @@ export default function VisualizationTab({
       {colorMode === "type" && (
         <>
           <Swatch color={TYPE_COLOR.standard} label="Standard" />
-          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: mass ≥ ${fmtNum(heavy.threshold, 2)} kg (${heavy.nHeavy} of ${heavy.n} ${pv ? "boxes" : "placed boxes"})`} />
+          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: mass ≥ ${fmtNum(heavy.threshold, 2)} kg`} />
         </>
       )}
       {colorMode === "box" && <span style={LEGEND_TXT}>Each box has its own colour</span>}
@@ -183,10 +183,9 @@ export default function VisualizationTab({
         <>
           <Swatch color={COMPLIANT_COLOR} label="Follows C3–C6" />
           {RULES.map((r) => <Swatch key={r} color={RULE_COLOR[r]} label={`${r} ${RULE_SHORT[r]}`} />)}
-          <span style={{ ...LEGEND_TXT, color: "#94a3b8" }}>(several rules: first one's colour)</span>
         </>
       )}
-      <Swatch color="#f59e0b" outline label="Fragile (outline)" />
+      <Swatch color="#f59e0b" outline label="Fragile" />
       {nNotLoaded !== null && (
         <span style={{ ...LEGEND_TXT, fontWeight: 700, color: nNotLoaded > 0 ? "#fbbf24" : "#cbd5e1" }}>
           {nNotLoaded} of {nItems} boxes not loaded
@@ -202,25 +201,20 @@ export default function VisualizationTab({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
         <Row k="Box" v={it.id ?? `#${it.item_idx}`} />
-        <Row k="Position (x, y from front wall, z)" v={`(${fmtNum(ph.x)}, ${fmtNum(frame.fromFront(ph))}, ${fmtNum(ph.z)}) cm`} />
-        <Row k="Placed size (across × deep × high)" v={`${fmtNum(ph.dx)} × ${fmtNum(ph.dy)} × ${fmtNum(ph.dz)} cm`} />
-        <Row k="Orientation" v={orientationText(it.orientation) ?? "not recorded for this run"} strong={!!it.orientation} />
+        <Row k="Position" v={`${fmtNum(ph.x)}, ${fmtNum(frame.fromFront(ph))}, ${fmtNum(ph.z)} cm`} />
+        <Row k="Placed size" v={`${fmtNum(ph.dx)} × ${fmtNum(ph.dy)} × ${fmtNum(ph.dz)} cm`} />
+        <Row k="Orientation" v={orientationText(it.orientation) ? orientationText(it.orientation).replace(/\s*\([^)]*\)/g, "") : "not recorded for this run"} strong={!!it.orientation} />
         <Row k="Mass" v={`${fmtNum(it.mass ?? it.weight, 2)} kg`} />
         <Row k="Max load on top" v={it.max_load_kg !== undefined ? `${fmtNum(it.max_load_kg, 1)} kg` : "—"} />
-        {it.max_load_kg !== undefined && (
-          <div className="field-hint" style={{ marginTop: -4, textAlign: "right" }}>
-            {fmtNum(it.lbs_kg_cm2, 4)} kg/cm² (top-face strength) × {fmtNum(ph.dx)} × {fmtNum(ph.dy)} cm²
-          </div>
-        )}
         <Row k="Load resting on it" v={it.load_above_kg !== undefined ? `${fmtNum(it.load_above_kg, 1)} kg` : "—"} />
         <Row k="Stop" v={`Stop ${it.stop}`} color="var(--primary)" />
         <Row k="Fragile" v={fr ? "Yes — nothing may rest on it" : "No"} color={fr ? "var(--amber)" : undefined} />
         <Row k="Heavy" v={isHeavy(it.mass ?? it.weight, heavy) ? "Yes" : "No"} />
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Gaps at its six faces (cm)</div>
+          <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Gaps at its six faces</div>
           {(() => {
             const rows = faceGapRows(it, container, idName);
-            if (!rows) return <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>;
+            if (!rows) return <div style={{ color: "var(--text-dim)" }}>Not available for this run.</div>;
             return rows.map((r) => (
               <div key={r.face} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <span style={{ color: "var(--text-dim)" }}>{r.name}</span>
@@ -233,12 +227,12 @@ export default function VisualizationTab({
         </div>
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Rules broken</div>
-          {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the problem view).</div>
+          {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run.</div>
             : it.violations.length === 0 ? <div style={{ fontWeight: 700, color: "var(--green)" }}>None — follows C3, C4, C5 and C6</div>
               : it.violations.map((r) => (
                 <div key={r} style={{ fontWeight: 700, color: RULE_COLOR[r] }}>
                   {r} · {RULE_NAME[r]}
-                  {r === "C3" && ` (${fmtNum(it.load_above_kg, 1)} kg on a ${fmtNum(it.max_load_kg, 1)} kg limit)`}
+                  {r === "C3" && ` — ${fmtNum(it.load_above_kg, 1)} kg on a ${fmtNum(it.max_load_kg, 1)} kg limit`}
                   {r === "C6" && it.c6_blocked_by && it.c6_blocked_by.length > 0 && ` — by ${it.c6_blocked_by.join(", ")}`}
                 </div>
               ))}
@@ -277,7 +271,7 @@ export default function VisualizationTab({
                   <Row k="Mean face gap" v={gaps.mean_gap_cm === null ? "—" : `${fmtNum(gaps.mean_gap_cm, 2)} cm`} />
                   <Row k="Largest face gap" v={gaps.max_gap_cm === null ? "—" : `${fmtNum(gaps.max_gap_cm, 2)} cm`} />
                   <Row k="Significant gaps" v={`${gaps.significant_gaps} of ${gaps.n_faces} faces`} color="var(--amber)" />
-                  <Row k="τ (smallest box dimension)" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
+                  <Row k="Smallest box dimension" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
                   <div className="field-hint">
                     A face gap is the distance from a box face to the nearest box or wall beyond it; it is significant at τ or more.
                     Every face counts, the roof included; the view leaves out the lines to the roof.
@@ -286,13 +280,13 @@ export default function VisualizationTab({
                     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8, display: "flex", flexDirection: "column", gap: "8px" }}>
                       <Row k="Boxes touching nothing sideways" v={`${edge.isolated_boxes}`} color={edge.isolated_boxes > 0 ? "var(--amber)" : undefined} />
                       <Row k="Boxes touching one side only" v={`${edge.one_side_boxes}`} />
-                      <Row k="Sideways gaps ≥ τ (a box fits)" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
-                      <Row k="Sideways gaps < τ (dunnage)" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
+                      <Row k="Sideways gaps ≥ τ" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
+                      <Row k="Sideways gaps < τ" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
                       <Row k="Side contact" v={edge.side_contact_ratio === null ? "—" : `${fmtNum(edge.side_contact_ratio * 100, 1)} % of side-face area`} />
                       {r4 && (
                         <div className="field-hint">
                           R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
-                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush ({fmtNum(r4.time_ms / 1000, 1)} s).
+                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush.
                           Gaps under τ are left for dunnage.
                         </div>
                       )}
@@ -300,15 +294,14 @@ export default function VisualizationTab({
                         <div className="field-hint">
                           R5: {r5.fragile_lifted.length} fragile box move{r5.fragile_lifted.length === 1 ? "" : "s"},
                           {" "}{r5.boxes_added.length} box{r5.boxes_added.length === 1 ? "" : "es"} added,
-                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%
-                          {" "}({fmtNum(r5.time_ms / 1000, 1)} s).
+                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%.
                         </div>
                       )}
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>
+                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run.</div>
               )}
             </div>
           )}
@@ -353,7 +346,7 @@ export default function VisualizationTab({
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <div className="tabs-inline">
-                {["Door", "Side", "Top", "3D", "Loading"].map((dir) => (
+                {["Door", "Side", "Top", "3D"].map((dir) => (
                   <button key={dir} onClick={() => triggerViewReset(dir)} className={viewportOrientation === dir ? "active" : ""} style={{ fontSize: "12px", fontWeight: "700", cursor: "pointer", padding: "4px 8px" }}>{dir}</button>
                 ))}
               </div>
@@ -405,7 +398,6 @@ export default function VisualizationTab({
               planCheck={planCheck}
               showGaps={showGaps}
               shadeEmpty={shadeEmpty}
-              onPlayStart={() => triggerViewReset("Loading")}
               onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
             />
             </div>
@@ -462,7 +454,7 @@ export default function VisualizationTab({
               <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
             </div>
             <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap (not up to the roof); shown once all boxes are in">Show gaps (cm)</span>
+              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap; shown once all boxes are in">Show gaps</span>
               <label className="switch"><input type="checkbox" checked={showGaps} disabled={!gaps} onChange={(e) => setShowGaps(e.target.checked)} /><span className="slider" /></label>
             </div>
             <div className="switch-container">
@@ -481,10 +473,10 @@ export default function VisualizationTab({
             <div>
               <label style={CAPTION}>Color mode</label>
               <select className="form-input" style={{ width: "100%" }} value={colorMode} onChange={(e) => setColorMode(e.target.value)}>
-                <option value="type">By type (standard / heavy)</option>
-                <option value="box">By box (each box its own colour)</option>
+                <option value="type">By type</option>
+                <option value="box">By box</option>
                 <option value="stop">By delivery stop</option>
-                <option value="problem" disabled={!pv}>By problem{pv ? "" : " (not available)"}</option>
+                <option value="problem" disabled={!pv}>By problem</option>
               </select>
             </div>
           </div>

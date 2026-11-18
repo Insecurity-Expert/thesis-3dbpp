@@ -79,6 +79,20 @@ export const authApi = {
     return request("/api/auth/me/prefs", { method: "PATCH", body: JSON.stringify(prefs) });
   },
 
+  async changePassword(current_password, new_password) {
+    return request("/api/auth/me/password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    });
+  },
+
+  async deleteAccount(password) {
+    return request("/api/auth/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    });
+  },
+
   async logout() {
     return request("/api/auth/logout", {
       method: "POST",

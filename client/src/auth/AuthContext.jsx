@@ -54,8 +54,14 @@ export function AuthProvider({ children }) {
     return true;
   }
 
+  async function deleteAccount(password) {
+    await authApi.deleteAccount(password);
+    setAfterLogout("/");
+    setUser(null);
+  }
+
   return (
-    <AuthCtx.Provider value={{ user, loading, afterLogout, login, register, logout, setPrefs }}>
+    <AuthCtx.Provider value={{ user, loading, afterLogout, login, register, logout, setPrefs, deleteAccount }}>
       {children}
     </AuthCtx.Provider>
   );
