@@ -128,3 +128,11 @@ test("compliant fill: an older study file without it shows nothing and falls bac
   expect(ranksFor("sp1", v).criterion).toBe("fill");
   expect(compositeScores(v).terms).toContain("fill");
 });
+
+test("compliant fill: a load mixing runs with and without it uses container fill for every method", () => {
+  const v = methodValues([run("REP", { su_pct: 55, compliant_su_pct: 55 }), run("SEQ", { su_pct: 62 })]);
+  expect(v.REP.values.csu).toBeNull();
+  expect(v.SEQ.values.csu).toBeNull();
+  expect(bestFor(metricByKey("csu"), v)).toEqual([]);
+  expect(ranksFor("sp1", v).criterion).toBe("fill");
+});

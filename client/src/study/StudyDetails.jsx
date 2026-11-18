@@ -8,7 +8,7 @@
 import React, { useState } from "react";
 import { StudySopSummary, SP1, SP2, SP3, Overall, SavedRuns, HypothesisFamily } from "./StatsSections";
 import { ProvenanceStrip, ScoreTable, ComplianceTable, PerformanceTable, SupplementaryBaselines, ExtraNumbers, Sp3Note } from "./StudyResults";
-import { outcomeBanner } from "./verdicts";
+import { outcomeBanner, shownOutcome } from "./verdicts";
 
 // A button that shows / hides its children; closed children are not mounted.
 export function Disclosure({ title, sub = null, level = 2, defaultOpen = false, children }) {
@@ -31,7 +31,7 @@ const stack = { display: "flex", flexDirection: "column", gap: 16 };
 
 // "Outcome D · 8 test cases · 320 runs (80 per configuration) · quick preset (pop 10 × 60)".
 export function StudyHeaderLine({ study, stats }) {
-  const oc = stats.outcome;
+  const oc = shownOutcome(stats);
   const b = outcomeBanner(stats);
   const label = oc && oc.pattern ? `Outcome ${oc.pattern}` : b ? b.title : "No outcome pattern";
   const nInst = stats.provenance ? stats.provenance.n_instances : (study.instances || []).length;

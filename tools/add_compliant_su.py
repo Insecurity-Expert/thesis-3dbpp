@@ -85,17 +85,19 @@ def main():
     # The study's attached statistics gain SP1 on compliant SU (stats.sp1_compliant_
     # blocks); every other part of them is left exactly as it was.
     stats_added = False
-    if isinstance(study.get("stats"), dict) and "SP1_compliant" not in study["stats"]:
+    if isinstance(study.get("stats"), dict) and "planned_family_compliant" not in study["stats"]:
         import stats as S
         configs = [c for c in S.CONFIGS if any(r["configuration"] == c for r in study["runs"])]
-        study["stats"].update(S.sp1_compliant_blocks(S.derive_rows(study["runs"]), configs, S._instances_of(study)))
-        stats_added = "SP1_compliant" in study["stats"]
+        timing_valid = bool(study.get("timing_valid", study.get("mode") == "serial"))
+        study["stats"].update(S.sp1_compliant_blocks(S.derive_rows(study["runs"]), configs, S._instances_of(study),
+                                                     study["stats"].get("hypothesis_family"), timing_valid))
+        stats_added = "planned_family_compliant" in study["stats"]
     if a.dry_run:
         print(f"dry run: {added} run(s) would get compliant_su_pct ({already} already had it)"
               f"{'; the attached statistics would gain SP1 on compliant SU' if stats_added else ''}; nothing written")
         return
     if stats_added:
-        print("attached statistics: added SP1 on compliant SU (descriptives_CSU, SP1_compliant); the rest unchanged")
+        print("attached statistics: added SP1 on compliant SU (descriptives_CSU, SP1_compliant, planned_family_compliant, hypothesis_family_compliant); the rest unchanged")
     if added or stats_added:
         bak = path.with_suffix(path.suffix + ".bak")
         if not bak.exists():          # never replace the first (true original) backup

@@ -67,7 +67,6 @@ Run STACKR is the only way to start a comparison from the app. Quick Test and th
 |---|---|
 | `components/ui.jsx` | pop-up (modal) and toast |
 | `components/HowToModal.jsx` | the six-step "How to use STACKR" pop-up; opens by itself only on a new account's first login |
-| `components/ThingsToKnow.jsx` | caveats computed from the data held (no longer shown in Account) |
 | `components/TradeoffsChart.jsx` | one dot per run: container fill against rule-following over all boxes |
 | `study/LineChart.jsx` | small inline-SVG line chart |
 | `methods.js` | the four methods' names and one-line descriptions |

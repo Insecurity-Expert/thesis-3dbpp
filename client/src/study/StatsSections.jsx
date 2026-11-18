@@ -10,21 +10,24 @@ import LineChart from "./LineChart";
 import { SopSummary } from "../components/SopSummary";
 import { descriptiveModel, testedModel, isTestedStudy } from "../viewer/sopSummary";
 import { timingValid } from "./timing";
-import { fmt, label, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, familySummary, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
+import { fmt, label, sp1Shown, sp1Summary, sp2Summary, sp3Summary, sp3ClassSentence, familySummary, compositeSummary, COMPOSITE_TITLE, CONFIG_ORDER, dfText, MEASURE_PLAIN, DEFINITION_PLAIN } from "./verdicts";
 
 const { th, td } = cell;
 
 export function SP1({ stats }) {
-  const cmp = stats.SP1.comparison;
+  // Compliant SU (M-1b) when the stats have it; container fill (raw SU) is then a descriptive companion.
+  const { cmp, code } = sp1Shown(stats);
+  const csu = code === "CSU";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Section title="Result" desc="Do the configurations differ in how full the container gets?">
+      <Section title="Result" desc={csu ? "Do the configurations differ in how much of the container rule-following boxes fill?" : "Do the configurations differ in how full the container gets?"}>
         <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-main)" }}>{sp1Summary(stats)}</p>
         <div style={{ marginTop: 10 }}><ConfoundNote stats={stats} /></div>
       </Section>
       <Section title="All numbers at a glance" desc={`The full range of results for each method across ${stats.provenance.runs_per_configuration} runs.`}>
         <DescriptivesTable stats={stats} measures={[
-          { code: "SU", label: "Container full (%)", get: (s, c) => s.descriptives.SU[c] },
+          ...(csu ? [{ code: "CSU", label: "Compliant fill (%)", get: (s, c) => s.descriptives_CSU[c] }] : []),
+          { code: "SU", label: csu ? "Container full (%), descriptive" : "Container full (%)", get: (s, c) => s.descriptives.SU[c] },
           { code: "placed", label: "Boxes placed", get: (s, c) => s.descriptives.placed[c], fmt: (v) => fmt.num(v, 1) },
         ]} />
       </Section>
@@ -32,10 +35,10 @@ export function SP1({ stats }) {
         <NormalityTable stats={stats} cmp={cmp} />
       </Section>
       <Section title="Are any of the differences real?" desc="One test asks whether there is any difference at all between the four methods; its p-value is Holm-corrected in the six-test family.">
-        <OmnibusCard cmp={cmp} measureCode="SU" holm={cmp.omnibus.p_holm != null} />
+        <OmnibusCard cmp={cmp} measureCode={code} holm={cmp.omnibus.p_holm != null} />
       </Section>
       <Section title="Which methods are different from each other?" desc="Every pair, compared one at a time.">
-        <PairsTable stats={stats} cmp={cmp} measureCode="SU" />
+        <PairsTable stats={stats} cmp={cmp} measureCode={code} />
       </Section>
     </div>
   );

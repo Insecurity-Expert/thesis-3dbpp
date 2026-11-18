@@ -38,19 +38,20 @@ export function AuthProvider({ children }) {
     return r;
   }
 
-  // Signs out on this device at once (the guard then sends the visitor to `to`,
-  // or /login), then ends the server session. Never throws: resolves false when
-  // the server could not be reached, so callers need no catch.
+  // Ends the server session, then signs out here (the guard sends the visitor to
+  // `to`, or /login). If the server does not confirm, the user stays signed in
+  // (a reload would otherwise sign them straight back in). Never throws:
+  // resolves true when signed out, false otherwise, so callers need no catch.
   async function logout({ to = null } = {}) {
-    setAfterLogout(to);
-    setUser(null);
     try {
       await authApi.logout();
-      return true;
     } catch (e) {
-      console.warn(`Signed out on this device, but the server session could not be ended: ${e.message}`);
+      console.warn(`Sign-out failed, still signed in: ${e.message}`);
       return false;
     }
+    setAfterLogout(to);
+    setUser(null);
+    return true;
   }
 
   return (

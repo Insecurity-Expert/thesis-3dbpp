@@ -76,16 +76,14 @@ export default function LogisticsTab({
   step, setStep, processingPanel = null,
   containerSpecs, setContainerSpecs,
   running,
-  // Quick Test (Advanced): all four configurations, one run each
-  seed, setSeed, onQuickTest, runHistory = [],
   optimizerReady = { state: "cold" },
   // the load
   wtpackInstances = [], wtpackId = null, setWtpackId = () => {},
   loadSources = {}, selectedLoad = {}, loadFacts = null,
   // Settings -> Review: re-checks a custom load against the container on screen
   onToReview,
-  // Run STACKR and the larger comparison sizes
-  sizesInfo = null, onRunStackr, studyBusy = false, largerSizes = null, testSettings = null,
+  // Run STACKR
+  sizesInfo = null, onRunStackr, studyBusy = false,
 }) {
   const toast = useToast();
   const custom = selectedLoad.custom;

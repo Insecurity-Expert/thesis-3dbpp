@@ -18,7 +18,6 @@ import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
-import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
 
 
 const PAGES = ["home", "logistics", "results", "technical", "guide", "visualization", "history", "account"];
@@ -26,10 +25,13 @@ const PAGES = ["home", "logistics", "results", "technical", "guide", "visualizat
 // ── MAIN SHELL COMPONENT ──────────────────────────────────────────────────────
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
-  // Sign out lands on the landing page (AuthContext.logout tells the sign-in
-  // guard where to go; it never throws).
-  const signOut = useCallback(() => { logout({ to: "/" }); }, [logout]);
   const toast = useToast();
+  // Sign out lands on the landing page (AuthContext.logout tells the sign-in
+  // guard where to go; it never throws). If the server does not confirm, the
+  // user stays signed in and is told so.
+  const signOut = useCallback(async () => {
+    if (!(await logout({ to: "/" }))) toast("Could not sign out: the server did not answer. Please try again.", "warn");
+  }, [logout, toast]);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   // home, logistics, results, technical, guide, visualization, history, account.
   // The page is mirrored in the URL (?page=) so a refresh, /run-history and the
@@ -83,8 +85,6 @@ export default function Shell() {
   const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
 
-  // The repeat code (seed) of a Quick Test; Run STACKR uses its own fixed seeds.
-  const [seed, setSeed] = useState(42);
   // λ and the C4/C5 placement switches are not user settings: runs use the
   // optimizer's own defaults (shown read-only in Test settings).
 
@@ -116,7 +116,6 @@ export default function Shell() {
   const [studyDoc, setStudyDoc] = useState(null);        // { row, study, stats } of the selected study
   const [studyProgress, setStudyProgress] = useState(null);
   const [studyBusy, setStudyBusy] = useState(false);
-  const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
   // The comparison on the Processing screen: { studyId, state: running|error|stopped, error, label }
   const [processing, setProcessing] = useState(null);
   const [stopping, setStopping] = useState(false);
@@ -267,25 +266,6 @@ export default function Shell() {
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
 
-  // Timed runs of finished Quick Tests (one-seed studies), shaped like Run
-  // History rows, so the Quick Test card can estimate its time from them too.
-  const [quickTimings, setQuickTimings] = useState({});   // study id -> rows
-  useEffect(() => {
-    const todo = studies.filter((s) => s.name === "Quick Test" && s.status === "done" && !s.imported && !(s.id in quickTimings)).slice(0, 20);
-    if (!todo.length) return;
-    let alive = true;
-    Promise.all(todo.map((s) => studiesApi.get(s.id).then((doc) => {
-      const st = doc.study;
-      const rows = st && st.preset && Array.isArray(st.runs) && st.mode === "serial"
-        ? st.runs.filter((r) => r.exec_time_ms != null).map((r) => ({ strategy_code: r.configuration, pop_size: st.preset.pop_size,
-            max_iter: st.preset.max_iter, runtime_s: r.exec_time_ms / 1000, old_measurement: false }))
-        : [];
-      return [s.id, rows];
-    }).catch(() => [s.id, []]))).then((pairs) => { if (alive) setQuickTimings((q) => ({ ...q, ...Object.fromEntries(pairs) })); });
-    return () => { alive = false; };
-  }, [studies, quickTimings]);
-  const timedRuns = useMemo(() => runHistory.concat(...Object.values(quickTimings)), [runHistory, quickTimings]);
-
   // Load the selected study's file (stats attached) whenever the selection changes.
   // A response for a study that is no longer selected is dropped: opening a
   // study right after the newest one was auto-selected must not show the other.
@@ -381,21 +361,6 @@ export default function Shell() {
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
-
-  // Quick Test: all four configurations, one run each with the repeat code,
-  // the chosen preset, one at a time. It is a study of one seed, so it goes
-  // through the same path as Run STACKR and opens the normal Results page.
-  const handleQuickTest = useCallback((presetKey) => {
-    let code = Number(seed);
-    if (seed === "" || !Number.isInteger(code) || code < 0) {
-      code = Math.floor(Math.random() * 1e6);     // "random": pick one, and show it
-      setSeed(code);
-    }
-    const L = selectedLoadRef.current || {};
-    handleLaunchStudy({ what: "Quick Test", preset: presetKey, seeds: String(code), mode: "serial", name: "Quick Test",
-                        ...(L.custom ? { useCustom: true } : { instanceId: L.instanceId }) });
-  }, [seed, handleLaunchStudy]);
-
   const handleImportStudy = useCallback(async (file) => {
     try {
       const r = await studiesApi.importFile(file);
@@ -921,10 +886,6 @@ export default function Shell() {
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
           running={running}
-          seed={seed}
-          setSeed={setSeed}
-          onQuickTest={handleQuickTest}
-          runHistory={timedRuns}
           optimizerReady={optimizerReady}
           wtpackInstances={wtpackInstances}
           wtpackId={wtpackId}
@@ -944,22 +905,6 @@ export default function Shell() {
             onDiscard: () => { setCsvFile(null); setCustomLoad(null); toast("File removed. You can pick another.", "ok"); },
             onCancel: () => { setCsvFile(null); setCustomLoad(null); setSource(null); toast("Cancelled."); },
           }}
-          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
-          largerSizes={
-            <StudyLauncher
-              sizeKeys={["standard", "multi"]}
-              sizesInfo={sizesInfo}
-              studies={studies}
-              onLaunch={handleLaunchStudy}
-              onRefresh={fetchStudies}
-              wtpackId={wtpackId}
-              wtpackInstances={wtpackInstances}
-              selectedLoad={selectedLoad}
-              busy={studyBusy}
-              size={studySize === "demo" ? "standard" : studySize}
-              setSize={setStudySize}
-            />
-          }
         />
       )}
 

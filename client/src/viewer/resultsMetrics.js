@@ -88,6 +88,11 @@ export function sd(xs) {
 
 // Per method: its runs and every metric's value; a method with no runs is "not run".
 export function methodValues(runs, methods = METHOD_ORDER) {
+  // Compliant fill counts only when EVERY run of the load records it (a study
+  // mixing older runs would otherwise rank, mark and spread on different measures).
+  if ((runs || []).some((r) => r.compliant_su_pct == null)) {
+    runs = (runs || []).map(({ compliant_su_pct, ...r }) => r);
+  }
   const out = {};
   for (const c of methods) {
     const rs = (runs || []).filter((r) => r.configuration === c);
