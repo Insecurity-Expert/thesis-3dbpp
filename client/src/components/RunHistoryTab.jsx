@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CustomLoadBadge, CUSTOM_LOAD_LABEL } from "./CustomLoadBanner";
 import { methodLabel, methodOf } from "../methods";
@@ -113,12 +113,10 @@ function RunsPanel({
   onLabelRun,
   onDeleteRun,
   onExportRun,
-  onImportRun
 }) {
   const [historyFilter, setHistoryFilter] = useState("All");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);   // run pending deletion
-  const fileRef = useRef(null);
 
   const strategies = useMemo(() => {
     const set = new Set(runHistory.map((r) => r.strategy).filter(Boolean));
@@ -139,12 +137,6 @@ function RunsPanel({
     }
     return list;
   }, [runHistory, historyFilter, historySearchQuery]);
-
-  const onPickFile = (e) => {
-    const f = e.target.files && e.target.files[0];
-    e.target.value = "";
-    if (f) onImportRun(f);
-  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -170,10 +162,6 @@ function RunsPanel({
             <option value="All">All methods</option>
             {strategies.map((s) => <option key={s} value={s}>{methodLabel(s)}</option>)}
           </select>
-          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onPickFile} style={{ display: "none" }} />
-          <button type="button" className="btn btn-secondary" onClick={() => fileRef.current && fileRef.current.click()}>
-            Import run…
-          </button>
           <button type="button" className="btn btn-primary" onClick={() => downloadCsv(filteredHistory)} disabled={filteredHistory.length === 0}>
             Download as CSV
           </button>
@@ -275,7 +263,7 @@ function RunsPanel({
           <div style={{ padding: "48px", textAlign: "center" }}>
             <span style={{ fontSize: "28px" }}>📂</span>
             <h4 style={{ marginTop: "12px", color: "var(--text-muted)" }}>No runs saved</h4>
-            <p style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Finished and failed runs are saved here automatically. You can also import a run exported from another machine.</p>
+            <p style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Finished and failed runs are saved here automatically.</p>
           </div>
         )}
       </div>

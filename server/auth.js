@@ -146,6 +146,46 @@ router.patch("/me/prefs", authRequired, (req, res) => {
   res.json({ howto_hidden: u.howto_hidden, howto_auto_shown: u.howto_auto_shown });
 });
 
+router.post("/me/password", authRequired, (req, res) => {
+  const { current_password, new_password } = req.body || {};
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: "Current password and new password are required" });
+  }
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  if (!user.pass_hash || !bcrypt.compareSync(String(current_password), user.pass_hash)) {
+    return res.status(401).json({ error: "Current password is incorrect" });
+  }
+  db.mutate((data) => {
+    const u = data.users.find((x) => x.id === req.user.id);
+    if (!u) return false;
+    u.pass_hash = bcrypt.hashSync(String(new_password), 10);
+    u.password_reset_at = new Date().toISOString();
+    return true;
+  });
+  res.json({ ok: true });
+});
+
+router.delete("/me", authRequired, (req, res) => {
+  const { password } = req.body || {};
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  if (password !== undefined && password !== null) {
+    if (!user.pass_hash || !bcrypt.compareSync(String(password), user.pass_hash)) {
+      return res.status(401).json({ error: "Incorrect password" });
+    }
+  }
+  db.mutate((data) => {
+    const uid = Number(req.user.id);
+    data.users = data.users.filter((u) => u.id !== uid);
+    data.runs = data.runs.filter((r) => r.user_id !== uid);
+    if (Array.isArray(data.studies)) data.studies = data.studies.filter((s) => s.user_id !== uid);
+    if (Array.isArray(data.custom_loads)) data.custom_loads = data.custom_loads.filter((c) => c.user_id !== uid);
+    return true;
+  });
+  res.clearCookie(COOKIE).json({ ok: true });
+});
+
 router.get("/runs", authRequired, (req, res) => {
   const rows = db
     .prepare("SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 100")

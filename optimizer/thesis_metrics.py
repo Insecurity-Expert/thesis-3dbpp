@@ -78,6 +78,18 @@ def space_utilization(placements, container):
     packed = sum(dx * dy * dz for (_, _, _, dx, dy, dz) in placements.values())
     return packed / V_c
 
+def compliant_space_utilization(placements, items, orientations, container):
+    """M-1b: volume of the loaded boxes that satisfy C3, C4, C5 and C6, as a
+    fraction of the container's volume (per_box_constraints decides each box).
+    Descriptive and additive: no search ever calls it. Equals
+    space_utilization when every loaded box follows the rules."""
+    V_c = container['L'] * container['W'] * container['H']
+    if V_c <= 0 or not placements:
+        return 0.0
+    ok = [k for k, x in per_box_constraints(placements, items, orientations).items()
+          if x['C3'] and x['C4'] and x['C5'] and x['C6']]
+    return sum(placements[k][3] * placements[k][4] * placements[k][5] for k in ok) / V_c
+
 def evaluate_constraints_reference(placements, items, orientations, c3_tol=C3_TOL):
     """
     Evaluates C3 (Weight/LBS), C4 (Fragility), C5 (Stability), C6 (Stop-Order)

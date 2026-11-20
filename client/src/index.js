@@ -11,9 +11,10 @@ import LandingPage from "./LandingPage";
 import "./index.css";
 
 function Protected({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, afterLogout } = useAuth();
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>;
-  return user ? children : <Navigate to="/login" replace />;
+  // Signed out from the app: where the sign-out asked to go (the landing page).
+  return user ? children : <Navigate to={afterLogout || "/login"} replace />;
 }
 
 // Run History lives inside the app shell (/app?page=history). /run-history and

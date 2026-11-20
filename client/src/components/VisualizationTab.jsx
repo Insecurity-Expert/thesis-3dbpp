@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import CustomLoadBanner, { customLoadOf } from "./CustomLoadBanner";
-import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, PROBLEM_OUTLINE, stopColor } from "../BinViewer";
+import BinViewer, { TYPE_COLOR, COMPLIANT_COLOR, stopColor } from "../BinViewer";
 import { studiesApi } from "../services/api";
 import {
   heavyRule, isHeavy, RULES, RULE_NAME, RULE_SHORT, RULE_COLOR,
@@ -84,28 +84,25 @@ export default function VisualizationTab({
   const [shadeEmpty, setShadeEmpty] = useState(false);   // translucent blocks over significant gaps
   const [selectedStop, setSelectedStop] = useState("All");
   const [colorMode, setColorMode] = useState("type");
-  const [highlight, setHighlight] = useState(false);
-  const [ruleFilter, setRuleFilter] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [pinned, setPinned] = useState(null);
   const [source, setSource] = useState("run");          // run | study
   const [studyView, setStudyView] = useState(null);
   const [studyError, setStudyError] = useState(null);
   const [requestBusy, setRequestBusy] = useState(false);
-  const [centerLoad, setCenterLoad] = useState(false);
 
   // A new or reopened run is what the viewer shows; a "View Arrangement"
   // request (below, declared later so it wins on mount) switches to a study run.
   useEffect(() => { if (finalResult) setSource("run"); }, [finalResult]);
 
-  // "View Arrangement" on a Results card: that method's representative run,
-  // with the boxes that break a rule highlighted.
+  // "View Arrangement" on a Results card: that method's representative run.
+  // Rule-breaking boxes are shown only on request (Color mode: By problem).
   useEffect(() => {
     if (!request) return undefined;
     let alive = true;
     setSource("study"); setStudyError(null); setStudyView(null); setRequestBusy(true);
     studiesApi.runView(request.studyId, request.runIndex)
-      .then((v) => { if (!alive) return; setStudyView({ ...v, study_label: v.study_name || "Comparison" }); setHighlight(true); })
+      .then((v) => { if (!alive) return; setStudyView({ ...v, study_label: v.study_name || "Comparison" }); })
       .catch((e) => alive && setStudyError(`This run could not be shown: ${e.message}`))
       .finally(() => alive && setRequestBusy(false));
     return () => { alive = false; };
@@ -124,19 +121,9 @@ export default function VisualizationTab({
     return null;
   }, [source, studyView, finalResult, placements, instanceInfo, binsUsed]);
 
-  useEffect(() => { setPinned(null); setHovered(null); setRuleFilter(null); setCenterLoad(false); }, [result]);
+  useEffect(() => { setPinned(null); setHovered(null); }, [result]);
 
-  const hasCentered = Boolean(
-    result &&
-    result.centered_items &&
-    result.centered_items.length > 0
-  );
-  const isImproved = Boolean(result && result.lateral_balance && result.lateral_balance.improved);
-
-  const items = useMemo(() => {
-    if (centerLoad && hasCentered) return result.centered_items;
-    return (result && result.items) || [];
-  }, [result, centerLoad, hasCentered]);
+  const items = useMemo(() => (result && result.items) || [], [result]);
   const pv = result ? result.problem_view : null;
   const heavy = useMemo(() => heavyRule(result), [result]);
 
@@ -150,14 +137,13 @@ export default function VisualizationTab({
   // A box can be both heavy and fragile; hiding either category hides it.
   const filteredPlacements = useMemo(() => items.filter((p) => {
     if (selectedStop !== "All" && Number(p.stop) !== Number(selectedStop)) return false;
-    if (ruleFilter && !(p.violations || []).includes(ruleFilter)) return false;
     const fr = p.fragile === 1 || p.fragile === true || p.type === "Fragile";
     const hv = isHeavy(p.mass ?? p.weight, heavy);
     if (fr && !filterFragile) return false;
     if (hv && !filterHeavy) return false;
     if (!fr && !hv && !filterStandard) return false;
     return true;
-  }), [items, selectedStop, ruleFilter, filterStandard, filterFragile, filterHeavy, heavy]);
+  }), [items, selectedStop, filterStandard, filterFragile, filterHeavy, heavy]);
 
   const nItems = result ? (pv ? pv.n_items : result.n_items) : null;
   const nPlaced = items.length;
@@ -167,37 +153,12 @@ export default function VisualizationTab({
   const container = result ? result.container : null;
   const details = pinned || hovered;
   const frame = useMemo(() => truckFrame(container), [container]);
-  // The gaps of the layout in view: the Center Load toggle swaps the boxes, so it
-  // must swap the summary too (results saved before this carry result.gaps only).
-  const showCentered = centerLoad && hasCentered;
-  const gaps = result ? ((showCentered && result.centered_gaps) || result.gaps) : null;
-  const edge = result ? ((showCentered && result.centered_edge) || result.edge) : null;
+  // The gap figures of the arrangement in view (the lateral-balance "centered"
+  // view and its centre-of-mass plane were removed from the viewer).
+  const gaps = result ? result.gaps : null;
+  const edge = result ? result.edge : null;
   const r4 = result ? result.edge_fill : null;
   const r5 = result ? result.fragile_lift : null;
-
-  // Boxes that the centering pass physically moved (shift > 0.5 cm threshold).
-  // Used to render a cyan outline in the 3-D viewer so the change is visible.
-  const shiftedIdxs = useMemo(() => {
-    if (!centerLoad || !hasCentered || !result || !result.lateral_balance || !result.lateral_balance.shifts) return null;
-    const s = new Set();
-    for (const [idx, delta] of Object.entries(result.lateral_balance.shifts)) {
-      if (Math.abs(delta) > 0.5) s.add(Number(idx));
-    }
-    return s.size > 0 ? s : null;
-  }, [centerLoad, hasCentered, result]);
-
-  // Lateral centre-of-mass x position (physics x-axis = across the truck width).
-  // Weighted by left_mass / total_mass, scaled to container width L.
-  const centerOfMassX = useMemo(() => {
-    if (!result || !result.lateral_balance || !container) return null;
-    const lb = centerLoad && hasCentered ? result.lateral_balance.after : result.lateral_balance.before;
-    if (!lb) return null;
-    const total = lb.left_mass + lb.right_mass;
-    if (total <= 0) return null;
-    const L = Number(container.L || container.length_cm || 0);
-    return (lb.left_mass / total) * L;
-  }, [centerLoad, hasCentered, result, container]);
-  const comBalanced = centerLoad && hasCentered;
   const idName = useMemo(() => {
     const m = new Map(items.map((it) => [Number(it.item_idx), it.id ?? `#${it.item_idx}`]));
     return (j) => `Box ${m.get(Number(j)) ?? j}`;
@@ -213,7 +174,7 @@ export default function VisualizationTab({
       {colorMode === "type" && (
         <>
           <Swatch color={TYPE_COLOR.standard} label="Standard" />
-          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: mass ≥ ${fmtNum(heavy.threshold, 2)} kg (${heavy.nHeavy} of ${heavy.n} ${pv ? "boxes" : "placed boxes"})`} />
+          <Swatch color={TYPE_COLOR.heavy} label={heavy.threshold === null ? "Heavy" : `Heavy: mass ≥ ${fmtNum(heavy.threshold, 2)} kg`} />
         </>
       )}
       {colorMode === "box" && <span style={LEGEND_TXT}>Each box has its own colour</span>}
@@ -222,12 +183,9 @@ export default function VisualizationTab({
         <>
           <Swatch color={COMPLIANT_COLOR} label="Follows C3–C6" />
           {RULES.map((r) => <Swatch key={r} color={RULE_COLOR[r]} label={`${r} ${RULE_SHORT[r]}`} />)}
-          <span style={{ ...LEGEND_TXT, color: "#94a3b8" }}>(several rules: first one's colour)</span>
         </>
       )}
-      <Swatch color="#f59e0b" outline label="Fragile (outline)" />
-      {highlight && pv && <Swatch color={PROBLEM_OUTLINE} outline label={`Breaks a rule: ${pv.n_placed - pv.compliant_placed}`} />}
-      {centerLoad && shiftedIdxs && <Swatch color="#22d3ee" outline label={`Balanced — ${shiftedIdxs.size} box${shiftedIdxs.size === 1 ? '' : 'es'} shifted`} />}
+      <Swatch color="#f59e0b" outline label="Fragile" />
       {nNotLoaded !== null && (
         <span style={{ ...LEGEND_TXT, fontWeight: 700, color: nNotLoaded > 0 ? "#fbbf24" : "#cbd5e1" }}>
           {nNotLoaded} of {nItems} boxes not loaded
@@ -243,25 +201,20 @@ export default function VisualizationTab({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
         <Row k="Box" v={it.id ?? `#${it.item_idx}`} />
-        <Row k="Position (x, y from front wall, z)" v={`(${fmtNum(ph.x)}, ${fmtNum(frame.fromFront(ph))}, ${fmtNum(ph.z)}) cm`} />
-        <Row k="Placed size (across × deep × high)" v={`${fmtNum(ph.dx)} × ${fmtNum(ph.dy)} × ${fmtNum(ph.dz)} cm`} />
-        <Row k="Orientation" v={orientationText(it.orientation) ?? "not recorded for this run"} strong={!!it.orientation} />
+        <Row k="Position" v={`${fmtNum(ph.x)}, ${fmtNum(frame.fromFront(ph))}, ${fmtNum(ph.z)} cm`} />
+        <Row k="Placed size" v={`${fmtNum(ph.dx)} × ${fmtNum(ph.dy)} × ${fmtNum(ph.dz)} cm`} />
+        <Row k="Orientation" v={orientationText(it.orientation) ? orientationText(it.orientation).replace(/\s*\([^)]*\)/g, "") : "not recorded for this run"} strong={!!it.orientation} />
         <Row k="Mass" v={`${fmtNum(it.mass ?? it.weight, 2)} kg`} />
         <Row k="Max load on top" v={it.max_load_kg !== undefined ? `${fmtNum(it.max_load_kg, 1)} kg` : "—"} />
-        {it.max_load_kg !== undefined && (
-          <div className="field-hint" style={{ marginTop: -4, textAlign: "right" }}>
-            {fmtNum(it.lbs_kg_cm2, 4)} kg/cm² (top-face strength) × {fmtNum(ph.dx)} × {fmtNum(ph.dy)} cm²
-          </div>
-        )}
         <Row k="Load resting on it" v={it.load_above_kg !== undefined ? `${fmtNum(it.load_above_kg, 1)} kg` : "—"} />
         <Row k="Stop" v={`Stop ${it.stop}`} color="var(--primary)" />
         <Row k="Fragile" v={fr ? "Yes — nothing may rest on it" : "No"} color={fr ? "var(--amber)" : undefined} />
         <Row k="Heavy" v={isHeavy(it.mass ?? it.weight, heavy) ? "Yes" : "No"} />
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Gaps at its six faces (cm)</div>
+          <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Gaps at its six faces</div>
           {(() => {
             const rows = faceGapRows(it, container, idName);
-            if (!rows) return <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>;
+            if (!rows) return <div style={{ color: "var(--text-dim)" }}>Not available for this run.</div>;
             return rows.map((r) => (
               <div key={r.face} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <span style={{ color: "var(--text-dim)" }}>{r.name}</span>
@@ -274,12 +227,12 @@ export default function VisualizationTab({
         </div>
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Rules broken</div>
-          {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run (saved before the problem view).</div>
+          {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run.</div>
             : it.violations.length === 0 ? <div style={{ fontWeight: 700, color: "var(--green)" }}>None — follows C3, C4, C5 and C6</div>
               : it.violations.map((r) => (
                 <div key={r} style={{ fontWeight: 700, color: RULE_COLOR[r] }}>
                   {r} · {RULE_NAME[r]}
-                  {r === "C3" && ` (${fmtNum(it.load_above_kg, 1)} kg on a ${fmtNum(it.max_load_kg, 1)} kg limit)`}
+                  {r === "C3" && ` — ${fmtNum(it.load_above_kg, 1)} kg on a ${fmtNum(it.max_load_kg, 1)} kg limit`}
                   {r === "C6" && it.c6_blocked_by && it.c6_blocked_by.length > 0 && ` — by ${it.c6_blocked_by.join(", ")}`}
                 </div>
               ))}
@@ -307,94 +260,18 @@ export default function VisualizationTab({
       {/* Upper Section: Inspection & 3D Viewer */}
       <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
 
-        {/* Left Column: Box Details (Pinned/Sticky) */}
-        <div style={{ flex: "0 0 340px", minWidth: 320, position: "sticky", top: "24px" }}>
-          <div className="card" style={{ minHeight: "180px", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "14px" }}>
-              <h4 className="section-tag" style={{ margin: 0 }}>● BOX DETAILS</h4>
-              {pinned && <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPinned(null)}>Clear</button>}
-            </div>
-            {details ? renderDetails(details) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--text-dim)", fontSize: "12px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: "8px", padding: "16px" }}>
-                Click a box to keep its details here, or hover to peek.
-              </div>
-            )}
-          </div>
-
+        {/* Gaps and loading order: a row under the full-width viewer (order: 2).
+            Box details float inside the viewer; the lateral-balance panel is gone. */}
+        <div style={{ flex: "1 1 100%", order: 2, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
           {result && (
-            <div className="card" style={{ marginTop: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>
-                <h4 className="section-tag" style={{ margin: 0 }}>● LATERAL BALANCE (M-7)</h4>
-                {hasCentered && (
-                  <button
-                    type="button"
-                    className={`btn btn-xs ${centerLoad ? "btn-primary" : "btn-ghost"}`}
-                    onClick={() => setCenterLoad((c) => !c)}
-                    style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px" }}
-                    title={centerLoad ? "Click to view original DBLF packing" : "Click to view balanced arrangement"}
-                  >
-                    {centerLoad ? "Centered ✓" : (isImproved ? "Center Load" : "Centered (Optimal)")}
-                  </button>
-                )}
-              </div>
-              {result.lateral_balance ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-                  <Row
-                    k="Layout Mode"
-                    v={centerLoad && hasCentered ? "Post-Centered (Balanced)" : "Standard DBLF"}
-                    color={centerLoad && hasCentered ? "var(--green)" : "var(--primary)"}
-                  />
-                  <Row
-                    k="Left vs Right Mass"
-                    v={
-                      centerLoad && hasCentered
-                        ? `${fmtNum(result.lateral_balance.after.left_mass, 1)} / ${fmtNum(result.lateral_balance.after.right_mass, 1)} kg`
-                        : `${fmtNum(result.lateral_balance.before.left_mass, 1)} / ${fmtNum(result.lateral_balance.before.right_mass, 1)} kg`
-                    }
-                  />
-                  <Row
-                    k="Imbalance (M-7)"
-                    v={
-                      centerLoad && hasCentered
-                        ? `${fmtNum(result.lateral_balance.after.lr_mass_imbalance_pct, 1)}%${isImproved ? ` (was ${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%)` : ""}`
-                        : `${fmtNum(result.lateral_balance.before.lr_mass_imbalance_pct, 1)}%`
-                    }
-                    color={centerLoad && hasCentered ? "var(--green)" : (result.lateral_balance.before.lr_mass_imbalance_pct > 15 ? "var(--amber)" : "var(--text-main)")}
-                  />
-                  <div className="field-hint">
-                    {isImproved
-                      ? "Post-processing shifts rigid vertical stacks toward the centerline without violating constraints C1\u2013C6."
-                      : "Arrangement is already at minimum lateral imbalance or fully bounded by neighboring boxes."}
-                  </div>
-                  {centerLoad && hasCentered && result.lateral_balance.shifts && (() => {
-                    const shifted = Object.values(result.lateral_balance.shifts).filter(d => Math.abs(d) > 0.5);
-                    const maxShift = shifted.length > 0 ? Math.max(...shifted.map(Math.abs)) : 0;
-                    return shifted.length > 0 ? (
-                      <div className="field-hint" style={{ color: '#22d3ee', fontWeight: 600 }}>
-                        {shifted.length} box{shifted.length === 1 ? '' : 'es'} shifted (max {fmtNum(maxShift, 1)} cm) — highlighted cyan in 3D
-                      </div>
-                    ) : (
-                      <div className="field-hint">No boxes needed shifting — layout already optimal.</div>
-                    );
-                  })()}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                  Lateral balance data not available for this run (run STACKR or open a study arrangement to view).
-                </div>
-              )}
-            </div>
-          )}
-
-          {result && (
-            <div className="card" style={{ marginTop: 16 }}>
+            <div className="card">
               <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● GAPS</h4>
               {gaps ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
                   <Row k="Mean face gap" v={gaps.mean_gap_cm === null ? "—" : `${fmtNum(gaps.mean_gap_cm, 2)} cm`} />
                   <Row k="Largest face gap" v={gaps.max_gap_cm === null ? "—" : `${fmtNum(gaps.max_gap_cm, 2)} cm`} />
                   <Row k="Significant gaps" v={`${gaps.significant_gaps} of ${gaps.n_faces} faces`} color="var(--amber)" />
-                  <Row k="τ (smallest box dimension)" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
+                  <Row k="Smallest box dimension" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
                   <div className="field-hint">
                     A face gap is the distance from a box face to the nearest box or wall beyond it; it is significant at τ or more.
                     Every face counts, the roof included; the view leaves out the lines to the roof.
@@ -403,36 +280,34 @@ export default function VisualizationTab({
                     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8, display: "flex", flexDirection: "column", gap: "8px" }}>
                       <Row k="Boxes touching nothing sideways" v={`${edge.isolated_boxes}`} color={edge.isolated_boxes > 0 ? "var(--amber)" : undefined} />
                       <Row k="Boxes touching one side only" v={`${edge.one_side_boxes}`} />
-                      <Row k="Sideways gaps ≥ τ (a box fits)" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
-                      <Row k="Sideways gaps < τ (dunnage)" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
+                      <Row k="Sideways gaps ≥ τ" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
+                      <Row k="Sideways gaps < τ" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
                       <Row k="Side contact" v={edge.side_contact_ratio === null ? "—" : `${fmtNum(edge.side_contact_ratio * 100, 1)} % of side-face area`} />
-                      {r4 && !showCentered && (
+                      {r4 && (
                         <div className="field-hint">
                           R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
-                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush ({fmtNum(r4.time_ms / 1000, 1)} s).
+                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush.
                           Gaps under τ are left for dunnage.
                         </div>
                       )}
-                      {r5 && !showCentered && (
+                      {r5 && (
                         <div className="field-hint">
                           R5: {r5.fragile_lifted.length} fragile box move{r5.fragile_lifted.length === 1 ? "" : "s"},
                           {" "}{r5.boxes_added.length} box{r5.boxes_added.length === 1 ? "" : "es"} added,
-                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%
-                          {" "}({fmtNum(r5.time_ms / 1000, 1)} s).
+                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%.
                         </div>
                       )}
-                      {showCentered && <div className="field-hint">Centered view: these figures are for the centered boxes, not the R4 arrangement.</div>}
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run (saved before the gap view).</div>
+                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run.</div>
               )}
             </div>
           )}
 
           {plan && plan.steps.length > 0 && (
-            <div className="card" style={{ marginTop: 16, fontSize: 12.5 }}>
+            <div className="card" style={{ fontSize: 12.5 }}>
               <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "10px" }}>● LOADING ORDER</h4>
               {!planCheck.ok ? (
                 <div style={{ color: "var(--amber)", fontWeight: 600 }}>No valid loading order: {planCheck.problems[0]}</div>
@@ -458,8 +333,8 @@ export default function VisualizationTab({
           )}
         </div>
 
-        {/* Right Column: 3D Viewer Canvas */}
-        <div style={{ flex: "1 1 600px", minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+        {/* 3D Viewer Canvas: full width, with the box details floating inside it */}
+        <div style={{ flex: "1 1 100%", order: 1, minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: 12, flexWrap: "wrap" }}>
             <div>
               <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Your packed container</h3>
@@ -471,7 +346,7 @@ export default function VisualizationTab({
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <div className="tabs-inline">
-                {["Door", "Side", "Top", "3D", "Loading"].map((dir) => (
+                {["Door", "Side", "Top", "3D"].map((dir) => (
                   <button key={dir} onClick={() => triggerViewReset(dir)} className={viewportOrientation === dir ? "active" : ""} style={{ fontSize: "12px", fontWeight: "700", cursor: "pointer", padding: "4px 8px" }}>{dir}</button>
                 ))}
               </div>
@@ -486,6 +361,21 @@ export default function VisualizationTab({
           ) : result && multiBin && pv ? (
             <div className="alert-danger">The viewer shows one container; this run uses more than one.</div>
           ) : result && container ? (
+            <div style={{ position: "relative" }}>
+            {details && (
+              // Box details, floating in the viewer's top-left corner: the clicked
+              // (pinned) box, or the box under the pointer. A hover-only card lets
+              // the pointer through, so a box under it never loses hover and the
+              // card does not flicker; a pinned card takes the pointer (for ✕).
+              <div className="viewer-details" role="dialog" aria-label="Box details"
+                style={{ pointerEvents: pinned ? "auto" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 10 }}>
+                  <h4 className="section-tag" style={{ margin: 0 }}>● BOX DETAILS</h4>
+                  {pinned && <button type="button" className="btn btn-ghost btn-xs" aria-label="Close box details" onClick={() => setPinned(null)}>✕</button>}
+                </div>
+                {renderDetails(details)}
+              </div>
+            )}
             <BinViewer
               placements={filteredPlacements}
               container={container}
@@ -502,19 +392,15 @@ export default function VisualizationTab({
               colorMode={colorMode}
               heavy={heavy}
               stops={uniqueStops}
-              highlightProblems={highlight && !!pv}
               legend={legend}
               pictureName={pictureName}
               plan={plan}
               planCheck={planCheck}
               showGaps={showGaps}
               shadeEmpty={shadeEmpty}
-              onPlayStart={() => triggerViewReset("Loading")}
               onInteract={() => { if (viewportOrientation !== "3D") setViewportOrientation("3D"); }}
-              shiftedIdxs={shiftedIdxs}
-              centerOfMassX={centerOfMassX}
-              comBalanced={comBalanced}
             />
+            </div>
           ) : running && source === "run" ? (
             <LiveProgress stats={stats} />
           ) : (
@@ -568,16 +454,12 @@ export default function VisualizationTab({
               <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
             </div>
             <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap (not up to the roof); shown once all boxes are in">Show gaps (cm)</span>
+              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap; shown once all boxes are in">Show gaps</span>
               <label className="switch"><input type="checkbox" checked={showGaps} disabled={!gaps} onChange={(e) => setShowGaps(e.target.checked)} /><span className="slider" /></label>
             </div>
             <div className="switch-container">
               <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
               <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
-            </div>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="Shift rigid vertical stacks laterally to balance left-right weight without violating C1-C6">Balance lateral load (M-7)</span>
-              <label className="switch"><input type="checkbox" checked={centerLoad} disabled={!hasCentered} onChange={(e) => setCenterLoad(e.target.checked)} /><span className="slider" /></label>
             </div>
 
             <div>
@@ -591,10 +473,10 @@ export default function VisualizationTab({
             <div>
               <label style={CAPTION}>Color mode</label>
               <select className="form-input" style={{ width: "100%" }} value={colorMode} onChange={(e) => setColorMode(e.target.value)}>
-                <option value="type">By type (standard / heavy)</option>
-                <option value="box">By box (each box its own colour)</option>
+                <option value="type">By type</option>
+                <option value="box">By box</option>
                 <option value="stop">By delivery stop</option>
-                <option value="problem" disabled={!pv}>By problem{pv ? "" : " (not available)"}</option>
+                <option value="problem" disabled={!pv}>By problem</option>
               </select>
             </div>
           </div>
@@ -613,36 +495,6 @@ export default function VisualizationTab({
               {container && (
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px", fontSize: 12, color: "var(--text-dim)" }}>
                   Container: {container.length_cm ?? container.L} × {container.width_cm ?? container.D} × {container.height_cm ?? container.H} cm
-                </div>
-              )}
-
-              {pv && (
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px" }}>
-                  <div className="switch-container" style={{ marginBottom: 10 }}>
-                    <span className="switch-label" style={{ fontWeight: 600 }}>Highlight problems</span>
-                    <label className="switch"><input type="checkbox" checked={highlight} onChange={(e) => setHighlight(e.target.checked)} /><span className="slider" /></label>
-                  </div>
-                  {RULES.some(r => pv.violating[r] > 0) && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {RULES.map((r) => {
-                        const n = pv.violating[r];
-                        if (n === 0) return null;
-                        const on = ruleFilter === r;
-                        return (
-                          <button key={r} type="button"
-                            onClick={() => { setHighlight(true); setRuleFilter(on ? null : r); }}
-                            style={{
-                              padding: "4px 8px", borderRadius: 4, cursor: "pointer",
-                              border: `1px solid ${on ? RULE_COLOR[r] : "var(--border)"}`,
-                              background: on ? "var(--bg-input)" : "transparent",
-                              color: "var(--text-main)", fontSize: 11, fontWeight: on ? 700 : 500
-                            }}>
-                            {r} ({n})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
 

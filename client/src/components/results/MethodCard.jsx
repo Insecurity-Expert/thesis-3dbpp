@@ -34,7 +34,7 @@ export default function MethodCard({ code, metrics, vals, bests, rank, showSwatc
       )}
       <div className="ro-card-actions">
         <button type="button" className="btn btn-secondary" disabled={!ran} onClick={onView}>View Arrangement</button>
-        <button type="button" className="btn btn-primary" disabled={!ran} onClick={onGuide}>Export Guide</button>
+        <button type="button" className="btn btn-primary" disabled={!ran} onClick={onGuide}>View Guide</button>
       </div>
     </div>
   );

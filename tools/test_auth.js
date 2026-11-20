@@ -175,6 +175,32 @@ async function main() {
   check("failed run without a time is not flagged", flag[4] === false, JSON.stringify(flag));
   check("rows are kept, not deleted", list.length === 4, list.length);
 
+  console.log("[change password and delete account]");
+  const pwWrong = await fetch(base + "/me/password", {
+    method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ current_password: "wrong", new_password: "pw-changed" }),
+  });
+  check("change password with wrong current password -> 401", pwWrong.status === 401, pwWrong.status);
+  const pwOk = await fetch(base + "/me/password", {
+    method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ current_password: "pw-123456", new_password: "pw-changed" }),
+  });
+  check("change password with correct current password -> 200", pwOk.status === 200, pwOk.status);
+  r = await post("/login", { email: "t@x.c", password: "pw-changed" });
+  check("changed password signs in", r.status === 200, r.status);
+  const delWrong = await fetch(base + "/me", {
+    method: "DELETE", headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ password: "pw-123456" }),
+  });
+  check("delete account with wrong password -> 401", delWrong.status === 401, delWrong.status);
+  const delOk = await fetch(base + "/me", {
+    method: "DELETE", headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ password: "pw-changed" }),
+  });
+  check("delete account with correct password -> 200", delOk.status === 200, delOk.status);
+  const afterDel = JSON.parse(fs.readFileSync(DB, "utf8"));
+  check("deleted account and its runs are removed", afterDel.users.length === 0 && afterDel.runs.length === 0, JSON.stringify(afterDel));
+
   server.close();
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log(`\n${failed ? "FAIL" : "PASS"} - ${failed} failed`);

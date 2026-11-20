@@ -1,5 +1,5 @@
-// All four methods: one row per method, grouped into the proposed hybrids and
-// the baselines, one column per metric of the active tab, and the outputs.
+// All four methods: one row per method, grouped into the proposed hybrid and
+// the comparison methods, one column per metric of the active tab, and the outputs.
 // Under ~640 px the table gives way to one MethodCard per method.
 import React from "react";
 import RankBadge from "./RankBadge";
@@ -8,7 +8,7 @@ import MetricValue from "./MetricValue";
 import MethodCard from "./MethodCard";
 import { METHOD_INFO, HYBRID_METHODS, BASELINE_METHODS } from "../../viewer/resultsMetrics";
 
-const GROUPS = [["PROPOSED HYBRID METHODS", HYBRID_METHODS], ["BASELINE METHODS", BASELINE_METHODS]];
+const GROUPS = [["PROPOSED HYBRID METHOD", HYBRID_METHODS], ["COMPARISON METHODS", BASELINE_METHODS]];
 
 export default function ComparisonTable({ metrics, vals, bests, ranks, invalidNote, onView, onGuide, onRun }) {
   return (
@@ -46,7 +46,7 @@ export default function ComparisonTable({ metrics, vals, bests, ranks, invalidNo
                       ))}
                       <td className="ro-output">
                         <button type="button" className="btn btn-secondary btn-sm" disabled={!ran} onClick={() => onView(c)}>View Arrangement</button>
-                        <button type="button" className="btn btn-primary btn-sm" disabled={!ran} onClick={() => onGuide(c)}>Export Guide</button>
+                        <button type="button" className="btn btn-primary btn-sm" disabled={!ran} onClick={() => onGuide(c)}>View Guide</button>
                       </td>
                     </tr>
                   );

@@ -16,7 +16,17 @@ export const CONFIG_DESC = {
   REP: "hybrid: repair R1–R3 inside the loop",
 };
 
+// SP1 is judged on compliant SU (M-1b) when the study's stats have it
+// (experiments/stats.py sp1_compliant_blocks); older files keep raw SU.
+// shownOutcome: the planned family's outcome pattern on compliant SU, else stats.outcome.
+// shownFamily: the six-test H0 family with compliant SU in SP1's place, else the raw-SU one.
+export const shownOutcome = (stats) =>
+  (stats && stats.planned_family_compliant && stats.planned_family_compliant.outcome) || (stats && stats.outcome) || null;
+export const shownFamily = (stats) =>
+  (stats && (stats.hypothesis_family_compliant || stats.hypothesis_family)) || null;
+
 export const MEASURE_PLAIN = {
+  CSU: "how much of the container rule-following boxes filled",
   SU: "how full the container got",
   CSR: "overall rule compliance",
   C3: "weight limit on each box (C3)",
@@ -158,19 +168,32 @@ export function pairSentence(stats, pair, measureCode) {
 }
 
 // ── SP1 ──────────────────────────────────────────────────────────────────────
+// The SP1 test shown: compliant SU (stats.SP1_compliant, its Holm-corrected p
+// from the compliant six-test family) when present, else raw SU (stats.SP1).
+export function sp1Shown(stats) {
+  const c = stats && stats.SP1_compliant && stats.SP1_compliant.comparison;
+  if (c) {
+    const hf = stats.hypothesis_family_compliant;
+    const t = hf && hf.tests.find((x) => x.measure === "CSU");
+    const omnibus = t ? { ...c.omnibus, p_holm: t.p_holm, significant_holm: t.significant_holm } : c.omnibus;
+    return { cmp: { ...c, omnibus }, code: "CSU", word: "compliant fill" };
+  }
+  return { cmp: stats && stats.SP1 && stats.SP1.comparison, code: "SU", word: "container fill" };
+}
+
 export function sp1Summary(stats) {
-  const cmp = stats && stats.SP1 && stats.SP1.comparison;
+  const { cmp, word } = sp1Shown(stats);
   if (!cmp) return "";
   const o = cmp.omnibus;
-  if (!o.testable) return `Container fill could not be tested: ${o.reason}.`;
+  if (!o.testable) return `${word[0].toUpperCase()}${word.slice(1)} could not be tested: ${o.reason}.`;
   // In the six-test family the decision uses the Holm-corrected p.
   const holm = o.p_holm != null;
   const sig = holm ? o.significant_holm : o.significant;
   const pText = holm ? `${o.test}, Holm-corrected ${fmt.peq(o.p_holm)} in the six-test family` : `${o.test}, ${fmt.peq(o.p)}`;
-  if (!sig) return `No significant difference in container fill between the configurations (${pText}).`;
+  if (!sig) return `No significant difference in ${word} between the configurations (${pText}).`;
   const wins = cmp.pairs.filter((p) => p.outperforms);
   const detect = cmp.pairs.filter((p) => p.significant && !p.outperforms);
-  const bits = [`The configurations differ on container fill (${pText}).`];
+  const bits = [`The configurations differ on ${word} (${pText}).`];
   if (wins.length) bits.push(wins.map((p) => `${pairVerdict(stats, p).text} (${effectAbs(p.effect)})`).join("; ") + ".");
   if (detect.length) bits.push(`${detect.length} pair${detect.length > 1 ? "s" : ""} differ${detect.length > 1 ? "" : "s"} detectably but not meaningfully.`);
   if (!wins.length && !detect.length) bits.push("No pair reached a significant post-hoc difference.");
@@ -214,13 +237,14 @@ const list = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", "
 // One Holm-Bonferroni family over all instances; H₀ is rejected when at least
 // one Holm-corrected test is significant.
 export function familySummary(stats) {
-  const hf = stats && stats.hypothesis_family;
+  const hf = shownFamily(stats);
   if (!hf) return "";
   const tested = hf.tests.filter((t) => t.testable);
   if (!tested.length) return `H₀ cannot be tested with this study: ${hf.decision.replace(/^H0 not testable: /, "")}.`;
   const sig = hf.tests.filter((t) => t.significant_holm).map((t) => MEASURE_PLAIN[t.measure] || t.measure);
   const left = hf.tests.filter((t) => !t.testable).map((t) => MEASURE_PLAIN[t.measure] || t.measure);
-  const bits = [`Six tests (container fill; rule compliance, load-bearing, unload order over all boxes; time, memory), Holm-corrected together across the ${tested.length} that could be run.`];
+  const fill = hf.tests.some((t) => t.measure === "CSU") ? "compliant fill" : "container fill";
+  const bits = [`Six tests (${fill}; rule compliance, load-bearing, unload order over all boxes; time, memory), Holm-corrected together across the ${tested.length} that could be run.`];
   if (left.length) bits.push(`Not tested: ${list(left)}.`);
   bits.push(sig.length
     ? `Decision: H₀ (no difference between the configurations) is rejected — significant after correction: ${list(sig)}.`
@@ -307,7 +331,7 @@ export function compositeSummary(stats) {
 export function outcomeBanner(stats) {
   if (!stats) return null;
   const cs = stats.composite;
-  const oc = stats.outcome;
+  const oc = shownOutcome(stats);
   if (cs && !cs.available && /2 instances/.test(cs.reason || "")) {
     return { kind: "info", title: "Statistical tests need ≥ 2 test cases",
              sub: `This study used ${stats.provenance.n_instances} test case. The tests compare the methods within test cases, so with one test case the results below are descriptive: averages and spreads, no significance tests and no composite ranking.` };

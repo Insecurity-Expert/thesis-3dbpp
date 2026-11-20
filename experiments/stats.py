@@ -456,7 +456,8 @@ def derive_rows(runs):
         n, placed = r["n_items"], r["placed"]
         frac = (placed / n) if n else 0.0
         row = {"configuration": r["configuration"], "instance_id": r.get("instance_id"),
-               "seed": r["seed"], "SU": r["su_pct"], "placed": placed, "n_items": n,
+               "seed": r["seed"], "SU": r["su_pct"], "CSU": r.get("compliant_su_pct"),
+               "placed": placed, "n_items": n,
                "ET": r["exec_time_ms"], "PM": r["peak_mem_mb"]}
         for m, key in COMPLIANCE_KEYS.items():
             row[f"{m}_placed"] = r[key]
@@ -472,6 +473,49 @@ def group_values(rows, key, configs, instance_id=None):
 
 def _instances_of(study):
     return [i["instance_id"] for i in study.get("instances", [])]
+
+
+def sp1_compliant_blocks(rows, configs, instances, hypothesis_family=None, timing_valid=False):
+    """SP1 on compliant space utilisation (M-1b), when every run records
+    compliant_su_pct (else {}). Additive: the raw-SU blocks are not touched.
+      descriptives_CSU, SP1_compliant  - SP1's test (compare_rm) on compliant SU
+      planned_family_compliant         - the 18 planned REP comparisons with SP1 on
+                                         compliant SU; its "outcome" is the outcome pattern
+      hypothesis_family_compliant      - the six-test family with SU's omnibus replaced
+                                         by compliant SU's, Holm recomputed (given the
+                                         raw-SU hypothesis_family)
+    Used by analyse() and by tools/add_compliant_su.py for older study files."""
+    if not rows or any(x.get("CSU") is None for x in rows):
+        return {}
+    from planned import planned_family
+    groups = group_values(rows, "CSU", configs)
+    sp1c = compare_rm(_block_matrix(rows, "CSU", configs, instances), configs, "compliant SU", run_groups=groups)
+    get_mat = lambda key: _block_matrix(rows, "CSU" if key == "SU" else key, configs, instances)
+    out = {"descriptives_CSU": {c: descriptives(v) for c, v in groups.items()},
+           "SP1_compliant": {"measure": "compliant SU", "comparison": sp1c},
+           "planned_family_compliant": planned_family(
+               get_mat, configs, timing_valid, alpha=ALPHA, holm=holm, shapiro=shapiro, d_z=d_z,
+               rank_biserial_paired=rank_biserial_paired, magnitude=magnitude, labels=LABELS,
+               measure_labels={**MEASURE_LABELS, "SU": "compliant space utilisation (%)"},
+               lower_is_better=LOWER_IS_BETTER, d_thr=D_THRESHOLD, r_thr=R_THRESHOLD, f=_f)}
+    if hypothesis_family and hypothesis_family.get("tests"):
+        o = sp1c["omnibus"]
+        tests = [dict(t, measure="CSU", label="compliant space utilisation (%)", testable=bool(o.get("testable")),
+                      test=o.get("test"), statistic=o.get("statistic"), p=o.get("p"),
+                      reason=None if o.get("testable") else o.get("reason"))
+                 if t["measure"] == "SU" else dict(t) for t in hypothesis_family["tests"]]
+        adj, fam = holm([t["p"] if t["testable"] else None for t in tests])
+        for t, pa in zip(tests, adj):
+            t["p_holm"], t["significant_holm"] = _f(pa), bool(pa is not None and pa < ALPHA)
+        sig = [t["measure"] for t in tests if t["significant_holm"]]
+        tested = [t["measure"] for t in tests if t["testable"]]
+        decision = (f"H0 rejected: at least one Holm-corrected omnibus test of the six-test family is significant ({', '.join(sig)})" if sig
+                    else f"H0 not rejected: no Holm-corrected omnibus test of the six-test family is significant ({', '.join(tested)} tested)" if tested
+                    else "H0 not testable")
+        out["hypothesis_family_compliant"] = {**hypothesis_family, "members": [t["measure"] for t in tests],
+                                              "holm_family_size": fam, "tests": tests, "significant_measures": sig,
+                                              "h0_rejected": bool(sig), "testable": fam > 0, "decision": decision}
+    return out
 
 
 def analyse(study):
@@ -710,6 +754,10 @@ def analyse(study):
         measure_labels=MEASURE_LABELS, lower_is_better=LOWER_IS_BETTER,
         d_thr=D_THRESHOLD, r_thr=R_THRESHOLD, f=_f)
     out["hypothesis_design"] = HYPOTHESIS_DESIGN
+
+    # ── SP1 on compliant SU (M-1b), when every run records it: additive, every
+    # raw-SU block above is unchanged ──────────────────────────────────────────
+    out.update(sp1_compliant_blocks(rows, configs, instances, out["hypothesis_family"], timing_valid))
 
     # ── supporting descriptive indicators M-6 gap, M-7 load distribution ──────
     out["layout"] = layout_descriptives(runs, configs)

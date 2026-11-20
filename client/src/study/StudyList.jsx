@@ -31,7 +31,7 @@ export function YourStudies({ studies, onOpenStudy, onDeleteStudy }) {
       <div className="card-head">
         <div>
           <div className="card-title">Your studies</div>
-          <div className="card-desc">Every Full Comparison you launched or imported. Open one to see its Results and Technical Details.</div>
+          <div className="card-desc">Every Full Comparison you launched or imported. Open one to see its Results and Statistics.</div>
         </div>
       </div>
       {confirmDelete && (

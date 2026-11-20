@@ -18,7 +18,6 @@ import { useToast } from "./components/ui";
 import { instancesApi, runsApi, studiesApi, customLoadsApi } from "./services/api";
 import { blankRow } from "./components/LoadSources";
 import { customLoadOf, CUSTOM_LOAD_LABEL } from "./components/CustomLoadBanner";
-import StudyLauncher, { TestSettingsPanel } from "./study/StudyLauncher";
 
 
 const PAGES = ["home", "logistics", "results", "technical", "guide", "visualization", "history", "account"];
@@ -27,6 +26,12 @@ const PAGES = ["home", "logistics", "results", "technical", "guide", "visualizat
 export default function Shell() {
   const { user, logout, setPrefs } = useAuth();
   const toast = useToast();
+  // Sign out lands on the landing page (AuthContext.logout tells the sign-in
+  // guard where to go; it never throws). If the server does not confirm, the
+  // user stays signed in and is told so.
+  const signOut = useCallback(async () => {
+    if (!(await logout({ to: "/" }))) toast("Could not sign out: the server did not answer. Please try again.", "warn");
+  }, [logout, toast]);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   // home, logistics, results, technical, guide, visualization, history, account.
   // The page is mirrored in the URL (?page=) so a refresh, /run-history and the
@@ -80,8 +85,6 @@ export default function Shell() {
   const [customNotes, setCustomNotes] = useState([]);   // columns the converter ignored
   const [checking, setChecking] = useState(false);
 
-  // The repeat code (seed) of a Quick Test; Run STACKR uses its own fixed seeds.
-  const [seed, setSeed] = useState(42);
   // λ and the C4/C5 placement switches are not user settings: runs use the
   // optimizer's own defaults (shown read-only in Test settings).
 
@@ -113,16 +116,21 @@ export default function Shell() {
   const [studyDoc, setStudyDoc] = useState(null);        // { row, study, stats } of the selected study
   const [studyProgress, setStudyProgress] = useState(null);
   const [studyBusy, setStudyBusy] = useState(false);
-  const [studySize, setStudySize] = useState("demo");     // Full Comparison picker
   // The comparison on the Processing screen: { studyId, state: running|error|stopped, error, label }
   const [processing, setProcessing] = useState(null);
   const [stopping, setStopping] = useState(false);
   // Requests from Results: open a study run in the 3D viewer / a method's guide.
   const [vizRequest, setVizRequest] = useState(null);
   const [guideRequest, setGuideRequest] = useState(null);
-  // Results and Technical Details: the two hybrids by default, all four on request.
+  // Results and Statistics: the proposed hybrid by default, all four on request.
+  // Switching from one study to another goes back to the default; the first
+  // selection on load does not, so a ?view=all link keeps the full comparison.
   const [showAllConfigs, setShowAllConfigs] = useState(false);
-  useEffect(() => { setShowAllConfigs(false); }, [selectedStudyId]);
+  const prevStudyId = useRef(null);
+  useEffect(() => {
+    if (prevStudyId.current !== null && prevStudyId.current !== selectedStudyId) setShowAllConfigs(false);
+    prevStudyId.current = selectedStudyId;
+  }, [selectedStudyId]);
   const selectedLoadRef = useRef(null);   // the load being run, for a failed-run History row
 
   const wsRef = useRef(null);
@@ -186,7 +194,12 @@ export default function Shell() {
   useEffect(() => {
     if (source !== "sample" || samples) return;
     customLoadsApi.samples()
-      .then((d) => { setSamples(d); if (sampleId === null && d.samples && d.samples.length) setSampleId(d.samples[0].instance_id); })
+      .then((d) => {
+        // Only samples within the thesis study's box cap are offered.
+        const kept = { ...d, samples: (d.samples || []).filter((s) => !s.over_cap) };
+        setSamples(kept);
+        if (sampleId === null && kept.samples.length) setSampleId(kept.samples[0].instance_id);
+      })
       .catch((e) => setSamples({ error: `Could not load the samples: ${e.message}` }));
   }, [source, samples, sampleId]);
 
@@ -252,25 +265,6 @@ export default function Shell() {
     fetchStudies();
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
-
-  // Timed runs of finished Quick Tests (one-seed studies), shaped like Run
-  // History rows, so the Quick Test card can estimate its time from them too.
-  const [quickTimings, setQuickTimings] = useState({});   // study id -> rows
-  useEffect(() => {
-    const todo = studies.filter((s) => s.name === "Quick Test" && s.status === "done" && !s.imported && !(s.id in quickTimings)).slice(0, 20);
-    if (!todo.length) return;
-    let alive = true;
-    Promise.all(todo.map((s) => studiesApi.get(s.id).then((doc) => {
-      const st = doc.study;
-      const rows = st && st.preset && Array.isArray(st.runs) && st.mode === "serial"
-        ? st.runs.filter((r) => r.exec_time_ms != null).map((r) => ({ strategy_code: r.configuration, pop_size: st.preset.pop_size,
-            max_iter: st.preset.max_iter, runtime_s: r.exec_time_ms / 1000, old_measurement: false }))
-        : [];
-      return [s.id, rows];
-    }).catch(() => [s.id, []]))).then((pairs) => { if (alive) setQuickTimings((q) => ({ ...q, ...Object.fromEntries(pairs) })); });
-    return () => { alive = false; };
-  }, [studies, quickTimings]);
-  const timedRuns = useMemo(() => runHistory.concat(...Object.values(quickTimings)), [runHistory, quickTimings]);
 
   // Load the selected study's file (stats attached) whenever the selection changes.
   // A response for a study that is no longer selected is dropped: opening a
@@ -367,21 +361,6 @@ export default function Shell() {
     } catch (e) { setError(`Could not start the study: ${e.message}`); }
     setStudyBusy(false);
   }, [fetchStudies, ensureCustomLoad]);
-
-  // Quick Test: all four configurations, one run each with the repeat code,
-  // the chosen preset, one at a time. It is a study of one seed, so it goes
-  // through the same path as Run STACKR and opens the normal Results page.
-  const handleQuickTest = useCallback((presetKey) => {
-    let code = Number(seed);
-    if (seed === "" || !Number.isInteger(code) || code < 0) {
-      code = Math.floor(Math.random() * 1e6);     // "random": pick one, and show it
-      setSeed(code);
-    }
-    const L = selectedLoadRef.current || {};
-    handleLaunchStudy({ what: "Quick Test", preset: presetKey, seeds: String(code), mode: "serial", name: "Quick Test",
-                        ...(L.custom ? { useCustom: true } : { instanceId: L.instanceId }) });
-  }, [seed, handleLaunchStudy]);
-
   const handleImportStudy = useCallback(async (file) => {
     try {
       const r = await studiesApi.importFile(file);
@@ -398,15 +377,6 @@ export default function Shell() {
       fetchStudies();
     } catch (e) { setError(`Could not delete study #${s.id}: ${e.message}`); }
   }, [fetchStudies, selectedStudyId]);
-
-  // Run History, on its Runs or Studies tab.
-  const openHistory = useCallback((tab = "runs") => {
-    setActiveTab("history");
-    const p = new URLSearchParams(searchParams);
-    p.set("page", "history");
-    if (tab === "studies") p.set("tab", "studies"); else p.delete("tab");
-    setSearchParams(p, { replace: true });
-  }, [searchParams, setSearchParams]);
 
   const handleOpenStudy = useCallback((id) => {
     setSelectedStudyId(id);
@@ -786,10 +756,11 @@ export default function Shell() {
     { id: "home", group: "Get started", label: "Home", title: "Home", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg> },
     { id: "logistics", group: "Get started", label: "Start analysis", title: "Start analysis", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> },
     { id: "results", group: "Get started", label: "Results", title: "Results", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> },
-    { id: "technical", group: "Get started", label: "Technical Details", title: "Technical Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "guide", group: "Get started", label: "Loading Guide", title: "Loading Guide", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 4h10v16H9z"/><path d="M5 8h4M5 12h4M5 16h4"/></svg> },
     { id: "visualization", group: "Advanced tools", label: "3D Viewer", title: "3D Viewer", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12l8.73-5.04"/><path d="M12 22.08V12"/></svg> },
     { id: "history", group: "Advanced tools", label: "Run History", title: "Run History", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> },
+    // The study's statistics (significance tests): out of the client's path, kept for review.
+    { id: "technical", group: "Advanced tools", label: "Statistics", title: "Statistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
@@ -869,7 +840,7 @@ export default function Shell() {
                   <button type="button" className="btn btn-secondary btn-sm btn-block" style={{ marginBottom: 8 }} onClick={() => { setActiveTab("account"); setProfileOpen(false); }}>
                     Account
                   </button>
-                  <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { logout(); setProfileOpen(false); }}>
+                  <button type="button" className="btn btn-danger-outline btn-sm btn-block" onClick={() => { setProfileOpen(false); signOut(); }}>
                     Log out
                   </button>
                 </div>
@@ -889,7 +860,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab onStart={() => setActiveTab("logistics")} onHelp={() => setShowHowTo(true)} onOpenHistory={openHistory} runHistory={runHistory} studies={studies} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} />
       )}
 
       {/* ── LOADING GUIDE ── */}
@@ -899,7 +870,7 @@ export default function Shell() {
 
       {/* ── ACCOUNT ── */}
       {activeTab === "account" && (
-        <AccountTab user={user} logout={logout} studies={studies} result={finalResult} />
+        <AccountTab user={user} logout={signOut} studies={studies} result={finalResult} />
       )}
 
       {/* ── LOGISTICS TAB ── */}
@@ -915,10 +886,6 @@ export default function Shell() {
           containerSpecs={containerSpecs}
           setContainerSpecs={setContainerSpecs}
           running={running}
-          seed={seed}
-          setSeed={setSeed}
-          onQuickTest={handleQuickTest}
-          runHistory={timedRuns}
           optimizerReady={optimizerReady}
           wtpackInstances={wtpackInstances}
           wtpackId={wtpackId}
@@ -938,22 +905,6 @@ export default function Shell() {
             onDiscard: () => { setCsvFile(null); setCustomLoad(null); toast("File removed. You can pick another.", "ok"); },
             onCancel: () => { setCsvFile(null); setCustomLoad(null); setSource(null); toast("Cancelled."); },
           }}
-          testSettings={<TestSettingsPanel sizesInfo={sizesInfo} size="demo" seed={seed} selectedLoad={selectedLoad} customLoad={customShown} />}
-          largerSizes={
-            <StudyLauncher
-              sizeKeys={["standard", "multi"]}
-              sizesInfo={sizesInfo}
-              studies={studies}
-              onLaunch={handleLaunchStudy}
-              onRefresh={fetchStudies}
-              wtpackId={wtpackId}
-              wtpackInstances={wtpackInstances}
-              selectedLoad={selectedLoad}
-              busy={studyBusy}
-              size={studySize === "demo" ? "standard" : studySize}
-              setSize={setStudySize}
-            />
-          }
         />
       )}
 
@@ -966,7 +917,7 @@ export default function Shell() {
           studyDoc={studyDoc}
           progress={studyProgress}
           onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
-          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: false, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
           onOpenTechnical={() => setActiveTab("technical")}
@@ -984,7 +935,7 @@ export default function Shell() {
           studyDoc={studyDoc}
           progress={studyProgress}
           onViewArrangement={(req) => { setVizRequest({ ...req, at: Date.now() }); setActiveTab("visualization"); }}
-          onExportGuide={(req) => { setGuideRequest({ ...req, print: true, at: Date.now() }); setActiveTab("guide"); }}
+          onExportGuide={(req) => { setGuideRequest({ ...req, print: false, at: Date.now() }); setActiveTab("guide"); }}
           full={showAllConfigs}
           setFull={setShowAllConfigs}
           runHistory={runHistory}

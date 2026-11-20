@@ -1,6 +1,8 @@
 // client/src/LandingPage.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './auth/AuthContext';
+
 const FEATURES = [
   {
     title: '3D Bin Packing Solver',
@@ -39,8 +41,19 @@ const REASONS = [
   },
 ];
 
-export default function LandingPage({ onEnter }) {
-    const navigate = useNavigate();
+const BTN = {
+  padding: '15px 40px',
+  borderRadius: 'var(--radius)',
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+const PRIMARY_BTN = { ...BTN, background: 'var(--primary)', color: 'var(--on-primary)', border: 'none', boxShadow: 'var(--shadow-md)' };
+const SECONDARY_BTN = { ...BTN, background: 'var(--bg-card)', color: 'var(--primary)', border: '1.5px solid var(--primary)' };
+
+export default function LandingPage() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
   return (
     <div style={{
       minHeight: '100vh',
@@ -76,25 +89,18 @@ export default function LandingPage({ onEnter }) {
           Define your items and container, let the solver search for a
           layout, and watch the result take shape in 3D.
         </p>
-        <button
-          onClick={()=>navigate('/app')}
-          style={{
-            padding: '15px 40px',
-            background: 'var(--primary)',
-            color: 'var(--on-primary)',
-            border: 'none',
-            borderRadius: 'var(--radius)',
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'background 0.15s ease',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--primary)'}
-        >
-          Launch App
-        </button>
+        {/* Signed in: straight to the app. Otherwise: Log in or Register.
+            Nothing until the sign-in check answers, so the buttons never flip. */}
+        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', minHeight: 52 }}>
+          {loading ? null : user ? (
+            <button type="button" onClick={() => navigate('/app')} style={PRIMARY_BTN}>Open STACKR</button>
+          ) : (
+            <>
+              <button type="button" onClick={() => navigate('/login')} style={PRIMARY_BTN}>Log in</button>
+              <button type="button" onClick={() => navigate('/register')} style={SECONDARY_BTN}>Register</button>
+            </>
+          )}
+        </div>
       </section>
 
       {/* ---- What it does ---- */}
@@ -114,11 +120,7 @@ export default function LandingPage({ onEnter }) {
         }}>
           What it does
         </h2>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 20,
-        }}>
+        <div className="landing-2col">
           {FEATURES.map((f) => (
             <div key={f.title} style={{
               background: 'var(--bg-card)',
@@ -155,7 +157,7 @@ export default function LandingPage({ onEnter }) {
         borderBottom: '1px solid var(--border)',
         padding: '64px 24px',
       }}>
-        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 14,
             fontWeight: 700,
@@ -167,10 +169,9 @@ export default function LandingPage({ onEnter }) {
           }}>
             Why it matters
           </h2>
-          {REASONS.map((r, i) => (
-            <div key={r.heading} style={{
-              marginBottom: i === REASONS.length - 1 ? 0 : 32,
-            }}>
+          <div className="landing-2col landing-2col-wide">
+          {REASONS.map((r) => (
+            <div key={r.heading}>
               <h3 style={{
                 fontSize: 19,
                 fontWeight: 700,
@@ -189,49 +190,8 @@ export default function LandingPage({ onEnter }) {
               </p>
             </div>
           ))}
+          </div>
         </div>
-      </section>
-
-      {/* ---- Closing CTA ---- */}
-      <section style={{
-        maxWidth: 640,
-        margin: '0 auto',
-        padding: '72px 24px 96px',
-        textAlign: 'center',
-      }}>
-        <h2 style={{
-          fontSize: 24,
-          fontWeight: 700,
-          color: 'var(--text-main)',
-          margin: '0 0 12px',
-        }}>
-          Try it with your own load
-        </h2>
-        <p style={{
-          fontSize: 15.5,
-          lineHeight: 1.65,
-          color: 'var(--text-muted)',
-          margin: '0 0 28px',
-        }}>
-          Enter your item and container dimensions, run the solver, and see
-          how much of the space you actually use.
-        </p>
-        <button
-          onClick={()=>navigate('/app')}
-          style={{
-            padding: '14px 36px',
-            background: 'var(--primary)',
-            color: 'var(--on-primary)',
-            border: 'none',
-            borderRadius: 'var(--radius)',
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: 'var(--shadow)',
-          }}
-        >
-          Open the App
-        </button>
       </section>
     </div>
   );
