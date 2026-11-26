@@ -8,7 +8,8 @@ import LogisticsTab from "./components/LogisticsTab";
 import ResultsTab from "./components/ResultsTab";
 import VisualizationTab from "./components/VisualizationTab";
 import RunHistoryTab from "./components/RunHistoryTab";
-import DashboardTab, { LoadSourceShortcuts } from "./components/DashboardTab";
+import DashboardTab from "./components/DashboardTab";
+import LoadSourceShortcuts from "./components/LoadSourceShortcuts";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import HowToModal from "./components/HowToModal";
@@ -871,9 +872,7 @@ export default function Shell() {
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab studies={studies} onHistory={() => setActiveTab("history")} onOpenStudy={handleOpenStudy}
-          onStart={() => setActiveTab("logistics")}
-          onSource={openLoadSource} />
+        <DashboardTab onStart={() => setActiveTab("logistics")} />
       )}
 
       {/* ── LOADING GUIDE ── */}
