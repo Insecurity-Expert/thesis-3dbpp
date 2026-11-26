@@ -915,7 +915,8 @@
      "C6 box 18 (stop 1): later-stop above [7], doorward [72, 99, 111]",
      "C6 box 20 (stop 1): later-stop above [31], doorward [7, 26, 43, 54, 62, 63, 64, 67, 72, 77, 85, 97, 99, 107, 111]"
     ]
-   }
+   },
+   "compliant_su_pct": 35.9978
   },
   {
    "configuration": "MOGWO",
@@ -1791,7 +1792,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [30, 53, 95]",
      "C6 box 7 (stop 2): later-stop above [14], doorward [12, 30, 36, 53, 54, 64, 67, 95, 127]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.7981
   },
   {
    "configuration": "SEQ",
@@ -2640,7 +2642,8 @@
      "C6 box 18 (stop 1): later-stop above [], doorward [7, 114]",
      "C6 box 20 (stop 1): later-stop above [], doorward [114]"
     ]
-   }
+   },
+   "compliant_su_pct": 33.6354
   },
   {
    "configuration": "REP",
@@ -3363,7 +3366,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.0534
   },
   {
    "configuration": "DGWO",
@@ -4252,7 +4256,8 @@
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [4, 15]",
      "C6 box 7 (stop 2): later-stop above [15], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 22.7177
   },
   {
    "configuration": "MOGWO",
@@ -5065,7 +5070,8 @@
      "C6 box 8 (stop 1): later-stop above [127], doorward []",
      "C3 box 10: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [15, 26]"
     ]
-   }
+   },
+   "compliant_su_pct": 26.2453
   },
   {
    "configuration": "SEQ",
@@ -5950,7 +5956,8 @@
      "C3 box 5: load 651.090 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [10, 14, 47]",
      "C6 box 5 (stop 2): later-stop above [14, 47], doorward [95]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.7039
   },
   {
    "configuration": "REP",
@@ -6655,7 +6662,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.5107
   },
   {
    "configuration": "DGWO",
@@ -7481,7 +7489,8 @@
      "C3 box 14: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [4, 24]",
      "C3 box 15: load 330.080 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [29, 115]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.1871
   },
   {
    "configuration": "MOGWO",
@@ -8303,7 +8312,8 @@
      "C3 box 7: load 524.990 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [78, 106]",
      "C6 box 7 (stop 2): later-stop above [], doorward [13, 48, 49, 95]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.0223
   },
   {
    "configuration": "SEQ",
@@ -9206,7 +9216,8 @@
      "C6 box 7 (stop 2): later-stop above [47], doorward [49, 74]",
      "C3 box 9: load 356.040 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [104, 126]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.1044
   },
   {
    "configuration": "REP",
@@ -9875,7 +9886,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 51.0707
   },
   {
    "configuration": "DGWO",
@@ -10773,7 +10785,8 @@
      "C6 box 5 (stop 2): later-stop above [31], doorward [15, 19, 53, 58, 74, 102, 109]",
      "C6 box 8 (stop 1): later-stop above [], doorward [7, 118]"
     ]
-   }
+   },
+   "compliant_su_pct": 26.6263
   },
   {
    "configuration": "MOGWO",
@@ -11613,7 +11626,8 @@
      "C6 box 10 (stop 2): later-stop above [], doorward [11, 30, 49, 58, 62, 67, 77, 102, 109]",
      "C3 box 11: load 330.080 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [40, 103]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.936
   },
   {
    "configuration": "SEQ",
@@ -12507,7 +12521,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [9, 22, 49]",
      "C6 box 8 (stop 1): later-stop above [36], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 21.7069
   },
   {
    "configuration": "REP",
@@ -13221,7 +13236,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 53.425
   },
   {
    "configuration": "DGWO",
@@ -13993,7 +14009,8 @@
      "C6 box 18 (stop 1): later-stop above [23], doorward [10, 16, 50, 55, 64, 85, 95, 110]",
      "C6 box 21 (stop 1): later-stop above [], doorward [5, 22, 34, 41, 44, 49, 58, 60, 61, 84, 118]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.8951
   },
   {
    "configuration": "MOGWO",
@@ -14851,7 +14868,8 @@
      "C3 box 9: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [2, 33]",
      "C3 box 10: load 608.240 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [13, 16, 27, 37]"
     ]
-   }
+   },
+   "compliant_su_pct": 35.8814
   },
   {
    "configuration": "SEQ",
@@ -15700,7 +15718,8 @@
      "C6 box 4 (stop 1): later-stop above [40], doorward [1, 17, 30, 36, 48, 54, 67, 69, 72, 111, 122]",
      "C6 box 5 (stop 2): later-stop above [], doorward [34]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.0274
   },
   {
    "configuration": "REP",
@@ -16396,7 +16415,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 53.1483
   },
   {
    "configuration": "DGWO",
@@ -17240,7 +17260,8 @@
      "C6 box 8 (stop 1): later-stop above [6, 16], doorward [9, 22, 35, 41, 43, 47, 48, 49, 50, 53, 58, 60, 61, 64, 72, 74, 80, 92, 94]",
      "C3 box 9: load 346.970 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [75]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.4307
   },
   {
    "configuration": "MOGWO",
@@ -18080,7 +18101,8 @@
      "C3 box 15: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [4, 17]",
      "C6 box 17 (stop 2): later-stop above [], doorward [11]"
     ]
-   }
+   },
+   "compliant_su_pct": 33.8339
   },
   {
    "configuration": "SEQ",
@@ -18929,7 +18951,8 @@
      "C6 box 8 (stop 1): later-stop above [29, 120, 127], doorward [12, 14, 17, 32, 43, 52, 53, 54, 58, 64, 80, 85, 92, 93, 122, 124]",
      "C3 box 9: load 346.970 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [75]"
     ]
-   }
+   },
+   "compliant_su_pct": 26.0949
   },
   {
    "configuration": "REP",
@@ -19661,7 +19684,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.7313
   },
   {
    "configuration": "DGWO",
@@ -20487,7 +20511,8 @@
      "C3 box 13: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [0, 12]",
      "C3 box 14: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [12, 39]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.7268
   },
   {
    "configuration": "MOGWO",
@@ -21345,7 +21370,8 @@
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [7, 18]",
      "C6 box 8 (stop 1): later-stop above [], doorward [7, 35]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.2128
   },
   {
    "configuration": "SEQ",
@@ -22167,7 +22193,8 @@
      "C6 box 18 (stop 1): later-stop above [], doorward [1, 15, 55, 56, 67, 68, 71, 72, 73, 77, 81, 93, 109, 110, 112]",
      "C3 box 20: load 330.080 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [7, 104]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.6211
   },
   {
    "configuration": "REP",
@@ -22872,7 +22899,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.6832
   },
   {
    "configuration": "DGWO",
@@ -23743,7 +23771,8 @@
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [10, 27]",
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [15, 41]"
     ]
-   }
+   },
+   "compliant_su_pct": 32.4781
   },
   {
    "configuration": "MOGWO",
@@ -24574,7 +24603,8 @@
      "C6 box 8 (stop 1): later-stop above [103], doorward [7, 42, 44, 50, 52, 68, 69, 74, 92, 106, 111, 114, 118]",
      "C6 box 10 (stop 2): later-stop above [], doorward [11, 74, 95]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.8283
   },
   {
    "configuration": "SEQ",
@@ -25459,7 +25489,8 @@
      "C6 box 4 (stop 1): later-stop above [17], doorward [12, 34, 41, 61, 62, 94, 97, 114]",
      "C6 box 5 (stop 2): later-stop above [], doorward [6, 49, 66, 67, 74, 98]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.1826
   },
   {
    "configuration": "REP",
@@ -26164,7 +26195,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 54.6904
   },
   {
    "configuration": "DGWO",
@@ -26981,7 +27013,8 @@
      "C3 box 13: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [28, 37]",
      "C6 box 18 (stop 1): later-stop above [99], doorward [40, 58, 62, 74, 77, 102]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.008
   },
   {
    "configuration": "MOGWO",
@@ -27821,7 +27854,8 @@
      "C6 box 3 (stop 1): later-stop above [22, 36], doorward [5, 7, 12, 19, 52, 68, 93, 103]",
      "C3 box 4: load 456.180 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [7, 12, 19]"
     ]
-   }
+   },
+   "compliant_su_pct": 21.6248
   },
   {
    "configuration": "SEQ",
@@ -28661,7 +28695,8 @@
      "C6 box 8 (stop 1): later-stop above [16, 40], doorward [5, 9, 12, 39, 42, 47, 68]",
      "C3 box 9: load 1049.980 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [47, 86, 99, 105]"
     ]
-   }
+   },
+   "compliant_su_pct": 21.9657
   },
   {
    "configuration": "REP",
@@ -29348,7 +29383,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 50.9585
   },
   {
    "configuration": "DGWO",
@@ -30183,7 +30219,8 @@
      "C3 box 10: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [2, 9]",
      "C6 box 10 (stop 2): later-stop above [9], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 24.2036
   },
   {
    "configuration": "MOGWO",
@@ -31032,7 +31069,8 @@
      "C3 box 12: load 524.990 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [49, 106]",
      "C3 box 15: load 634.200 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [16, 29, 39, 118]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.299
   },
   {
    "configuration": "SEQ",
@@ -31854,7 +31892,8 @@
      "C3 box 8: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [2, 38]",
      "C6 box 8 (stop 1): later-stop above [], doorward [26, 36]"
     ]
-   }
+   },
+   "compliant_su_pct": 26.3194
   },
   {
    "configuration": "REP",
@@ -32577,7 +32616,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.9599
   },
   {
    "configuration": "DGWO",
@@ -33358,7 +33398,8 @@
      "C3 box 18: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [5, 7]",
      "C6 box 18 (stop 1): later-stop above [5, 7], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 29.0229
   },
   {
    "configuration": "MOGWO",
@@ -34234,7 +34275,8 @@
      "C6 box 5 (stop 2): later-stop above [44], doorward [9, 11, 30, 41, 53, 54, 64, 77]",
      "C6 box 8 (stop 1): later-stop above [16], doorward [13, 15, 23, 67, 69, 101, 122, 124]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.1057
   },
   {
    "configuration": "SEQ",
@@ -35029,7 +35071,8 @@
      "C6 box 18 (stop 1): later-stop above [118], doorward [47, 99]",
      "C6 box 20 (stop 1): later-stop above [], doorward [7, 12, 77, 92, 122]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.3292
   },
   {
    "configuration": "REP",
@@ -35689,7 +35732,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 49.1836
   },
   {
    "configuration": "DGWO",
@@ -36551,7 +36595,8 @@
      "C3 box 7: load 608.240 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [5, 8, 13, 22]",
      "C6 box 7 (stop 2): later-stop above [13, 22], doorward [11, 47, 54, 58, 67, 95]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.3394
   },
   {
    "configuration": "MOGWO",
@@ -37418,7 +37463,8 @@
      "C3 box 8: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [7, 25]",
      "C6 box 8 (stop 1): later-stop above [7], doorward [58, 61]"
     ]
-   }
+   },
+   "compliant_su_pct": 34.279
   },
   {
    "configuration": "SEQ",
@@ -38231,7 +38277,8 @@
      "C6 box 10 (stop 2): later-stop above [], doorward [67]",
      "C3 box 16: load 330.080 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [45, 106]"
     ]
-   }
+   },
+   "compliant_su_pct": 18.3338
   },
   {
    "configuration": "REP",
@@ -38927,7 +38974,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 54.5301
   },
   {
    "configuration": "DGWO",
@@ -39762,7 +39810,8 @@
      "C6 box 10 (stop 2): later-stop above [], doorward [6]",
      "C3 box 14: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [11, 17]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.3761
   },
   {
    "configuration": "MOGWO",
@@ -40620,7 +40669,8 @@
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [19, 38]",
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [33, 46]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.7585
   },
   {
    "configuration": "SEQ",
@@ -41523,7 +41573,8 @@
      "C6 box 7 (stop 2): later-stop above [], doorward [12, 95]",
      "C6 box 8 (stop 1): later-stop above [99], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 28.8764
   },
   {
    "configuration": "REP",
@@ -42165,7 +42216,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 49.3821
   },
   {
    "configuration": "DGWO",
@@ -43063,7 +43115,8 @@
      "C6 box 7 (stop 2): later-stop above [19], doorward [9, 53, 58, 60, 62]",
      "C3 box 8: load 482.140 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [29, 33, 127]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.6211
   },
   {
    "configuration": "MOGWO",
@@ -43894,7 +43947,8 @@
      "C6 box 8 (stop 1): later-stop above [], doorward [68, 80, 85]",
      "C3 box 9: load 524.990 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [50, 105]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.6471
   },
   {
    "configuration": "SEQ",
@@ -44779,7 +44833,8 @@
      "C6 box 7 (stop 2): later-stop above [16], doorward [6, 11, 13, 58, 66]",
      "C3 box 8: load 524.990 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [61, 107]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.3955
   },
   {
    "configuration": "REP",
@@ -45475,7 +45530,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 52.5006
   },
   {
    "configuration": "DGWO",
@@ -46355,7 +46411,8 @@
      "C6 box 5 (stop 2): later-stop above [36], doorward [109]",
      "C6 box 8 (stop 1): later-stop above [107], doorward [9, 39, 48, 49, 55, 56, 63, 75, 85, 92]"
     ]
-   }
+   },
+   "compliant_su_pct": 25.78
   },
   {
    "configuration": "MOGWO",
@@ -47222,7 +47279,8 @@
      "C6 box 3 (stop 1): later-stop above [31, 40], doorward [11, 48, 53, 61, 64, 83, 95, 99]",
      "C3 box 4: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [6, 34]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.7391
   },
   {
    "configuration": "SEQ",
@@ -48125,7 +48183,8 @@
      "C6 box 5 (stop 2): later-stop above [102], doorward [30, 60, 62, 109]",
      "C3 box 6: load 330.080 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [38, 104]"
     ]
-   }
+   },
+   "compliant_su_pct": 22.8902
   },
   {
    "configuration": "REP",
@@ -48839,7 +48898,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 54.8931
   },
   {
    "configuration": "DGWO",
@@ -49710,7 +49770,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [12, 34, 58, 64, 67, 74, 110, 112, 118]",
      "C6 box 8 (stop 1): later-stop above [], doorward [17, 120]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.0382
   },
   {
    "configuration": "MOGWO",
@@ -50532,7 +50593,8 @@
      "C3 box 8: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [18, 43]",
      "C6 box 8 (stop 1): later-stop above [43], doorward [1, 44, 56, 69, 85, 113]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.3904
   },
   {
    "configuration": "SEQ",
@@ -51408,7 +51470,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [16]",
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [28, 29]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.1698
   },
   {
    "configuration": "REP",
@@ -52086,7 +52149,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 50.9283
   },
   {
    "configuration": "DGWO",
@@ -52912,7 +52976,8 @@
      "C6 box 7 (stop 2): later-stop above [], doorward [47, 48, 53, 54, 62, 95]",
      "C6 box 8 (stop 1): later-stop above [], doorward [34, 47, 50, 54, 55, 69, 93, 94]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.1417
   },
   {
    "configuration": "MOGWO",
@@ -53770,7 +53835,8 @@
      "C6 box 3 (stop 1): later-stop above [7], doorward [31, 44, 53, 61, 63, 69, 77, 84, 119]",
      "C6 box 4 (stop 1): later-stop above [22], doorward [16, 44, 119]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.7743
   },
   {
    "configuration": "SEQ",
@@ -54646,7 +54712,8 @@
      "C3 box 5: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [20, 42]",
      "C3 box 6: load 855.070 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [33, 81, 109, 113]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.1985
   },
   {
    "configuration": "REP",
@@ -55333,7 +55400,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 53.2044
   },
   {
    "configuration": "DGWO",
@@ -56087,7 +56155,8 @@
      "C3 box 11: load 829.110 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [21, 46, 77, 98]",
      "C6 box 20 (stop 1): later-stop above [127], doorward [47, 49, 61, 63, 64, 66, 72, 94]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.0677
   },
   {
    "configuration": "MOGWO",
@@ -56945,7 +57014,8 @@
      "C6 box 8 (stop 1): later-stop above [13, 15], doorward [26, 39, 47, 53, 57, 60, 81, 94, 107]",
      "C6 box 10 (stop 2): later-stop above [11], doorward [12, 13, 15, 30, 34, 47, 48, 49, 54, 66, 74, 107, 112]"
     ]
-   }
+   },
+   "compliant_su_pct": 34.7844
   },
   {
    "configuration": "SEQ",
@@ -57740,7 +57810,8 @@
      "C6 box 20 (stop 1): later-stop above [13, 44], doorward []",
      "C3 box 21: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [23, 32]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.8498
   },
   {
    "configuration": "REP",
@@ -58391,7 +58462,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 51.2692
   },
   {
    "configuration": "DGWO",
@@ -59208,7 +59280,8 @@
      "C6 box 8 (stop 1): later-stop above [], doorward [31, 36, 47, 48, 68, 73, 84, 85, 94, 102, 103]",
      "C3 box 10: load 499.030 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [30, 69]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.371
   },
   {
    "configuration": "MOGWO",
@@ -60075,7 +60148,8 @@
      "C6 box 7 (stop 2): later-stop above [109], doorward [41]",
      "C6 box 8 (stop 1): later-stop above [], doorward [35, 40, 80, 101]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.6405
   },
   {
    "configuration": "SEQ",
@@ -60933,7 +61007,8 @@
      "C6 box 5 (stop 2): later-stop above [44], doorward []",
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [33, 41]"
     ]
-   }
+   },
+   "compliant_su_pct": 20.0786
   },
   {
    "configuration": "REP",
@@ -61611,7 +61686,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 52.6128
   },
   {
    "configuration": "DGWO",
@@ -62455,7 +62531,8 @@
      "C6 box 10 (stop 2): later-stop above [11], doorward [44, 48]",
      "C6 box 17 (stop 2): later-stop above [], doorward [15, 35, 127]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.5134
   },
   {
    "configuration": "MOGWO",
@@ -63340,7 +63417,8 @@
      "C3 box 5: load 524.990 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [81, 104]",
      "C6 box 7 (stop 2): later-stop above [], doorward [54]"
     ]
-   }
+   },
+   "compliant_su_pct": 28.2367
   },
   {
    "configuration": "SEQ",
@@ -64180,7 +64258,8 @@
      "C6 box 10 (stop 2): later-stop above [], doorward [49, 62, 66]",
      "C3 box 11: load 760.300 > capacity 526.994 (lbs 0.22873 x 64.0x36.0) from [3, 10, 30, 40, 41]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.1296
   },
   {
    "configuration": "REP",
@@ -64876,7 +64955,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 51.0325
   },
   {
    "configuration": "DGWO",
@@ -65711,7 +65791,8 @@
      "C6 box 8 (stop 1): later-stop above [32], doorward [16, 26, 47]",
      "C3 box 9: load 508.100 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [29, 113, 120]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.7666
   },
   {
    "configuration": "MOGWO",
@@ -66497,7 +66578,8 @@
      "C3 box 9: load 330.080 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [11, 128]",
      "C6 box 10 (stop 2): later-stop above [109], doorward [19, 31, 36, 53, 62, 66, 74, 120]"
     ]
-   }
+   },
+   "compliant_su_pct": 26.1029
   },
   {
    "configuration": "SEQ",
@@ -67355,7 +67437,8 @@
      "C6 box 20 (stop 1): later-stop above [16], doorward [50, 61, 66, 68, 77, 119]",
      "C3 box 21: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [14, 30]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.8147
   },
   {
    "configuration": "REP",
@@ -68024,7 +68107,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 49.689
   },
   {
    "configuration": "DGWO",
@@ -68832,7 +68916,8 @@
      "C6 box 8 (stop 1): later-stop above [43, 113], doorward [26, 39, 47, 52, 53, 58, 61, 73, 74, 99]",
      "C3 box 15: load 524.990 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [91, 126]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.6967
   },
   {
    "configuration": "MOGWO",
@@ -69663,7 +69748,8 @@
      "C6 box 7 (stop 2): later-stop above [35], doorward [47, 48, 49, 110]",
      "C6 box 8 (stop 1): later-stop above [39], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 26.3236
   },
   {
    "configuration": "SEQ",
@@ -70494,7 +70580,8 @@
      "C6 box 10 (stop 2): later-stop above [], doorward [22]",
      "C3 box 12: load 330.080 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [30, 100]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.5487
   },
   {
    "configuration": "REP",
@@ -71172,7 +71259,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 52.5265
   },
   {
    "configuration": "DGWO",
@@ -71989,7 +72077,8 @@
      "C6 box 4 (stop 1): later-stop above [23, 39], doorward []",
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [19, 25]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.3824
   },
   {
    "configuration": "MOGWO",
@@ -72829,7 +72918,8 @@
      "C6 box 5 (stop 2): later-stop above [31], doorward []",
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [7, 33]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.3746
   },
   {
    "configuration": "SEQ",
@@ -73678,7 +73768,8 @@
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [2, 22]",
      "C6 box 7 (stop 2): later-stop above [22], doorward []"
     ]
-   }
+   },
+   "compliant_su_pct": 26.143
   },
   {
    "configuration": "REP",
@@ -74392,7 +74483,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.9298
   },
   {
    "configuration": "DGWO",
@@ -75254,7 +75346,8 @@
      "C3 box 6: load 829.110 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [3, 32, 51, 112]",
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [24, 25]"
     ]
-   }
+   },
+   "compliant_su_pct": 21.9275
   },
   {
    "configuration": "MOGWO",
@@ -76130,7 +76223,8 @@
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [42, 44]",
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [14, 20]"
     ]
-   }
+   },
+   "compliant_su_pct": 25.2827
   },
   {
    "configuration": "SEQ",
@@ -76979,7 +77073,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [60, 62, 67]",
      "C3 box 7: load 330.080 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [46, 106]"
     ]
-   }
+   },
+   "compliant_su_pct": 21.4783
   },
   {
    "configuration": "REP",
@@ -77666,7 +77761,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 53.2907
   },
   {
    "configuration": "DGWO",
@@ -78465,7 +78561,8 @@
      "C3 box 15: load 346.970 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [71]",
      "C6 box 18 (stop 1): later-stop above [57], doorward [13, 14, 42, 49, 54, 66, 67, 68, 69, 81, 83, 84, 93]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.7212
   },
   {
    "configuration": "MOGWO",
@@ -79314,7 +79411,8 @@
      "C6 box 5 (stop 2): later-stop above [30], doorward [6, 15]",
      "C6 box 8 (stop 1): later-stop above [16], doorward [12, 39, 41, 48, 52, 61, 67, 71, 75, 77, 85, 92, 95, 122]"
     ]
-   }
+   },
+   "compliant_su_pct": 34.0805
   },
   {
    "configuration": "SEQ",
@@ -80172,7 +80270,8 @@
      "C3 box 13: load 346.970 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [56]",
      "C3 box 14: load 829.110 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [3, 32, 56, 123]"
     ]
-   }
+   },
+   "compliant_su_pct": 23.512
   },
   {
    "configuration": "REP",
@@ -80904,7 +81003,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.1698
   },
   {
    "configuration": "DGWO",
@@ -81784,7 +81884,8 @@
      "C6 box 8 (stop 1): later-stop above [19, 44], doorward [6, 29, 36, 57]",
      "C3 box 10: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [1, 24]"
     ]
-   }
+   },
+   "compliant_su_pct": 32.5262
   },
   {
    "configuration": "MOGWO",
@@ -82606,7 +82707,8 @@
      "C6 box 7 (stop 2): later-stop above [], doorward [14]",
      "C6 box 8 (stop 1): later-stop above [], doorward [66]"
     ]
-   }
+   },
+   "compliant_su_pct": 34.9008
   },
   {
    "configuration": "SEQ",
@@ -83482,7 +83584,8 @@
      "C6 box 8 (stop 1): later-stop above [102], doorward [6, 9, 13, 14, 19, 23, 31, 40, 47, 49, 50, 53, 55, 56, 58, 62, 64, 66, 67, 68, 72, 75, 77, 81, 84, 92, 98, 118]",
      "C6 box 10 (stop 2): later-stop above [], doorward [9, 13, 14, 19, 31, 49, 62, 67, 97]"
     ]
-   }
+   },
+   "compliant_su_pct": 30.0856
   },
   {
    "configuration": "REP",
@@ -84214,7 +84317,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 55.0835
   },
   {
    "configuration": "DGWO",
@@ -85049,7 +85153,8 @@
      "C6 box 7 (stop 2): later-stop above [], doorward [67, 110]",
      "C6 box 8 (stop 1): later-stop above [], doorward [61, 67, 83, 110, 119]"
     ]
-   }
+   },
+   "compliant_su_pct": 25.9304
   },
   {
    "configuration": "MOGWO",
@@ -85934,7 +86039,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [22, 44, 58, 66]",
      "C3 box 6: load 499.030 > capacity 276.588 (lbs 0.06548 x 66.0x64.0) from [11, 74]"
     ]
-   }
+   },
+   "compliant_su_pct": 25.7621
   },
   {
    "configuration": "SEQ",
@@ -86819,7 +86925,8 @@
      "C6 box 5 (stop 2): later-stop above [], doorward [30, 62, 127]",
      "C3 box 7: load 330.080 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [13, 110]"
     ]
-   }
+   },
+   "compliant_su_pct": 31.6319
   },
   {
    "configuration": "REP",
@@ -87488,7 +87595,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 51.7185
   },
   {
    "configuration": "DGWO",
@@ -88305,7 +88413,8 @@
      "C6 box 8 (stop 1): later-stop above [], doorward [17, 23, 29, 41, 43, 44, 54, 71, 75, 102, 112, 122]",
      "C3 box 14: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [15, 45]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.5802
   },
   {
    "configuration": "MOGWO",
@@ -89145,7 +89254,8 @@
      "C6 box 5 (stop 2): later-stop above [35, 44], doorward []",
      "C3 box 6: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [15, 28]"
     ]
-   }
+   },
+   "compliant_su_pct": 25.1704
   },
   {
    "configuration": "SEQ",
@@ -89967,7 +90077,8 @@
      "C3 box 17: load 677.050 > capacity 276.588 (lbs 0.06548 x 64.0x66.0) from [25, 53, 118]",
      "C6 box 17 (stop 2): later-stop above [53, 118], doorward [30, 54]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.98
   },
   {
    "configuration": "REP",
@@ -90672,7 +90783,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 51.3215
   },
   {
    "configuration": "DGWO",
@@ -91507,7 +91619,8 @@
      "C6 box 4 (stop 1): later-stop above [13], doorward []",
      "C6 box 5 (stop 2): later-stop above [], doorward [12, 36, 98, 107]"
     ]
-   }
+   },
+   "compliant_su_pct": 27.4946
   },
   {
    "configuration": "MOGWO",
@@ -92356,7 +92469,8 @@
      "C3 box 11: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [14, 25]",
      "C3 box 17: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [7, 15]"
     ]
-   }
+   },
+   "compliant_su_pct": 29.9211
   },
   {
    "configuration": "SEQ",
@@ -93214,7 +93328,8 @@
      "C3 box 4: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [10, 22]",
      "C6 box 4 (stop 1): later-stop above [10, 22], doorward [67, 74, 81, 92, 95, 111]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.5185
   },
   {
    "configuration": "REP",
@@ -93910,7 +94025,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 54.2713
   },
   {
    "configuration": "DGWO",
@@ -94754,7 +94870,8 @@
      "C3 box 9: load 855.070 > capacity 526.994 (lbs 0.22873 x 36.0x64.0) from [36, 85, 97, 101]",
      "C6 box 10 (stop 2): later-stop above [], doorward [30, 47, 60, 62]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.4063
   },
   {
    "configuration": "MOGWO",
@@ -95630,7 +95747,8 @@
      "C3 box 7: load 304.120 > capacity 184.140 (lbs 0.0775 x 36.0x66.0) from [2, 8]",
      "C6 box 7 (stop 2): later-stop above [], doorward [16]"
     ]
-   }
+   },
+   "compliant_su_pct": 22.7218
   },
   {
    "configuration": "SEQ",
@@ -96533,7 +96651,8 @@
      "C3 box 5: load 304.120 > capacity 184.140 (lbs 0.0775 x 66.0x36.0) from [7, 40]",
      "C6 box 8 (stop 1): later-stop above [31, 35], doorward [5, 26, 36, 40, 42, 57, 67, 69, 92]"
     ]
-   }
+   },
+   "compliant_su_pct": 24.2338
   },
   {
    "configuration": "REP",
@@ -97184,7 +97303,8 @@
     "orient": 100.0,
     "diffs": {},
     "issues": []
-   }
+   },
+   "compliant_su_pct": 49.8012
   }
  ],
  "baselines": {
@@ -99652,6 +99772,581 @@
    },
    "baseline_timing_valid": true,
    "note": "Supplementary to SP1-SP3: these tests are not in the SP1-SP3 Holm families and do not change the outcome pattern. The baselines ran serially in one process."
+  },
+  "descriptives_CSU": {
+   "DGWO": {
+    "n": 30,
+    "mean": 27.8325,
+    "median": 28.2046,
+    "sd": 3.25618,
+    "min": 21.9275,
+    "max": 35.9978
+   },
+   "MOGWO": {
+    "n": 30,
+    "mean": 29.0893,
+    "median": 29.2344,
+    "sd": 3.86139,
+    "min": 21.6248,
+    "max": 35.8814
+   },
+   "SEQ": {
+    "n": 30,
+    "mean": 26.2853,
+    "median": 26.1189,
+    "sd": 3.90312,
+    "min": 18.3338,
+    "max": 33.6354
+   },
+   "REP": {
+    "n": 30,
+    "mean": 52.9857,
+    "median": 53.1763,
+    "sd": 2.15979,
+    "min": 49.1836,
+    "max": 55.9599
+   }
+  },
+  "SP1_compliant": {
+   "measure": "compliant SU",
+   "comparison": {
+    "measure": "compliant SU",
+    "label": "compliant SU",
+    "lower_is_better": false,
+    "n_instances": 1,
+    "descriptives": {
+     "DGWO": {
+      "n": 30,
+      "mean": 27.8325,
+      "median": 28.2046,
+      "sd": 3.25618,
+      "min": 21.9275,
+      "max": 35.9978
+     },
+     "MOGWO": {
+      "n": 30,
+      "mean": 29.0893,
+      "median": 29.2344,
+      "sd": 3.86139,
+      "min": 21.6248,
+      "max": 35.8814
+     },
+     "SEQ": {
+      "n": 30,
+      "mean": 26.2853,
+      "median": 26.1189,
+      "sd": 3.90312,
+      "min": 18.3338,
+      "max": 33.6354
+     },
+     "REP": {
+      "n": 30,
+      "mean": 52.9857,
+      "median": 53.1763,
+      "sd": 2.15979,
+      "min": 49.1836,
+      "max": 55.9599
+     }
+    },
+    "instance_means": {
+     "DGWO": 27.8325,
+     "MOGWO": 29.0893,
+     "SEQ": 26.2853,
+     "REP": 52.9857
+    },
+    "normality": {
+     "basis": "within-instance differences",
+     "pairs": [],
+     "all_normal": false
+    },
+    "all_normal": false,
+    "omnibus": {
+     "testable": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)",
+     "significant": false,
+     "p": null
+    },
+    "pairs": []
+   }
+  },
+  "planned_family_compliant": {
+   "available": true,
+   "design": "planned paired comparisons, REP as reference (D2 b)",
+   "reference": "REP",
+   "others": [
+    "DGWO",
+    "MOGWO",
+    "SEQ"
+   ],
+   "benchmark": "SEQ",
+   "tails": "two-sided",
+   "correction": "Holm-Bonferroni",
+   "planned_size": 18,
+   "holm_family_size": 0,
+   "comparisons": [
+    {
+     "sp": "SP1",
+     "measure": "SU",
+     "label": "compliant space utilisation (%)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.9857,
+     "mean_other": 27.8325,
+     "mean_difference": 25.1532,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP1",
+     "measure": "SU",
+     "label": "compliant space utilisation (%)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.9857,
+     "mean_other": 29.0893,
+     "mean_difference": 23.8964,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP1",
+     "measure": "SU",
+     "label": "compliant space utilisation (%)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": false,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "mean_reference": 52.9857,
+     "mean_other": 26.2853,
+     "mean_difference": 26.7003,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 27.907,
+     "mean_difference": 24.5478,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 28.7597,
+     "mean_difference": 23.6951,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": false,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "mean_reference": 52.4548,
+     "mean_other": 26.5891,
+     "mean_difference": 25.8656,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 60.4651,
+     "mean_difference": -8.01034,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 59.0181,
+     "mean_difference": -6.5633,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": false,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "mean_reference": 52.4548,
+     "mean_other": 60.155,
+     "mean_difference": -7.70025,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 31.2145,
+     "mean_difference": 21.2403,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": false,
+     "mean_reference": 52.4548,
+     "mean_other": 32.3256,
+     "mean_difference": 20.1292,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": false,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "mean_reference": 52.4548,
+     "mean_other": 29.6899,
+     "mean_difference": 22.7649,
+     "testable": false,
+     "reason": "requires >= 3 instances",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "requires >= 3 instances"
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": true,
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": true,
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": true,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "reference": "REP",
+     "other": "DGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": true,
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "reference": "REP",
+     "other": "MOGWO",
+     "n_instances": 1,
+     "sp4": false,
+     "lower_is_better": true,
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "reference": "REP",
+     "other": "SEQ",
+     "n_instances": 1,
+     "sp4": true,
+     "lower_is_better": true,
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone.",
+     "testable": false,
+     "reason": "concurrent timing - rerun with --mode serial",
+     "p_raw": null,
+     "p_holm": null,
+     "significant": false,
+     "outperforms": null,
+     "verdict": "concurrent timing - rerun with --mode serial"
+    }
+   ],
+   "decisions": {
+    "SP1": {
+     "h0_rejected_for": [],
+     "decision": "not testable"
+    },
+    "SP2": {
+     "h0_rejected_for": [],
+     "decision": "not testable"
+    },
+    "SP3": {
+     "h0_rejected_for": [],
+     "decision": "not testable"
+    },
+    "SP4": {
+     "h0_rejected_for": [],
+     "decision": "not testable",
+     "confound_note": "REP and SEQ differ in the repair stage and in schedule (SEQ switches from DGWO to MOGWO once, at T1; REP applies its pipeline in every iteration). A difference is attributed to the repair stage together with this schedule difference, not to repair alone."
+    }
+   },
+   "outcome": {
+    "pattern": null,
+    "description": "not determinable - a primary comparison is untestable"
+   }
+  },
+  "hypothesis_family_compliant": {
+   "members": [
+    "CSU",
+    "CSR",
+    "C3",
+    "C6",
+    "ET",
+    "PM"
+   ],
+   "correction": "Holm-Bonferroni",
+   "holm_family_size": 0,
+   "tests": [
+    {
+     "sp": "SP1",
+     "measure": "CSU",
+     "label": "compliant space utilisation (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "CSR",
+     "label": "constraint satisfaction rate (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C3",
+     "label": "C3 load-bearing compliance (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP2",
+     "measure": "C6",
+     "label": "C6 stop-order compliance (%)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "requires >= 2 instances (repeated measures: each instance is one subject)"
+    },
+    {
+     "sp": "SP3",
+     "measure": "ET",
+     "label": "execution time (ms)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+    },
+    {
+     "sp": "SP3",
+     "measure": "PM",
+     "label": "peak memory (MB)",
+     "testable": false,
+     "test": null,
+     "statistic": null,
+     "p": null,
+     "p_holm": null,
+     "significant_holm": false,
+     "reason": "concurrent timing - not valid for SP3 (runs shared the CPU); rerun with --mode serial"
+    }
+   ],
+   "significant_measures": [],
+   "h0_rejected": false,
+   "testable": false,
+   "decision": "H0 not testable",
+   "note": "Untestable members (fewer than 2 instances, no variance, or concurrent timing for ET/PM) are excluded from the family. Per-BR-class Friedman tests are exploratory."
   }
  }
 }
