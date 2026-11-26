@@ -253,19 +253,19 @@ export default function LoadSources({
 
       {/* ── Type in your boxes ── */}
       {choice === "typed" && (
-        <div className="card">
+        <div className="typed-workspace">
+          <section className="card typed-editor">
           <div className="card-head">
             <div>
               <div className="card-title">Type in your boxes</div>
-              <div className="card-desc">One row per kind of box; Qty makes that many. Sizes in cm, weights in kg. Boxes are kept upright.
-                Stop 1–{stopCount} (stop 1 is unloaded first): give every row a stop, or leave them all blank and STACKR assigns balanced stops.</div>
+              <div className="card-desc">Enter one row per kind of box. Use Qty for identical boxes.</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" className="btn btn-primary btn-sm" disabled={running} onClick={() => setTypedRows([...typedRows, blankRow()])}>+ Add a box</button>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="custom-table">
+            <table className="custom-table typed-table">
               <thead><tr>{COLUMNS.map((c) => <th key={c.key}>{c.title}</th>)}<th /></tr></thead>
               <tbody>
                 {typedRows.map((r, i) => (
@@ -273,7 +273,8 @@ export default function LoadSources({
                     {COLUMNS.map((c) => {
                       const bad = badCell.has(`${i + 1}|${c.title}`) || (c.key === "length" && badCell.has(`${i + 1}|*`));
                       return (
-                        <td key={c.key} style={{ minWidth: c.width }}>
+                        <td key={c.key} style={{ "--field-width": c.width + "px" }}>
+                          <span className="typed-field-label" aria-hidden="true">{c.title}</span>
                           {c.type === "check"
                             ? <input type="checkbox" checked={!!r.fragile} disabled={running} onChange={(e) => setCell(i, "fragile", e.target.checked)} aria-label={`Row ${i + 1} handle with care`} />
                             : <input type={c.type} value={r[c.key]} disabled={running} aria-label={`Row ${i + 1} ${c.title}`}
@@ -295,13 +296,25 @@ export default function LoadSources({
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
             <button type="button" className="btn btn-primary btn-sm" disabled={running || checking} onClick={onCheck}>{checking ? "Checking…" : "Check these boxes"}</button>
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-              Running totals: <b>{totals.boxes}</b> boxes · <b>{fmt(totals.vol, 3)} m³</b> · <b>{fmt(totals.mass)} kg</b>
-              {totals.boxes > 500 && <span style={{ color: "var(--red)" }}> · over the 500-box limit</span>}
-            </div>
           </div>
           <ErrorList errors={customErrors} />
           {customSummary}
+          </section>
+          <aside className="card typed-reference">
+            <h3 className="card-title">Load totals</h3>
+            <dl className="typed-totals">
+              <div><dt>Boxes</dt><dd>{totals.boxes}</dd></div>
+              <div><dt>Volume</dt><dd>{fmt(totals.vol, 3)} m³</dd></div>
+              <div><dt>Weight</dt><dd>{fmt(totals.mass)} kg</dd></div>
+            </dl>
+            {totals.boxes > 500 && <p className="alert-danger">Over the 500-box limit</p>}
+            <h3 className="card-title">Entry guide</h3>
+            <ul>
+              <li>Enter upright dimensions in cm and weight per box in kg.</li>
+              <li>Max load on top is the weight one box can support. Mark fragile boxes “Handle with care”.</li>
+              <li>Enter a stop from 1 to {stopCount} for every row, or leave every stop blank for automatic assignment. Stop 1 unloads first.</li>
+            </ul>
+          </aside>
         </div>
       )}
 
