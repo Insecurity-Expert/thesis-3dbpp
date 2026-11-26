@@ -599,7 +599,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .wiz-line { height: 1px; width: 40px; background: var(--border-strong); margin: 0 6px; flex-shrink: 0; }
 .wiz-panel { animation: wizFade 0.18s ease; }
 @keyframes wizFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.wiz-nav { margin-top: 20px; position: sticky; bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-2); flex-wrap: wrap; z-index: 5; }
+.wiz-nav { margin-top: 10px; padding: 10px 14px; position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-2); flex-wrap: wrap; z-index: 5; }
 
 .locked-setting { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
 .locked-setting .lv { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 15px; color: var(--text-main); margin-top: 3px; }
@@ -734,7 +734,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .ro-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
 @media (max-width: 900px) { .ro-cards { grid-template-columns: 1fr; } }
 /* One card (the proposed hybrid alone): centred, same width as in the two-card layout */
-.ro-cards.ro-cards-single { grid-template-columns: minmax(0, 540px); justify-content: center; }
+.ro-cards.ro-cards-single { grid-template-columns: minmax(0, 1fr); }
 .ro-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .ro-card.top { border: 2px solid var(--green); padding: 19px; }
 .ro-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -828,3 +828,12 @@ input:checked + .slider:before { transform: translateX(16px); }
   .study-headline-facts { margin-left: 0; flex-direction: column; }
   .study-headline-facts > span + span::before { content: none; }
 }
+
+.ro-cards-single .ro-card { border-left: 5px solid var(--primary); background: linear-gradient(110deg,var(--primary-light),var(--bg-card) 80%); }
+@media (min-width: 900px) {
+  .ro-cards-single .ro-card { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .ro-cards-single .ro-card-head, .ro-cards-single .ro-card-actions { grid-column: 1 / -1; }
+}
+.viewer-tools { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:6px; position:relative; }
+.viewer-menu summary { cursor:pointer; font-weight:600; font-size:12px; padding:6px 9px; background:var(--primary-light); border-radius:6px; }
+.viewer-popover { position:absolute; top:100%; right:0; z-index:10; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:14px; width:min(300px,100%); max-height:55vh; overflow:auto; box-shadow:var(--shadow); }

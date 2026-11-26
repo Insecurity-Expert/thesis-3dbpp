@@ -266,6 +266,10 @@ export default function Shell() {
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
 
+  useEffect(() => {
+    if (activeTab === "history") { fetchRunHistory(); fetchStudies(); }
+  }, [activeTab, fetchRunHistory, fetchStudies]);
+
   // Load the selected study's file (stats attached) whenever the selection changes.
   // A response for a study that is no longer selected is dropped: opening a
   // study right after the newest one was auto-selected must not show the other.
@@ -352,6 +356,7 @@ export default function Shell() {
         payload = { size, customLoad: id, ...extra };
       }
       const r = await studiesApi.create(payload);
+      setReplay(null);
       fetchStudies();
       setSelectedStudyId(r.id);
       // The Processing screen (wizard) follows it; Results opens when it is done.
@@ -379,6 +384,7 @@ export default function Shell() {
   }, [fetchStudies, selectedStudyId]);
 
   const handleOpenStudy = useCallback((id) => {
+    setReplay(null);
     setSelectedStudyId(id);
     setActiveTab("results");
   }, []);
@@ -428,6 +434,7 @@ export default function Shell() {
         setPlacements(msg.items);
         setBinsUsed(msg.bins_used);
         setFinalResult(msg);
+        setReplay(null);
         setRunning(false);
         // Persist run details. Every field comes from the message (the server
         // stamps strategy/spawn from the process it actually launched) — never
@@ -621,7 +628,7 @@ export default function Shell() {
       label: row.label || null,
       legacy,
     });
-    setActiveTab("technical");
+    setActiveTab("results");
   }, [running]);
 
   const handleLabelRun = useCallback(async (run, label) => {
@@ -909,7 +916,14 @@ export default function Shell() {
       )}
 
       {/* ── RESULTS TAB: the SOP Summary first ── */}
-      {activeTab === "results" && (
+      {activeTab === "results" && replay && finalResult && (
+        <div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setReplay(null)}>Back to comparison results</button>
+          <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} stats={stats} axisUtil={axisUtil}
+            handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
+        </div>
+      )}
+      {activeTab === "results" && !(replay && finalResult) && (
         <ResultsPanel
           studies={studies}
           selectedStudyId={selectedStudyId}
