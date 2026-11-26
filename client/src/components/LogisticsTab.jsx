@@ -115,7 +115,7 @@ export default function LogisticsTab({
     : [containerSpecs.length, containerSpecs.width, containerSpecs.height];
 
   return (
-    <div>
+    <div className="analysis-workspace">
       {/* Wizard step indicator */}
       <div className="card" style={{ padding: "8px 12px", marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center" }}>
@@ -266,7 +266,7 @@ export default function LogisticsTab({
 
       {/* Persistent nav */}
       {step !== 4 && <div className="card wiz-nav">
-        <div className="field-hint" style={{ margin: 0 }}>All four safety rules are checked in every run.</div>
+        <div className="field-hint" style={{ margin: 0 }}>{step === 1 ? (step1Ready ? "Load ready. Continue to container settings." : "Choose a valid load to continue.") : step === 2 ? "Review your container dimensions before continuing." : "All four safety rules are checked in every run."}</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {step === 3 && (
             <span title={optimizerReady.state === "warm" ? `Compiled in ${(optimizerReady.seconds || 0).toFixed(1)} s` : (optimizerReady.error || "")}

@@ -300,7 +300,7 @@ export default function RunHistoryTab({
         ))}
       </div>
       {tab === "runs" ? <RunsPanel {...runsProps} /> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div className="history-comparisons">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
             <div>
               <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Studies</h3>

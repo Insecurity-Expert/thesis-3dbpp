@@ -55,8 +55,6 @@ const parseCsv = (text) => String(text || "").trim().split(/\r?\n/).map((l) => l
 function FormatHelp({ schema, error }) {
   if (error) return <div className="alert-danger" style={{ marginBottom: 12 }}>Could not load the format description: {error}</div>;
   if (!schema) return <div className="field-hint" style={{ marginBottom: 12 }}>Loading the file format…</div>;
-  const stop = schema.columns.find((c) => c.key === "stop");
-  const stopNames = stop ? stop.aliases.filter((a) => a !== "stop" && a !== "delivery_stop").map(titleCase) : [];
   const example = parseCsv(schema.template);
   // The template is the description: its columns, then the rules under it.
   return (
@@ -74,6 +72,15 @@ function FormatHelp({ schema, error }) {
           <tbody>{example.slice(1).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
         </table>
       </div>
+
+    </div>
+  );
+}
+
+function FileRequirements({ schema }) {
+  const stop = schema.columns.find((c) => c.key === "stop");
+  const stopNames = stop ? stop.aliases.filter((a) => a !== "stop" && a !== "delivery_stop").map(titleCase) : [];
+  return (
       <div className="info-callout" style={{ marginTop: 12, display: "block" }}>
         <ul style={{ margin: "0 0 0 18px", padding: 0, fontSize: 12.5, lineHeight: 1.65 }}>
           <li>Sizes are in centimetres (cm) and weights in kilograms (kg). Sizes, weights and max load are positive numbers; Qty is a whole number.</li>
@@ -85,7 +92,6 @@ function FormatHelp({ schema, error }) {
           <li>Any other column is ignored, and you'll see a note saying so.</li>
         </ul>
       </div>
-    </div>
   );
 }
 
@@ -215,11 +221,12 @@ export default function LoadSources({
 
       {/* ── Upload your own dataset ── */}
       {choice === "csv" && (
-        <div className="card">
+        <div className="card upload-workspace">
+          <section className="upload-input">
           <div className="card-head">
             <div>
               <div className="card-title">Upload your own dataset</div>
-              <div className="card-desc">A CSV file with your boxes. Read the format below first, or start from the template.</div>
+              <div className="card-desc">Use one row for each kind of box. STACKR checks the file before you continue.</div>
             </div>
             <span className="badge badge-warn" style={{ textTransform: "none" }}>{CUSTOM_LOAD_LABEL}</span>
           </div>
@@ -236,10 +243,11 @@ export default function LoadSources({
           {csvFile && customErrors && customErrors.length > 0 &&
             <InvalidDataset errors={customErrors} notes={customNotes} onDiscard={onDiscard} onCancel={onCancel} />}
           {csvFile && customSummary}
-          <details className="collapsible" key={csvFile ? "file" : "none"}  style={{ marginTop: 14 }}>
-            <summary>File format and template</summary>
+          {schema && <FileRequirements schema={schema} />}
+          </section>
+          <section className="upload-reference">
             <div style={{ marginTop: 10 }}><FormatHelp schema={schema} error={schemaErr} /></div>
-          </details>
+          </section>
         </div>
       )}
 

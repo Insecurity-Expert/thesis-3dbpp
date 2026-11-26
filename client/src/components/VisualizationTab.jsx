@@ -380,7 +380,7 @@ export default function VisualizationTab({
           </div>
 
           {requestBusy ? (
-            <div style={{ height: "450px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 13 }}>Checking and loading the arrangement…</div>
+            <div style={{ height: "clamp(180px, 35vh, 360px)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 13 }}>Checking and loading the arrangement…</div>
           ) : source === "study" && studyError ? (
             <div className="alert-danger">{studyError}</div>
           ) : result && multiBin && pv ? (
@@ -429,7 +429,7 @@ export default function VisualizationTab({
           ) : running && source === "run" ? (
             <LiveProgress stats={stats} />
           ) : (
-            <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <div style={{ height: "clamp(180px, 35vh, 360px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>
               <h4 style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Nothing to show yet</h4>
               <p style={{ color: "var(--text-dim)", fontSize: "12px", marginTop: "4px" }}>
