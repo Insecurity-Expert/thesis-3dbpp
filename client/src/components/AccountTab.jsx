@@ -86,8 +86,8 @@ export default function AccountTab({ user, logout }) {
   };
 
   return (
-    <div className="account-layout" style={{ gridTemplateColumns: "1fr", maxWidth: 720 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div>
+      <div className="source-grid">
         <div className="card">
           <div className="card-head">
             <div>

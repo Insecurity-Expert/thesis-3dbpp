@@ -8,7 +8,7 @@ import LogisticsTab from "./components/LogisticsTab";
 import ResultsTab from "./components/ResultsTab";
 import VisualizationTab from "./components/VisualizationTab";
 import RunHistoryTab from "./components/RunHistoryTab";
-import DashboardTab from "./components/DashboardTab";
+import DashboardTab, { LoadSourceShortcuts } from "./components/DashboardTab";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import HowToModal from "./components/HowToModal";
@@ -770,6 +770,10 @@ export default function Shell() {
     { id: "technical", group: "Advanced tools", label: "Statistics", title: "Statistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
+  const openLoadSource = (nextSource) => {
+    if (!processing && !running) { setSource(nextSource); setWizStep(1); }
+    setActiveTab("logistics");
+  };
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
 
   return (
@@ -863,11 +867,13 @@ export default function Shell() {
           </div>
         )}
 
-        <main className="content">
+        <main className={`content page-${activeTab}`}>
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
-        <DashboardTab onStart={() => setActiveTab("logistics")} />
+        <DashboardTab studies={studies} onHistory={() => setActiveTab("history")} onOpenStudy={handleOpenStudy}
+          onStart={() => setActiveTab("logistics")}
+          onSource={openLoadSource} />
       )}
 
       {/* ── LOADING GUIDE ── */}
@@ -997,6 +1003,10 @@ export default function Shell() {
         />
       )}
 
+      {["results", "technical", "guide", "visualization"].includes(activeTab) &&
+        !selectedStudyId && !finalResult && !processing && !running && (
+          <div className="empty-load-sources"><LoadSourceShortcuts onSource={openLoadSource} /></div>
+        )}
         </main>
       </div>
       <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} />

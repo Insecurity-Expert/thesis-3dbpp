@@ -603,7 +603,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
   return (
     <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ width: '100%', height: 520, background: '#111827', position: 'relative' }}>
+      <div style={{ width: '100%', height: 'clamp(320px, calc(100dvh - 230px), 900px)', background: '#111827', position: 'relative' }}>
         <Canvas
           ref={canvasRef}
           camera={cameraConfig}
