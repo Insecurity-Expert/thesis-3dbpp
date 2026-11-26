@@ -33,8 +33,8 @@ export default function MethodCard({ code, metrics, vals, bests, rank, showSwatc
         </div>
       )}
       <div className="ro-card-actions">
-        <button type="button" className="btn btn-secondary" disabled={!ran} onClick={onView}>View Arrangement</button>
-        <button type="button" className="btn btn-primary" disabled={!ran} onClick={onGuide}>View Guide</button>
+        <button type="button" className="btn btn-secondary" disabled={!ran} title="Inspect this packing arrangement in 3D" onClick={onView}>View Arrangement</button>
+        <button type="button" className="btn btn-primary" disabled={!ran} title="See the loading sequence for this method" onClick={onGuide}>View Guide</button>
       </div>
     </div>
   );

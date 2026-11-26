@@ -108,7 +108,7 @@ function LabelCell({ run, onLabelRun }) {
 
 function RunsPanel({
   runHistory,
-  handleExportHistory,
+  onImportRun,
   onLoadRun,
   onLabelRun,
   onDeleteRun,
@@ -150,6 +150,10 @@ function RunsPanel({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <label className="btn btn-secondary" title="Restore a previously exported STACKR run">
+            Import run <input aria-label="Import run JSON" type="file" accept=".json,application/json" className="sr-only"
+              onChange={(e) => { const file = e.target.files[0]; if (file) onImportRun(file); e.target.value = ""; }} />
+          </label>
           <input
             type="text"
             className="field-input"
@@ -274,16 +278,16 @@ function RunsPanel({
 
 // Run History: saved single runs (Runs) and Full Comparisons (Studies). The
 // tab is in the URL (?tab=studies), which is where the old /studies page lands.
-const HISTORY_TABS = [["runs", "Runs"], ["studies", "Studies"]];
+const HISTORY_TABS = [["runs", "Runs"], ["studies", "Analysis comparisons"]];
 
 export default function RunHistoryTab({
   studies = [], availableStudies = [], onImportStudy, onOpenStudy, onDeleteStudy, onRefreshStudies, ...runsProps
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") === "studies" ? "studies" : "runs";
+  const tab = searchParams.get("tab") || (studies.length || !runsProps.runHistory.length ? "studies" : "runs");
   const setTab = (t) => {
     const p = new URLSearchParams(searchParams);
-    if (t === "studies") p.set("tab", t); else p.delete("tab");
+    p.set("tab", t);
     setSearchParams(p, { replace: true });
   };
   return (

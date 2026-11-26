@@ -117,7 +117,7 @@ export default function LogisticsTab({
   return (
     <div>
       {/* Wizard step indicator */}
-      <div className="card" style={{ padding: "16px 20px", marginBottom: 20 }}>
+      <div className="card" style={{ padding: "8px 12px", marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center" }}>
           {STEPS.map((s, i) => (
             <React.Fragment key={s.n}>
@@ -278,9 +278,9 @@ export default function LogisticsTab({
             </span>
           )}
           {step > 1 && <button type="button" className="btn btn-secondary" disabled={running} onClick={() => setStep(step - 1)}>← Back</button>}
-          {step < 3 && <button type="button" className="btn btn-secondary" disabled={!canNext || running || loadSources.checking} onClick={goNext}>{loadSources.checking ? "Checking…" : "Next →"}</button>}
+          {step < 3 && <span title={canNext ? "Continue to the next step" : step === 1 ? "Choose a valid load to continue" : "Enter valid container dimensions to continue"}><button type="button" className="btn btn-secondary" disabled={!canNext || running || loadSources.checking} onClick={goNext}>{loadSources.checking ? "Checking…" : "Next →"}</button></span>}
           {step === 3 && (
-            <button type="button" className="btn btn-primary" disabled={studyBusy || running || !f || !demo} onClick={onRunStackr}>
+            <button type="button" className="btn btn-primary" title="Compare packing methods for this load" disabled={studyBusy || running || !f || !demo} onClick={onRunStackr}>
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
               {studyBusy ? "Starting…" : "Run STACKR"}
             </button>

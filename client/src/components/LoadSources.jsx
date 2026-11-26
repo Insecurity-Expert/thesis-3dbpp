@@ -200,17 +200,9 @@ export default function LoadSources({
 
   return (
     <div>
-      <div className="info-callout" style={{ marginBottom: 16 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Three ways to add your boxes</div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>Pick whichever is easiest for you. Upload your own file, type your boxes in, or try a sample from the OR-Library benchmark. All three work the same way from here on.</div>
-        </div>
-      </div>
-
       <div className="tabs-inline" style={{ marginBottom: 16, width: "fit-content", maxWidth: "100%", flexWrap: "wrap" }}>
         {CHOICES.map((c) => (
-          <button key={c.key} type="button" disabled={running} className={choice === c.key ? "active" : ""}
+          <button key={c.key} title={{csv: "Import box dimensions and weights from a CSV file", typed: "Enter the dimensions of each box yourself", sample: "Use a prepared OR-Library load"}[c.key]} type="button" disabled={running} className={choice === c.key ? "active" : ""}
             onClick={() => setSource(c.key === "sample" ? (source === "standard" ? "standard" : "sample") : c.key)}>{c.label}</button>
         ))}
       </div>
@@ -244,7 +236,7 @@ export default function LoadSources({
           {csvFile && customErrors && customErrors.length > 0 &&
             <InvalidDataset errors={customErrors} notes={customNotes} onDiscard={onDiscard} onCancel={onCancel} />}
           {csvFile && customSummary}
-          <details className="collapsible" key={csvFile ? "file" : "none"} open={!csvFile} style={{ marginTop: 14 }}>
+          <details className="collapsible" key={csvFile ? "file" : "none"}  style={{ marginTop: 14 }}>
             <summary>File format and template</summary>
             <div style={{ marginTop: 10 }}><FormatHelp schema={schema} error={schemaErr} /></div>
           </details>
