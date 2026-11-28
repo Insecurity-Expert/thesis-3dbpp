@@ -9,6 +9,7 @@ import ResultsTab from "./components/ResultsTab";
 import VisualizationTab from "./components/VisualizationTab";
 import RunHistoryTab from "./components/RunHistoryTab";
 import DashboardTab from "./components/DashboardTab";
+import LoadSourceShortcuts from "./components/LoadSourceShortcuts";
 import GuideTab from "./components/GuideTab";
 import AccountTab from "./components/AccountTab";
 import HowToModal from "./components/HowToModal";
@@ -266,6 +267,10 @@ export default function Shell() {
     studiesApi.sizes().then(setSizesInfo).catch((e) => setSizesInfo({ sizes: [], defaults: { error: e.message } }));
   }, [fetchStudies]);
 
+  useEffect(() => {
+    if (activeTab === "history") { fetchRunHistory(); fetchStudies(); }
+  }, [activeTab, fetchRunHistory, fetchStudies]);
+
   // Load the selected study's file (stats attached) whenever the selection changes.
   // A response for a study that is no longer selected is dropped: opening a
   // study right after the newest one was auto-selected must not show the other.
@@ -333,14 +338,6 @@ export default function Shell() {
     }
   }, [processing, studyProgress, studyDoc, selectedStudyId, fetchRunHistory]);
 
-  // Keep Run History synced whenever the user opens the Run History page.
-  useEffect(() => {
-    if (activeTab === "history") {
-      fetchRunHistory();
-      fetchStudies();
-    }
-  }, [activeTab, fetchRunHistory, fetchStudies]);
-
   const handleStopStudy = useCallback(async () => {
     if (!processing) return;
     setStopping(true);
@@ -366,6 +363,7 @@ export default function Shell() {
         payload = { size, customLoad: id, ...extra };
       }
       const r = await studiesApi.create(payload);
+      setReplay(null);
       fetchStudies();
       setSelectedStudyId(r.id);
       // The Processing screen (wizard) follows it; Results opens when it is done.
@@ -394,6 +392,7 @@ export default function Shell() {
   }, [fetchStudies, selectedStudyId]);
 
   const handleOpenStudy = useCallback((id) => {
+    setReplay(null);
     setSelectedStudyId(id);
     setActiveTab("results");
   }, []);
@@ -443,6 +442,7 @@ export default function Shell() {
         setPlacements(msg.items);
         setBinsUsed(msg.bins_used);
         setFinalResult(msg);
+        setReplay(null);
         setRunning(false);
         // Persist run details. Every field comes from the message (the server
         // stamps strategy/spawn from the process it actually launched) — never
@@ -637,7 +637,7 @@ export default function Shell() {
       label: row.label || null,
       legacy,
     });
-    setActiveTab("technical");
+    setActiveTab("results");
   }, [running]);
 
   const handleLabelRun = useCallback(async (run, label) => {
@@ -779,6 +779,10 @@ export default function Shell() {
     { id: "technical", group: "Advanced tools", label: "Statistics", title: "Statistics", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> },
     { id: "account", group: "Account", label: "Account Settings", title: "Account Settings", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> },
   ];
+  const openLoadSource = (nextSource) => {
+    if (!processing && !running) { setSource(nextSource); setWizStep(1); }
+    setActiveTab("logistics");
+  };
   const activeNav = NAV.find((n) => n.id === activeTab) || NAV[0];
 
   return (
@@ -872,7 +876,7 @@ export default function Shell() {
           </div>
         )}
 
-        <main className="content">
+        <main className={`content page-${activeTab}`}>
 
       {/* ── HOME ── */}
       {activeTab === "home" && (
@@ -925,7 +929,14 @@ export default function Shell() {
       )}
 
       {/* ── RESULTS TAB: the SOP Summary first ── */}
-      {activeTab === "results" && (
+      {activeTab === "results" && replay && finalResult && (
+        <div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setReplay(null)}>Back to comparison results</button>
+          <ResultsTab finalResult={finalResult} runHistory={runHistory} replay={replay} stats={stats} axisUtil={axisUtil}
+            handleExportResultsCSV={handleExportResultsCSV} handleExportReport={handleExportReport} />
+        </div>
+      )}
+      {activeTab === "results" && !(replay && finalResult) && (
         <ResultsPanel
           studies={studies}
           selectedStudyId={selectedStudyId}
@@ -998,6 +1009,10 @@ export default function Shell() {
         />
       )}
 
+      {["results", "technical", "guide", "visualization"].includes(activeTab) &&
+        !selectedStudyId && !finalResult && !processing && !running && (
+          <div className="empty-load-sources"><LoadSourceShortcuts onSource={openLoadSource} /></div>
+        )}
         </main>
       </div>
       <HowToModal open={showHowTo} onClose={() => setShowHowTo(false)} />

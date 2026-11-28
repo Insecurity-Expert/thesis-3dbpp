@@ -55,8 +55,6 @@ const parseCsv = (text) => String(text || "").trim().split(/\r?\n/).map((l) => l
 function FormatHelp({ schema, error }) {
   if (error) return <div className="alert-danger" style={{ marginBottom: 12 }}>Could not load the format description: {error}</div>;
   if (!schema) return <div className="field-hint" style={{ marginBottom: 12 }}>Loading the file format…</div>;
-  const stop = schema.columns.find((c) => c.key === "stop");
-  const stopNames = stop ? stop.aliases.filter((a) => a !== "stop" && a !== "delivery_stop").map(titleCase) : [];
   const example = parseCsv(schema.template);
   // The template is the description: its columns, then the rules under it.
   return (
@@ -74,6 +72,15 @@ function FormatHelp({ schema, error }) {
           <tbody>{example.slice(1).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
         </table>
       </div>
+
+    </div>
+  );
+}
+
+function FileRequirements({ schema }) {
+  const stop = schema.columns.find((c) => c.key === "stop");
+  const stopNames = stop ? stop.aliases.filter((a) => a !== "stop" && a !== "delivery_stop").map(titleCase) : [];
+  return (
       <div className="info-callout" style={{ marginTop: 12, display: "block" }}>
         <ul style={{ margin: "0 0 0 18px", padding: 0, fontSize: 12.5, lineHeight: 1.65 }}>
           <li>Sizes are in centimetres (cm) and weights in kilograms (kg). Sizes, weights and max load are positive numbers; Qty is a whole number.</li>
@@ -85,7 +92,6 @@ function FormatHelp({ schema, error }) {
           <li>Any other column is ignored, and you'll see a note saying so.</li>
         </ul>
       </div>
-    </div>
   );
 }
 
@@ -200,17 +206,9 @@ export default function LoadSources({
 
   return (
     <div>
-      <div className="info-callout" style={{ marginBottom: 16 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Three ways to add your boxes</div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>Pick whichever is easiest for you. Upload your own file, type your boxes in, or try a sample from the OR-Library benchmark. All three work the same way from here on.</div>
-        </div>
-      </div>
-
       <div className="tabs-inline" style={{ marginBottom: 16, width: "fit-content", maxWidth: "100%", flexWrap: "wrap" }}>
         {CHOICES.map((c) => (
-          <button key={c.key} type="button" disabled={running} className={choice === c.key ? "active" : ""}
+          <button key={c.key} title={{csv: "Import box dimensions and weights from a CSV file", typed: "Enter the dimensions of each box yourself", sample: "Use a prepared OR-Library load"}[c.key]} type="button" disabled={running} className={choice === c.key ? "active" : ""}
             onClick={() => setSource(c.key === "sample" ? (source === "standard" ? "standard" : "sample") : c.key)}>{c.label}</button>
         ))}
       </div>
@@ -223,11 +221,12 @@ export default function LoadSources({
 
       {/* ── Upload your own dataset ── */}
       {choice === "csv" && (
-        <div className="card">
+        <div className="card upload-workspace">
+          <section className="upload-input">
           <div className="card-head">
             <div>
               <div className="card-title">Upload your own dataset</div>
-              <div className="card-desc">A CSV file with your boxes. Read the format below first, or start from the template.</div>
+              <div className="card-desc">Use one row for each kind of box. STACKR checks the file before you continue.</div>
             </div>
             <span className="badge badge-warn" style={{ textTransform: "none" }}>{CUSTOM_LOAD_LABEL}</span>
           </div>
@@ -244,28 +243,29 @@ export default function LoadSources({
           {csvFile && customErrors && customErrors.length > 0 &&
             <InvalidDataset errors={customErrors} notes={customNotes} onDiscard={onDiscard} onCancel={onCancel} />}
           {csvFile && customSummary}
-          <details className="collapsible" key={csvFile ? "file" : "none"} open={!csvFile} style={{ marginTop: 14 }}>
-            <summary>File format and template</summary>
+          {schema && <FileRequirements schema={schema} />}
+          </section>
+          <section className="upload-reference">
             <div style={{ marginTop: 10 }}><FormatHelp schema={schema} error={schemaErr} /></div>
-          </details>
+          </section>
         </div>
       )}
 
       {/* ── Type in your boxes ── */}
       {choice === "typed" && (
-        <div className="card">
+        <div className="typed-workspace">
+          <section className="card typed-editor">
           <div className="card-head">
             <div>
               <div className="card-title">Type in your boxes</div>
-              <div className="card-desc">One row per kind of box; Qty makes that many. Sizes in cm, weights in kg. Boxes are kept upright.
-                Stop 1–{stopCount} (stop 1 is unloaded first): give every row a stop, or leave them all blank and STACKR assigns balanced stops.</div>
+              <div className="card-desc">Enter one row per kind of box. Use Qty for identical boxes.</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" className="btn btn-primary btn-sm" disabled={running} onClick={() => setTypedRows([...typedRows, blankRow()])}>+ Add a box</button>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="custom-table">
+            <table className="custom-table typed-table">
               <thead><tr>{COLUMNS.map((c) => <th key={c.key}>{c.title}</th>)}<th /></tr></thead>
               <tbody>
                 {typedRows.map((r, i) => (
@@ -273,7 +273,8 @@ export default function LoadSources({
                     {COLUMNS.map((c) => {
                       const bad = badCell.has(`${i + 1}|${c.title}`) || (c.key === "length" && badCell.has(`${i + 1}|*`));
                       return (
-                        <td key={c.key} style={{ minWidth: c.width }}>
+                        <td key={c.key} style={{ "--field-width": c.width + "px" }}>
+                          <span className="typed-field-label" aria-hidden="true">{c.title}</span>
                           {c.type === "check"
                             ? <input type="checkbox" checked={!!r.fragile} disabled={running} onChange={(e) => setCell(i, "fragile", e.target.checked)} aria-label={`Row ${i + 1} handle with care`} />
                             : <input type={c.type} value={r[c.key]} disabled={running} aria-label={`Row ${i + 1} ${c.title}`}
@@ -295,13 +296,25 @@ export default function LoadSources({
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
             <button type="button" className="btn btn-primary btn-sm" disabled={running || checking} onClick={onCheck}>{checking ? "Checking…" : "Check these boxes"}</button>
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-              Running totals: <b>{totals.boxes}</b> boxes · <b>{fmt(totals.vol, 3)} m³</b> · <b>{fmt(totals.mass)} kg</b>
-              {totals.boxes > 500 && <span style={{ color: "var(--red)" }}> · over the 500-box limit</span>}
-            </div>
           </div>
           <ErrorList errors={customErrors} />
           {customSummary}
+          </section>
+          <aside className="card typed-reference">
+            <h3 className="card-title">Load totals</h3>
+            <dl className="typed-totals">
+              <div><dt>Boxes</dt><dd>{totals.boxes}</dd></div>
+              <div><dt>Volume</dt><dd>{fmt(totals.vol, 3)} m³</dd></div>
+              <div><dt>Weight</dt><dd>{fmt(totals.mass)} kg</dd></div>
+            </dl>
+            {totals.boxes > 500 && <p className="alert-danger">Over the 500-box limit</p>}
+            <h3 className="card-title">Entry guide</h3>
+            <ul>
+              <li>Enter upright dimensions in cm and weight per box in kg.</li>
+              <li>Max load on top is the weight one box can support. Mark fragile boxes “Handle with care”.</li>
+              <li>Enter a stop from 1 to {stopCount} for every row, or leave every stop blank for automatic assignment. Stop 1 unloads first.</li>
+            </ul>
+          </aside>
         </div>
       )}
 

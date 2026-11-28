@@ -603,7 +603,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
   return (
     <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ width: '100%', height: 520, background: '#111827', position: 'relative' }}>
+      <div style={{ width: '100%', height: 'clamp(320px, calc(100dvh - 230px), 900px)', background: '#111827', position: 'relative' }}>
         <Canvas
           ref={canvasRef}
           camera={cameraConfig}
@@ -666,8 +666,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
             style={{
               position: 'absolute',
               bottom: 16,
-              left: '50%',
-              transform: 'translateX(-50%)',
+              right: 12,
               background: 'rgba(15, 23, 42, 0.9)',
               border: '1px solid #334155',
               borderRadius: 8,
@@ -857,13 +856,13 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
         <div style={{ display: 'flex', gap: 12 }}>
           <button
-            onClick={handleExportPNG}
+            title="Download the current view as a PNG image" onClick={handleExportPNG}
             style={{ padding: "6px 12px", background: "transparent", border: "1px solid #4b5563", borderRadius: "4px", color: "#cbd5e1", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
           >
             Save as picture
           </button>
           <button
-            onClick={onResetView}
+            title="Return to the default 3D camera angle" onClick={onResetView}
             style={{ padding: "6px 12px", background: "transparent", border: "1px solid #4b5563", borderRadius: "4px", color: "#cbd5e1", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
           >
             Reset view

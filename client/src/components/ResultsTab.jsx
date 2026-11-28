@@ -18,6 +18,8 @@ function formatWhen(dateStr) {
   return isNaN(d.getTime()) ? dateStr : d.toLocaleString();
 }
 
+const percent = (value) => Number.isFinite(value) ? `${value.toFixed(1)}%` : "—";
+
 export default function ResultsTab({
   finalResult,
   runHistory,
@@ -92,17 +94,17 @@ export default function ResultsTab({
             const total  = finalResult.n_items ?? placed;
             return (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-                <StatChip label="Space Utilization (M-1)" value={`${m.M1_space_utilization_pct.toFixed(1)}%`} color="var(--primary)" subtitle="single container, OF-1" />
+                <StatChip label="Space Utilization (M-1)" value={percent(m.M1_space_utilization_pct)} color="var(--primary)" subtitle="single container, OF-1" />
                 <StatChip
                   label="CSR (placed boxes, M-2)"
-                  value={`${m.M2_constraint_satisfaction_pct.toFixed(1)}%`}
+                  value={percent(m.M2_constraint_satisfaction_pct)}
                   color={isRepair ? "var(--text-muted)" : m.M2_constraint_satisfaction_pct >= 99.99 ? "var(--green)" : "var(--amber)"}
                   subtitle={isRepair ? "100% by construction (repair R1–R3)" : "placed boxes satisfying C3–C6"}
                   title="Denominator: boxes actually placed in the container. Unplaced boxes are not counted."
                 />
                 <StatChip
                   label="Compliance over all boxes"
-                  value={`${(m.M2_constraint_satisfaction_pct * placed / Math.max(total, 1)).toFixed(1)}%`}
+                  value={m.M2_constraint_satisfaction_pct == null ? "—" : percent(m.M2_constraint_satisfaction_pct * placed / Math.max(total, 1))}
                   color={m.M2_constraint_satisfaction_pct * placed / Math.max(total, 1) >= 99.99 ? "var(--green)" : "var(--amber)"}
                   subtitle={`= CSR × ${placed} / ${total} (Ch. 3 definition)`}
                   title="Denominator: all n boxes of the instance. A box left unplaced counts as non-compliant. Exact: CSR × placed / n."
@@ -170,7 +172,7 @@ export default function ResultsTab({
                     <div key={r.k}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "4px" }}>
                         <span style={{ color: "var(--text-muted)", fontWeight: "600" }}>{r.name} <span style={{ color: "var(--text-dim)", fontWeight: "400" }}>— {r.note}</span></span>
-                        <span style={{ fontWeight: "700", color: r.v >= 99.99 ? "var(--green)" : r.v >= 75 ? "var(--amber)" : "var(--red)" }}>{r.v.toFixed(1)}%</span>
+                        <span style={{ fontWeight: "700", color: r.v >= 99.99 ? "var(--green)" : r.v >= 75 ? "var(--amber)" : "var(--red)" }}>{percent(r.v)}</span>
                       </div>
                       <div style={{ height: "8px", background: "var(--bg-input)", borderRadius: "4px", overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, r.v))}%`, background: r.v >= 99.99 ? "var(--green)" : r.v >= 75 ? "var(--amber)" : "var(--red)", transition: "width 0.3s ease" }} />

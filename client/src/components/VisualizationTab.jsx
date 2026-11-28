@@ -153,12 +153,7 @@ export default function VisualizationTab({
   const container = result ? result.container : null;
   const details = pinned || hovered;
   const frame = useMemo(() => truckFrame(container), [container]);
-  // The gap figures of the arrangement in view (the lateral-balance "centered"
-  // view and its centre-of-mass plane were removed from the viewer).
   const gaps = result ? result.gaps : null;
-  const edge = result ? result.edge : null;
-  const r4 = result ? result.edge_fill : null;
-  const r5 = result ? result.fragile_lift : null;
   const idName = useMemo(() => {
     const m = new Map(items.map((it) => [Number(it.item_idx), it.id ?? `#${it.item_idx}`]));
     return (j) => `Box ${m.get(Number(j)) ?? j}`;
@@ -225,6 +220,16 @@ export default function VisualizationTab({
             ));
           })()}
         </div>
+        <details><summary>Gaps across the load</summary>{gaps ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                  <Row k="Mean face gap" v={gaps.mean_gap_cm === null ? "—" : `${fmtNum(gaps.mean_gap_cm, 2)} cm`} />
+                  <Row k="Largest face gap" v={gaps.max_gap_cm === null ? "—" : `${fmtNum(gaps.max_gap_cm, 2)} cm`} />
+                  <Row k="Significant gaps" v={`${gaps.significant_gaps} of ${gaps.n_faces} faces`} color="var(--amber)" />
+                  <Row k="Smallest box dimension" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run.</div>
+              )}</details>
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <div style={{ color: "var(--text-dim)", marginBottom: 4 }}>Rules broken</div>
           {!hasChecks ? <div style={{ color: "var(--text-dim)" }}>Not available for this run.</div>
@@ -260,53 +265,87 @@ export default function VisualizationTab({
       {/* Upper Section: Inspection & 3D Viewer */}
       <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
 
-        {/* Gaps and loading order: a row under the full-width viewer (order: 2).
-            Box details float inside the viewer; the lateral-balance panel is gone. */}
-        <div style={{ flex: "1 1 100%", order: 2, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
-          {result && (
-            <div className="card">
-              <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "12px" }}>● GAPS</h4>
-              {gaps ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-                  <Row k="Mean face gap" v={gaps.mean_gap_cm === null ? "—" : `${fmtNum(gaps.mean_gap_cm, 2)} cm`} />
-                  <Row k="Largest face gap" v={gaps.max_gap_cm === null ? "—" : `${fmtNum(gaps.max_gap_cm, 2)} cm`} />
-                  <Row k="Significant gaps" v={`${gaps.significant_gaps} of ${gaps.n_faces} faces`} color="var(--amber)" />
-                  <Row k="Smallest box dimension" v={`${fmtNum(gaps.significant_threshold_cm, 2)} cm`} />
-                  <div className="field-hint">
-                    A face gap is the distance from a box face to the nearest box or wall beyond it; it is significant at τ or more.
-                    Every face counts, the roof included; the view leaves out the lines to the roof.
-                  </div>
-                  {edge && (
-                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8, display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <Row k="Boxes touching nothing sideways" v={`${edge.isolated_boxes}`} color={edge.isolated_boxes > 0 ? "var(--amber)" : undefined} />
-                      <Row k="Boxes touching one side only" v={`${edge.one_side_boxes}`} />
-                      <Row k="Sideways gaps ≥ τ" v={`${edge.lateral_gaps_fillable.count} · ${fmtNum(edge.lateral_gaps_fillable.total_cm, 0)} cm`} />
-                      <Row k="Sideways gaps < τ" v={`${edge.lateral_gaps_dunnage.count} · ${fmtNum(edge.lateral_gaps_dunnage.total_cm, 0)} cm`} />
-                      <Row k="Side contact" v={edge.side_contact_ratio === null ? "—" : `${fmtNum(edge.side_contact_ratio * 100, 1)} % of side-face area`} />
-                      {r4 && (
-                        <div className="field-hint">
-                          R4 edge filling: {r4.placed_A + r4.placed_A2} box{r4.placed_A + r4.placed_A2 === 1 ? "" : "es"} added,
-                          {" "}{r4.compaction.moves} stack{r4.compaction.moves === 1 ? "" : "s"} moved flush.
-                          Gaps under τ are left for dunnage.
-                        </div>
-                      )}
-                      {r5 && (
-                        <div className="field-hint">
-                          R5: {r5.fragile_lifted.length} fragile box move{r5.fragile_lifted.length === 1 ? "" : "s"},
-                          {" "}{r5.boxes_added.length} box{r5.boxes_added.length === 1 ? "" : "es"} added,
-                          {" "}dead space above fragile {fmtNum(r5.before.dead_volume_pct, 0)}% → {fmtNum(r5.after.dead_volume_pct, 0)}%.
-                        </div>
-                      )}
-                    </div>
-                  )}
+        {/* 3D Viewer Canvas: full width, with the box details floating inside it */}
+        <div style={{ flex: "1 1 100%", order: 1, minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Your packed container</h3>
+              <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+                {result && result.source === "study"
+                  ? `${result.study_label || "Study"} · ${result.strategy} · ${result.dataset === "custom" ? "your custom load" : `instance ${result.instance}`} · repeat code ${result.seed} — container fill ${fmtNum(result.verified.su_pct, 2)}%, rules ${fmtNum(result.verified.csr_pct, 2)}%`
+                  : "Drag to rotate, scroll to zoom. Click a box for its details."}
+              </span>
+            </div>
+            <div className="viewer-tools"><details className="viewer-menu" name="viewer-options"><summary title="Open visibility options">Visibility</summary><div className="viewer-popover">
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {[["Standard boxes", filterStandard, setFilterStandard], ["Fragile boxes", filterFragile, setFilterFragile], ["Heavy boxes", filterHeavy, setFilterHeavy]].map(([k, v, set]) => (
+              <div className="switch-container" key={k}>
+                <span className="switch-label" style={{ fontWeight: 600 }}>{k}</span>
+                <label className="switch"><input type="checkbox" checked={v} onChange={(e) => set(e.target.checked)} /><span className="slider" /></label>
+              </div>
+            ))}
+            <div className="field-hint" style={{ marginTop: 4 }}>Standard = neither fragile nor heavy.</div>
+          </div>
+        </div></details>
+<details className="viewer-menu" name="viewer-options"><summary title="Open display options">Display</summary><div className="viewer-popover">
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }}>Box names</span>
+              <label className="switch"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="Rear-door frame, front wall and the door-to-front-wall arrow">Show orientation guides</span>
+              <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap; shown once all boxes are in">Show gaps</span>
+              <label className="switch"><input type="checkbox" checked={showGaps} disabled={!gaps} onChange={(e) => setShowGaps(e.target.checked)} /><span className="slider" /></label>
+            </div>
+            <div className="switch-container">
+              <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
+              <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
+            </div>
+
+            <div>
+              <label style={CAPTION}>Stop</label>
+              <select className="form-input" style={{ width: "100%" }} value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)}>
+                <option value="All">All stops</option>
+                {uniqueStops.map((stop) => <option key={stop} value={stop}>Stop {stop}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={CAPTION}>Color mode</label>
+              <select className="form-input" style={{ width: "100%" }} value={colorMode} onChange={(e) => setColorMode(e.target.value)}>
+                <option value="type">By type</option>
+                <option value="box">By box</option>
+                <option value="stop">By delivery stop</option>
+                <option value="problem" disabled={!pv}>By problem</option>
+              </select>
+            </div>
+          </div>
+        </div></details>
+<details className="viewer-menu" name="viewer-options"><summary title="Open summary options">Summary</summary><div className="viewer-popover">
+          {result ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "13px" }}>
+              <Row k="Volume utilization" v={`${fmtNum(suPct, 2)}%`} color="var(--primary)" />
+              <Row k="Packed boxes" v={nPlaced} />
+              <Row k="Unpacked boxes" v={nNotLoaded !== null ? nNotLoaded : "—"} color={nNotLoaded > 0 ? "var(--amber)" : undefined} />
+              <Row k="Total weight loaded" v={`${fmtNum(totalWeight, 1)} kg`} />
+
+              {container && (
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px", fontSize: 12, color: "var(--text-dim)" }}>
+                  Container: {container.length_cm ?? container.L} × {container.width_cm ?? container.D} × {container.height_cm ?? container.H} cm
                 </div>
-              ) : (
-                <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Not available for this run.</div>
               )}
+
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              Run summary will appear here when a run is loaded.
             </div>
           )}
-
-          {plan && plan.steps.length > 0 && (
+        {plan && plan.steps.length > 0 && (
             <div className="card" style={{ fontSize: 12.5 }}>
               <h4 className="section-tag" style={{ margin: 0, borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "10px" }}>● LOADING ORDER</h4>
               {!planCheck.ok ? (
@@ -330,24 +369,10 @@ export default function VisualizationTab({
                 </>
               )}
             </div>
-          )}
-        </div>
-
-        {/* 3D Viewer Canvas: full width, with the box details floating inside it */}
-        <div style={{ flex: "1 1 100%", order: 1, minWidth: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Your packed container</h3>
-              <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
-                {result && result.source === "study"
-                  ? `${result.study_label || "Study"} · ${result.strategy} · ${result.dataset === "custom" ? "your custom load" : `instance ${result.instance}`} · repeat code ${result.seed} — container fill ${fmtNum(result.verified.su_pct, 2)}%, rules ${fmtNum(result.verified.csr_pct, 2)}%`
-                  : "Drag to rotate, scroll to zoom. Click a box for its details."}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          )}</div></details>
               <div className="tabs-inline">
                 {["Door", "Side", "Top", "3D"].map((dir) => (
-                  <button key={dir} onClick={() => triggerViewReset(dir)} className={viewportOrientation === dir ? "active" : ""} style={{ fontSize: "12px", fontWeight: "700", cursor: "pointer", padding: "4px 8px" }}>{dir}</button>
+                  <button key={dir} title={`Switch to the ${dir} view`} onClick={() => triggerViewReset(dir)} className={viewportOrientation === dir ? "active" : ""} style={{ fontSize: "12px", fontWeight: "700", cursor: "pointer", padding: "4px 8px" }}>{dir}</button>
                 ))}
               </div>
               {result && <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Showing {filteredPlacements.length} of {nPlaced} loaded</span>}
@@ -355,7 +380,7 @@ export default function VisualizationTab({
           </div>
 
           {requestBusy ? (
-            <div style={{ height: "450px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 13 }}>Checking and loading the arrangement…</div>
+            <div style={{ height: "clamp(180px, 35vh, 360px)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 13 }}>Checking and loading the arrangement…</div>
           ) : source === "study" && studyError ? (
             <div className="alert-danger">{studyError}</div>
           ) : result && multiBin && pv ? (
@@ -404,7 +429,7 @@ export default function VisualizationTab({
           ) : running && source === "run" ? (
             <LiveProgress stats={stats} />
           ) : (
-            <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <div style={{ height: "clamp(180px, 35vh, 360px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>
               <h4 style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: "600" }}>Nothing to show yet</h4>
               <p style={{ color: "var(--text-dim)", fontSize: "12px", marginTop: "4px" }}>
@@ -415,98 +440,6 @@ export default function VisualizationTab({
         </div>
       </div>
 
-      {/* Lower Section: Full-Width Responsive Control Deck */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: "24px",
-        background: "var(--bg-card)",
-        padding: "24px",
-        borderRadius: "12px",
-        border: "1px solid var(--border)",
-        boxShadow: "var(--shadow)"
-      }}>
-
-        {/* Column 1: Visibility Filters */}
-        <div>
-          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>● VISIBILITY FILTERS</h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {[["Standard boxes", filterStandard, setFilterStandard], ["Fragile boxes", filterFragile, setFilterFragile], ["Heavy boxes", filterHeavy, setFilterHeavy]].map(([k, v, set]) => (
-              <div className="switch-container" key={k}>
-                <span className="switch-label" style={{ fontWeight: 600 }}>{k}</span>
-                <label className="switch"><input type="checkbox" checked={v} onChange={(e) => set(e.target.checked)} /><span className="slider" /></label>
-              </div>
-            ))}
-            <div className="field-hint" style={{ marginTop: 4 }}>Standard = neither fragile nor heavy.</div>
-          </div>
-        </div>
-
-        {/* Column 2: Display Settings & Stop Filtering */}
-        <div>
-          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>● DISPLAY & STOPS</h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }}>Box names</span>
-              <label className="switch"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /><span className="slider" /></label>
-            </div>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="Rear-door frame, front wall and the door-to-front-wall arrow">Show orientation guides</span>
-              <label className="switch"><input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /><span className="slider" /></label>
-            </div>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="A line with its length in cm across every significant gap; shown once all boxes are in">Show gaps</span>
-              <label className="switch"><input type="checkbox" checked={showGaps} disabled={!gaps} onChange={(e) => setShowGaps(e.target.checked)} /><span className="slider" /></label>
-            </div>
-            <div className="switch-container">
-              <span className="switch-label" style={{ fontWeight: 600 }} title="Shade the empty space in front of every significant gap">Shade empty space</span>
-              <label className="switch"><input type="checkbox" checked={shadeEmpty} disabled={!gaps} onChange={(e) => setShadeEmpty(e.target.checked)} /><span className="slider" /></label>
-            </div>
-
-            <div>
-              <label style={CAPTION}>Stop</label>
-              <select className="form-input" style={{ width: "100%" }} value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)}>
-                <option value="All">All stops</option>
-                {uniqueStops.map((stop) => <option key={stop} value={stop}>Stop {stop}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label style={CAPTION}>Color mode</label>
-              <select className="form-input" style={{ width: "100%" }} value={colorMode} onChange={(e) => setColorMode(e.target.value)}>
-                <option value="type">By type</option>
-                <option value="box">By box</option>
-                <option value="stop">By delivery stop</option>
-                <option value="problem" disabled={!pv}>By problem</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Column 3: Run Summary / Packing Metrics & Problems */}
-        <div>
-          <h4 className="section-tag" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>● RUN SUMMARY</h4>
-          {result ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "13px" }}>
-              <Row k="Volume utilization" v={`${fmtNum(suPct, 2)}%`} color="var(--primary)" />
-              <Row k="Packed boxes" v={nPlaced} />
-              <Row k="Unpacked boxes" v={nNotLoaded !== null ? nNotLoaded : "—"} color={nNotLoaded > 0 ? "var(--amber)" : undefined} />
-              <Row k="Total weight loaded" v={`${fmtNum(totalWeight, 1)} kg`} />
-
-              {container && (
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px", fontSize: 12, color: "var(--text-dim)" }}>
-                  Container: {container.length_cm ?? container.L} × {container.width_cm ?? container.D} × {container.height_cm ?? container.H} cm
-                </div>
-              )}
-
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
-              Run summary will appear here when a run is loaded.
-            </div>
-          )}
-        </div>
-
-      </div>
     </div>
   );
 }
