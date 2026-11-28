@@ -25,6 +25,7 @@ const { spawn, execFileSync } = require("child_process");
 const db = require("./db");
 const { authRequired } = require("./auth");
 const { ownedLoad } = require("./customLoads");
+const { recordStudyRuns } = require("./studyRuns");
 
 const router = express.Router();
 const ROOT = path.join(__dirname, "..");
@@ -129,13 +130,17 @@ function progressOf(row) {
   return prog;
 }
 
-// Keep the db row's status in step with the progress file.
+// Keep the db row's status in step with the progress file, and record
+// completed runs into Run History once the study finishes.
 function syncStatus(row) {
   const prog = progressOf(row);
   const next = prog.status === "done" ? "done" : prog.status === "error" ? "error" : row.status;
   if (next !== row.status) {
     db.prepare("UPDATE studies SET status = ? WHERE id = ?").run(next, row.id);
     row.status = next;
+  }
+  if ((row.status === "done" || row.status === "imported") && !row.runs_recorded) {
+    if (recordStudyRuns(row.id) > 0) row.runs_recorded = true;
   }
   return prog;
 }
@@ -228,6 +233,7 @@ router.post("/import", authRequired, (req, res) => {
     .run(req.user.id, doc.name || file, doc.size || "custom", "imported", full, null, null,
          JSON.stringify({ preset: doc.preset && doc.preset.name, mode: doc.mode, seeds: doc.seeds, instances: (doc.instances || []).map((i) => i.instance_id) }),
          1, (doc.runs || []).length);
+  recordStudyRuns(info.lastInsertRowid);
   res.json({ id: info.lastInsertRowid });
 });
 

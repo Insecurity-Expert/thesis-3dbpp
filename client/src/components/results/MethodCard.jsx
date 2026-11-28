@@ -11,22 +11,30 @@ export default function MethodCard({ code, metrics, vals, bests, rank, showSwatc
                                      onView, onGuide, onRun }) {
   const info = METHOD_INFO[code];
   const ran = vals[code] && vals[code].ran;
+  const isProposed = code === "REP";
   return (
-    <div className={`ro-card${rank === 1 ? " top" : ""}`}>
+    <div className={`ro-card${isProposed ? " proposed" : ""}${rank === 1 ? " top" : ""}`}>
       <div className="ro-card-head">
         <div className="ro-card-name">
           <RankBadge rank={ran ? rank : null} />
           {showSwatch && <MethodSwatch code={code} />}
-          <span>{info.name}</span>
+          <div className="ro-card-heading">
+            <div className="ro-card-title">{info.name}</div>
+            {isProposed && <div className="ro-card-subtitle">Proposed Hybrid Method</div>}
+          </div>
         </div>
         <span className="ro-tag">{info.tag}</span>
       </div>
-      {ran ? metrics.map((m) => (
-        <div className="ro-card-metric" key={m.key}>
-          <div className="ro-label">{m.label}</div>
-          <MetricValue metric={m} code={code} vals={vals} best={bests[m.key] || []} invalidNote={m.timing ? invalidNote : null} />
+      {ran ? (
+        <div className="ro-card-metrics">
+          {metrics.map((m) => (
+            <div className="ro-card-metric" key={m.key}>
+              <div className="ro-label">{m.label}</div>
+              <MetricValue metric={m} code={code} vals={vals} best={bests[m.key] || []} invalidNote={m.timing ? invalidNote : null} />
+            </div>
+          ))}
         </div>
-      )) : (
+      ) : (
         <div className="ro-not-run">
           <div className="ro-value large muted">Not run</div>
           <button type="button" className="link-btn" onClick={onRun}>Run this method</button>

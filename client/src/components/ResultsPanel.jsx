@@ -299,16 +299,16 @@ function ViewToggle({ all, hybridsHere, full, setFull }) {
 // never a statistical test.
 function SkeletonCards() {
   return (
-    <div className="ro-cards" aria-busy="true" aria-label="Loading the results">
-      {[0, 1].map((i) => (
-        <div key={i} className="ro-card">
-          <div className="ro-skel" style={{ height: 26, width: "55%" }} />
-          {[0, 1, 2].map((j) => (
-            <div key={j}><div className="ro-skel" style={{ height: 12, width: "35%", marginBottom: 8 }} /><div className="ro-skel" style={{ height: 26, width: "25%", marginBottom: 8 }} /><div className="ro-skel" style={{ height: 6 }} /></div>
+    <div className="ro-cards ro-cards-single" aria-busy="true" aria-label="Loading the results">
+      <div className="ro-card proposed">
+        <div className="ro-skel" style={{ height: 32, width: "55%" }} />
+        <div className="ro-card-metrics">
+          {[0, 1, 2, 3].map((j) => (
+            <div key={j}><div className="ro-skel" style={{ height: 14, width: "38%", marginBottom: 8 }} /><div className="ro-skel" style={{ height: 30, width: "26%", marginBottom: 10 }} /><div className="ro-skel" style={{ height: 8 }} /></div>
           ))}
-          <div className="ro-skel" style={{ height: 36 }} />
         </div>
-      ))}
+        <div className="ro-skel" style={{ height: 42 }} />
+      </div>
     </div>
   );
 }
@@ -374,7 +374,7 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
   const cardOrder = HYBRID_METHODS.slice().sort((a, b) => (ranks[a] ?? 99) - (ranks[b] ?? 99));
 
   return (
-    <div>
+    <div className="ro-page">
       {header}
       {cl && <div style={{ marginBottom: 16 }}><CustomLoadBanner info={cl} /></div>}
       {repErr && <div className="alert-danger" style={{ marginBottom: 16 }}>Could not read the comparison: {repErr}</div>}
@@ -386,36 +386,30 @@ export default function ResultsPanel({ studies = [], selectedStudyId, onSelectSt
             {full ? "All four methods on this load." : "How our proposed hybrid method performed on this load. Its rank and ✓ marks are among all four methods."} {runCountText(vals)}
           </div>
         </div>
-        {full && (
-          <button type="button" className="btn ro-btn-outline" onClick={() => setFull(false)}>Hide comparison <span aria-hidden="true">⌃</span></button>
+        {load && (
+          full ? (
+            <button type="button" className="btn ro-btn-outline" onClick={() => setFull(false)}>Hide comparison <span aria-hidden="true">⌃</span></button>
+          ) : (
+            <button type="button" className="btn ro-btn-dark" onClick={() => { setFull(true); setScrollToTable(true); }}>
+              Compare All Methods <span aria-hidden="true">⌄</span>
+            </button>
+          )
         )}
       </div>
 
       <ResultsTabs tab={tab} onChange={setTab} />
-      {caption ? <div className="ro-caption">{caption}</div> : <div style={{ height: 14 }} />}
+      {caption ? <div className="ro-caption">{caption}</div> : <div style={{ height: 18 }} />}
 
       {!rep && !repErr ? <SkeletonCards /> : load && (
         <>
           {nRan === 1 && <div className="ro-note">Only one method was run on this load, so nothing is ranked or marked best.</div>}
           {!full ? (
-            <>
-              <div className="ro-section-label" style={cardOrder.length === 1 ? { textAlign: "center" } : undefined}>Proposed hybrid method</div>
-              <div className={cardOrder.length === 1 ? "ro-cards ro-cards-single" : "ro-cards"}>
-                {cardOrder.map((c) => (
-                  <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} invalidNote={invalidNote}
-                    onView={() => view(c)} onGuide={() => guide(c)} onRun={run} />
-                ))}
-              </div>
-              <div className="ro-banner">
-                <div>
-                  <b>See how it compares with DGWO, MOGWO and Sequential</b>
-                  <div className="ro-sub">These are the methods Repair-Based is compared with. Each one also has View Arrangement and View Guide.</div>
-                </div>
-                <button type="button" className="btn ro-btn-dark" onClick={() => { setFull(true); setScrollToTable(true); }}>
-                  Compare All Methods <span aria-hidden="true">⌄</span>
-                </button>
-              </div>
-            </>
+            <div className={cardOrder.length === 1 ? "ro-cards ro-cards-single" : "ro-cards"}>
+              {cardOrder.map((c) => (
+                <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} invalidNote={invalidNote}
+                  onView={() => view(c)} onGuide={() => guide(c)} onRun={run} />
+              ))}
+            </div>
           ) : (
             <div ref={tableRef}>
               <ComparisonTable metrics={metrics} vals={vals} bests={bests} ranks={ranks} invalidNote={invalidNote}

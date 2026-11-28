@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
         {err && <div style={errBox} role="alert">⚠ {err}</div>}
 
         {done ? (
-          <button type="button" className="btn-primary" onClick={() => nav("/login")}>Sign in</button>
+          <button type="button" className="btn-primary" onClick={() => nav("/login")}>Back to sign in</button>
         ) : !question ? (
           <form onSubmit={findQuestion}>
             <div className="form-group" style={{ marginBottom: "28px" }}>
@@ -106,9 +106,11 @@ export default function ForgotPasswordPage() {
           </form>
         )}
 
-        <p style={{ marginTop: "28px", fontSize: "13px", color: "var(--text-muted)", textAlign: "center" }}>
-          <Link to="/login" style={{ color: "var(--primary)", fontWeight: "700", textDecoration: "none" }}>Back to sign in</Link>
-        </p>
+        {!done && (
+          <p style={{ marginTop: "28px", fontSize: "13px", color: "var(--text-muted)", textAlign: "center" }}>
+            <Link to="/login" style={{ color: "var(--primary)", fontWeight: "700", textDecoration: "none" }}>Back to sign in</Link>
+          </p>
+        )}
       </div>
     </div>
   );

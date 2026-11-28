@@ -175,6 +175,66 @@ async function main() {
   check("failed run without a time is not flagged", flag[4] === false, JSON.stringify(flag));
   check("rows are kept, not deleted", list.length === 4, list.length);
 
+  console.log("[run history: completed study persistence]");
+  const studyFile = path.join(TMP, "demo_study.json");
+  const progFile = studyFile + ".progress.json";
+  fs.writeFileSync(studyFile, JSON.stringify({
+    stackr_study: 1,
+    name: "Demo study",
+    size: "demo",
+    created_at: "2026-11-28T10:00:00.000Z",
+    timing_method: "psutil",
+    preset: { name: "quick", pop_size: 10, max_iter: 60 },
+    lambdas: { w: 0.2, f: 0.2, b: 0.2, a: 0.2 },
+    enforce_support: true,
+    enforce_fragility: true,
+    runs: [
+      { configuration: "DGWO", instance_id: 350, seed: 1, n_items: 100, placed: 75, su_pct: 61.0, csr_pct: 60.0, C3_pct: 90, C4_pct: 100, C5_pct: 100, C6_pct: 65, exec_time_ms: 4200, peak_mem_mb: 140, budget_exhausted: false },
+      { configuration: "DGWO", instance_id: 350, seed: 2, n_items: 100, placed: 78, su_pct: 63.0, csr_pct: 62.0, C3_pct: 91, C4_pct: 100, C5_pct: 100, C6_pct: 66, exec_time_ms: 4300, peak_mem_mb: 142, budget_exhausted: false },
+      { configuration: "MOGWO", instance_id: 350, seed: 1, n_items: 100, placed: 72, su_pct: 58.5, csr_pct: 70.0, C3_pct: 92, C4_pct: 100, C5_pct: 100, C6_pct: 72, exec_time_ms: 4100, peak_mem_mb: 145, budget_exhausted: false },
+      { configuration: "SEQ", instance_id: 350, seed: 1, n_items: 100, placed: 76, su_pct: 62.5, csr_pct: 68.0, C3_pct: 93, C4_pct: 100, C5_pct: 100, C6_pct: 70, exec_time_ms: 4500, peak_mem_mb: 148, budget_exhausted: false },
+      { configuration: "REP", instance_id: 350, seed: 1, n_items: 100, placed: 70, su_pct: 57.2, csr_pct: 100.0, C3_pct: 100, C4_pct: 100, C5_pct: 100, C6_pct: 100, exec_time_ms: 12000, peak_mem_mb: 155, budget_exhausted: false },
+    ],
+  }));
+  fs.writeFileSync(progFile, JSON.stringify({ status: "done", done: 5, total: 5 }));
+  fresh({
+    users: [{ id: 1, email: "t@x.c", name: "T", pass_hash: hh }],
+    runs: [],
+    studies: [{ id: 1, user_id: 1, name: "Demo study", size: "demo", status: "running", file: studyFile, progress_file: progFile, created_at: "2026-11-28T10:00:00.000Z" }],
+    custom_loads: [],
+  });
+  const lr2 = await fetch(base + "/login", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ email: "t@x.c", password: "pw-123456" }) });
+  const cookie2 = (lr2.headers.get("set-cookie") || "").split(";")[0];
+  const syncedRuns = await (await fetch(base + "/runs", { headers: { Cookie: cookie2 } })).json();
+  check("finished study persists representative runs into Run History (4 methods)", syncedRuns.length === 4, syncedRuns.length);
+  check("Repair-based is first (most recent id) with accurate metrics", syncedRuns[0].strategy_code === "REP" && syncedRuns[0].space_util === 57.2 && syncedRuns[0].csr === 100 && syncedRuns[0].c3_pct === 100 && syncedRuns[0].has_result === true, JSON.stringify(syncedRuns[0]));
+  const syncedRunsAgain = await (await fetch(base + "/runs", { headers: { Cookie: cookie2 } })).json();
+  check("re-fetching Run History does not duplicate recorded runs", syncedRunsAgain.length === 4, syncedRunsAgain.length);
+  await fetch(`${base}/runs/${syncedRuns[0].id}`, { method: "DELETE", headers: { Cookie: cookie2 } });
+  const afterDelete = await (await fetch(base + "/runs", { headers: { Cookie: cookie2 } })).json();
+  check("deleting a recorded run stays deleted on next fetch", afterDelete.length === 3, afterDelete.length);
+  // Hydration via GET /runs/:id using the real Study A file when present.
+  const studyA = path.join(__dirname, "..", "experiments", "results", "studies", "studyA_i350_standard_s1-30_parallel.json");
+  if (fs.existsSync(studyA)) {
+    fresh({
+      users: [{ id: 1, email: "t@x.c", name: "T", pass_hash: hh }],
+      runs: [],
+      studies: [{ id: 2, user_id: 1, name: "Study A", size: "standard", status: "done", file: studyA, progress_file: null, created_at: "2026-11-28T10:00:00.000Z" }],
+      custom_loads: [],
+    });
+    const lr3 = await fetch(base + "/login", { method: "POST", headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ email: "t@x.c", password: "pw-123456" }) });
+    const cookie3 = (lr3.headers.get("set-cookie") || "").split(";")[0];
+    const studyARuns = await (await fetch(base + "/runs", { headers: { Cookie: cookie3 } })).json();
+    const loaded = await (await fetch(`${base}/runs/${studyARuns[0].id}`, { headers: { Cookie: cookie3 } })).json();
+    check("loading a persisted study run hydrates container and 3D placements",
+          !!(loaded.result && loaded.result.container && Array.isArray(loaded.result.items) && loaded.result.items.length > 0),
+          loaded.result ? `items=${(loaded.result.items || []).length}` : "no result");
+  }
+  // Restore user/runs fixture for the change-password & delete-account tests below.
+  fresh({ users: [{ id: 1, email: "t@x.c", name: "T", pass_hash: hh }], studies: [], custom_loads: [], runs: [{ id: 1, user_id: 1, runtime_s: 3.3, result: env("psutil"), status: "ok" }] });
+
   console.log("[change password and delete account]");
   const pwWrong = await fetch(base + "/me/password", {
     method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },

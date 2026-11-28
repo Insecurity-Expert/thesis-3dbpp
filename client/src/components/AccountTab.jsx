@@ -6,8 +6,8 @@ import { Modal, useToast } from "./ui";
 function Field({ label, value }) {
   return (
     <div>
-      <div className="field-hint" style={{ marginTop: 0 }}>{label}</div>
-      <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{value || "—"}</div>
+      <div className="field-hint" style={{ marginTop: 0, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 11.5 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 15, marginTop: 4, color: "var(--text-main)" }}>{value || "—"}</div>
     </div>
   );
 }
@@ -15,9 +15,9 @@ function Field({ label, value }) {
 function ActionRow({ title, desc, button, danger = false, onClick = null, isLast = false }) {
   const disabled = !onClick;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 14, paddingBottom: isLast ? 0 : 14, borderTop: "1px solid var(--border)" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 16, paddingBottom: isLast ? 0 : 16, borderTop: "1px solid var(--border)" }}>
       <div>
-        <div style={{ fontWeight: 600, color: danger && !disabled ? "var(--red)" : "var(--text-main)" }}>{title}</div>
+        <div style={{ fontWeight: 600, fontSize: 15, color: danger && !disabled ? "var(--red)" : "var(--text-main)" }}>{title}</div>
         <div className="field-hint" style={{ marginTop: 2 }}>{desc}</div>
       </div>
       <button type="button" className={`btn btn-sm ${danger ? "btn-danger-ghost" : "btn-secondary"}`} disabled={disabled} onClick={onClick || undefined}>
@@ -86,39 +86,33 @@ export default function AccountTab({ user, logout }) {
   };
 
   return (
-    <div className="account-layout" style={{ gridTemplateColumns: "1fr", maxWidth: 720 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="card-title">Your details</div>
-            </div>
+    <div className="account-layout">
+      <div className="card account-details-card">
+        <div className="card-head" style={{ marginBottom: 14 }}>
+          <div className="card-title">Your details</div>
+        </div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+          <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: "50%", background: "linear-gradient(155deg, var(--primary), var(--blush))", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 700, boxShadow: "0 3px 10px rgba(107, 78, 142, 0.24)" }}>
+            {user.name ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "?"}
           </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 24 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(155deg, var(--primary), var(--blush))", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700 }}>
-              {user.name ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "?"}
-            </div>
-            <div>
-              <div style={{ fontSize: 17, fontWeight: 700 }}>{user.name}</div>
-              <div className="field-hint" style={{ marginTop: 2 }}>{user.email}</div>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <Field label="Name" value={user.name} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <Field label="Email address" value={user.email} />
-            </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-main)", lineHeight: 1.25 }}>{user.name}</div>
+            <div className="field-hint" style={{ marginTop: 2 }}>{user.email}</div>
           </div>
         </div>
+        <div className="grid grid-2" style={{ gap: 16, paddingTop: 16 }}>
+          <Field label="Name" value={user.name} />
+          <Field label="Email address" value={user.email} />
+        </div>
+      </div>
 
-        <div className="card" style={{ paddingBottom: 16 }}>
-          <div className="card-head" style={{ marginBottom: 12 }}><div><div className="card-title">Account actions</div></div></div>
-          <ActionRow title="Password" desc="Change your password" button="Change password" onClick={openPwModal} />
-          <ActionRow title="Sign out" desc="End your session on this device" button="Sign out" onClick={logout} />
-          <ActionRow title="Delete account" desc="Remove your account and saved runs" button="Delete" danger isLast onClick={openDelModal} />
+      <div className="card">
+        <div className="card-head" style={{ marginBottom: 12 }}>
+          <div className="card-title">Account actions</div>
         </div>
+        <ActionRow title="Password" desc="Change your password" button="Change password" onClick={openPwModal} />
+        <ActionRow title="Sign out" desc="End your session on this device" button="Sign out" onClick={logout} />
+        <ActionRow title="Delete account" desc="Remove your account and saved runs" button="Delete" danger isLast onClick={openDelModal} />
       </div>
 
       {/* Change Password Modal */}
@@ -127,15 +121,15 @@ export default function AccountTab({ user, logout }) {
           {pwErr && <div className="alert-danger">{pwErr}</div>}
           <div>
             <label className="field-label" htmlFor="cur-pw">Current password</label>
-            <input id="cur-pw" type="password" className="field-input" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required autoFocus />
+            <input id="cur-pw" type="password" className="field-input" style={{ width: "100%" }} value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required autoFocus />
           </div>
           <div>
             <label className="field-label" htmlFor="new-pw">New password</label>
-            <input id="new-pw" type="password" className="field-input" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
+            <input id="new-pw" type="password" className="field-input" style={{ width: "100%" }} value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
           </div>
           <div>
             <label className="field-label" htmlFor="confirm-pw">Confirm new password</label>
-            <input id="confirm-pw" type="password" className="field-input" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} required />
+            <input id="confirm-pw" type="password" className="field-input" style={{ width: "100%" }} value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} required />
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
             <button type="button" className="btn btn-secondary" disabled={pwBusy} onClick={() => setPwOpen(false)}>Cancel</button>
@@ -150,7 +144,7 @@ export default function AccountTab({ user, logout }) {
           {delErr && <div className="alert-danger">{delErr}</div>}
           <div>
             <label className="field-label" htmlFor="del-pw">Password</label>
-            <input id="del-pw" type="password" className="field-input" value={delPw} onChange={(e) => setDelPw(e.target.value)} required autoFocus />
+            <input id="del-pw" type="password" className="field-input" style={{ width: "100%" }} value={delPw} onChange={(e) => setDelPw(e.target.value)} required autoFocus />
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
             <button type="button" className="btn btn-secondary" disabled={delBusy} onClick={() => setDelOpen(false)}>Cancel</button>

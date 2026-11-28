@@ -301,18 +301,24 @@ export default function Shell() {
         const p = await studiesApi.progress(studyDoc.row.id);
         if (cancelled) return;
         setStudyProgress(p);
-        if (p.status === "done" || p.status === "error") { if (wantedStudyRef.current === studyDoc.row.id) loadStudy(studyDoc.row.id); fetchStudies(); return; }
+        if (p.status === "done" || p.status === "error") {
+          if (wantedStudyRef.current === studyDoc.row.id) loadStudy(studyDoc.row.id);
+          fetchStudies();
+          fetchRunHistory();
+          return;
+        }
       } catch { /* keep polling */ }
       if (!cancelled) timer = setTimeout(tick, 2000);
     };
     timer = setTimeout(tick, 1500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [studyDoc, loadStudy, fetchStudies]);
+  }, [studyDoc, loadStudy, fetchStudies, fetchRunHistory]);
 
   // Processing: finished -> Results; failed -> stay, save a failed run to History.
   useEffect(() => {
     if (!processing || processing.state !== "running" || !studyProgress || selectedStudyId !== processing.studyId) return;
     if (studyProgress.status === "done" && studyDoc && studyDoc.row && studyDoc.row.id === processing.studyId && studyDoc.stats) {
+      fetchRunHistory();
       setProcessing(null); setWizStep(3); setActiveTab("results");
     } else if (studyProgress.status === "error") {
       const msg = studyProgress.error || "the comparison process stopped before writing its results";
@@ -326,6 +332,14 @@ export default function Shell() {
       }).then(() => fetchRunHistory()).catch(() => {});
     }
   }, [processing, studyProgress, studyDoc, selectedStudyId, fetchRunHistory]);
+
+  // Keep Run History synced whenever the user opens the Run History page.
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchRunHistory();
+      fetchStudies();
+    }
+  }, [activeTab, fetchRunHistory, fetchStudies]);
 
   const handleStopStudy = useCallback(async () => {
     if (!processing) return;
@@ -365,10 +379,11 @@ export default function Shell() {
     try {
       const r = await studiesApi.importFile(file);
       fetchStudies();
+      fetchRunHistory();
       setSelectedStudyId(r.id);
       setActiveTab("results");
     } catch (e) { setError(`Import failed: ${e.message}`); }
-  }, [fetchStudies]);
+  }, [fetchStudies, fetchRunHistory]);
 
   const handleDeleteStudy = useCallback(async (s) => {
     try {
@@ -612,6 +627,7 @@ export default function Shell() {
     setStats(null);
     setError(null);
     setRunning(false);
+    setVizRequest(null);
     setReplay({
       id: row.id,
       strategy: row.strategy || result.strategy_label || result.params?.strategy || "?",
@@ -979,7 +995,6 @@ export default function Shell() {
           onImportStudy={handleImportStudy}
           onOpenStudy={handleOpenStudy}
           onDeleteStudy={handleDeleteStudy}
-          onRefreshStudies={fetchStudies}
         />
       )}
 

@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("./db");
 const accounts = require("./accounts");
+const { syncUserStudyRuns, hydrateStudyRun } = require("./studyRuns");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-me";
@@ -187,6 +188,8 @@ router.delete("/me", authRequired, (req, res) => {
 });
 
 router.get("/runs", authRequired, (req, res) => {
+  // Ensure any completed studies for this account are persisted into Run History.
+  syncUserStudyRuns(req.user.id);
   const rows = db
     .prepare("SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 100")
     .all(req.user.id);
@@ -202,12 +205,13 @@ router.get("/runs", authRequired, (req, res) => {
   }));
 });
 
-router.get("/runs/:id", authRequired, (req, res) => {
+router.get("/runs/:id", authRequired, async (req, res) => {
   const row = db
     .prepare("SELECT * FROM runs WHERE id = ? AND user_id = ?")
     .get(Number(req.params.id), req.user.id);
   if (!row) return res.status(404).json({ error: "Run not found" });
-  res.json(row);
+  const hydrated = await hydrateStudyRun(row, req.user.id);
+  res.json(hydrated);
 });
 
 router.post("/runs", authRequired, (req, res) => {

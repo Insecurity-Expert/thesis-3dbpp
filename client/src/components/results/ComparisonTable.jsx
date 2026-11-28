@@ -59,7 +59,7 @@ export default function ComparisonTable({ metrics, vals, bests, ranks, invalidNo
       <div className="ro-narrow">
         {GROUPS.map(([title, codes]) => (
           <div key={title} className="ro-narrow-group">
-            <div className="ro-section-label">{title}</div>
+            {title !== "PROPOSED HYBRID METHOD" && <div className="ro-section-label">{title}</div>}
             {codes.map((c) => (
               <MethodCard key={c} code={c} metrics={metrics} vals={vals} bests={bests} rank={ranks[c]} showSwatch
                 invalidNote={invalidNote} onView={() => onView(c)} onGuide={() => onGuide(c)} onRun={() => onRun(c)} />

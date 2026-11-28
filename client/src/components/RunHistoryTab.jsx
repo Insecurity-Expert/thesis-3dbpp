@@ -143,8 +143,8 @@ function RunsPanel({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Run history</h3>
-          <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+          <h3 className="font-display" style={{ fontSize: "22px", fontWeight: 600 }}>Run history</h3>
+          <span style={{ fontSize: "13px", color: "var(--text-dim)" }}>
             Saved runs on this machine (server/data). Load one to replay its full Results page; export it to move it to another laptop. Runs made with a placement rule switched off are marked “custom rules”.
           </span>
         </div>
@@ -277,7 +277,7 @@ function RunsPanel({
 const HISTORY_TABS = [["runs", "Runs"], ["studies", "Studies"]];
 
 export default function RunHistoryTab({
-  studies = [], availableStudies = [], onImportStudy, onOpenStudy, onDeleteStudy, onRefreshStudies, ...runsProps
+  studies = [], availableStudies = [], onImportStudy, onOpenStudy, onDeleteStudy, ...runsProps
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "studies" ? "studies" : "runs";
@@ -286,12 +286,15 @@ export default function RunHistoryTab({
     if (t === "studies") p.set("tab", t); else p.delete("tab");
     setSearchParams(p, { replace: true });
   };
+  const runCount = Array.isArray(runsProps.runHistory) ? runsProps.runHistory.length : 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <div className="tabs-inline history-tabs" role="tablist" aria-label="Run History">
         {HISTORY_TABS.map(([id, text]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
-            {text}{id === "studies" && studies.length ? <span className="tab-count">{studies.length}</span> : null}
+            {text}
+            {id === "runs" && runCount > 0 ? <span className="tab-count">{runCount}</span> : null}
+            {id === "studies" && studies.length > 0 ? <span className="tab-count">{studies.length}</span> : null}
           </button>
         ))}
       </div>
@@ -299,12 +302,11 @@ export default function RunHistoryTab({
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
             <div>
-              <h3 className="font-display" style={{ fontSize: "20px", fontWeight: 600 }}>Studies</h3>
-              <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+              <h3 className="font-display" style={{ fontSize: "22px", fontWeight: 600 }}>Studies</h3>
+              <span style={{ fontSize: "13px", color: "var(--text-dim)" }}>
                 Full Comparisons (all four configurations, several repeat codes each) and the precomputed study files you can import.
               </span>
             </div>
-            {onRefreshStudies && <button type="button" className="btn btn-secondary btn-sm" onClick={onRefreshStudies}>Refresh</button>}
           </div>
           <YourStudies studies={studies} onOpenStudy={onOpenStudy} onDeleteStudy={onDeleteStudy} />
           <PrecomputedStudies available={availableStudies} onImport={onImportStudy} />
